@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title or 'Netflix Sync' }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-icon">NS</div>
+                <div>
+                    <strong>Netflix Sync</strong>
+                    <p>Radarr / Sonarr / Tautulli configuration portal</p>
+                </div>
+            </div>
+            <nav class="topnav">
+                <a href="{{ url_for('index') }}" class="{% if request.path == url_for('index') %}active{% endif %}">Dashboard</a>
+                <a href="{{ url_for('settings_page') }}" class="{% if request.path == url_for('settings_page') %}active{% endif %}">Settings</a>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="footer">
+            <span>Running on Docker · changes saved in settings file</span>
+        </footer>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

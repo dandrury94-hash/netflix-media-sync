@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-title">
+    <h1>Settings</h1>
+    <p>Configure integrations and retention policies.</p>
+</div>
+
+<form id="settingsForm" class="settings-form">
+    <div class="settings-grid">
+        <section class="card">
+            <h2>Radarr settings</h2>
+            <label>Radarr URL
+                <input type="text" name="radarr_url" value="{{ settings.radarr_url }}" placeholder="http://radarr:7878" />
+            </label>
+            <label>Radarr API Key
+                <input type="text" name="radarr_api_key" value="{{ settings.radarr_api_key }}" />
+            </label>
+            <label>Radarr quality profile ID
+                <input type="number" name="radarr_quality_profile_id" value="{{ settings.radarr_quality_profile_id }}" />
+            </label>
+            <label>Radarr root folder
+                <input type="text" name="root_folder_movies" value="{{ settings.root_folder_movies }}" placeholder="/movies" />
+            </label>
+        </section>
+
+        <section class="card">
+            <h2>Sonarr settings</h2>
+            <label>Sonarr URL
+                <input type="text" name="sonarr_url" value="{{ settings.sonarr_url }}" placeholder="http://sonarr:8989" />
+            </label>
+            <label>Sonarr API Key
+                <input type="text" name="sonarr_api_key" value="{{ settings.sonarr_api_key }}" />
+            </label>
+            <label>Sonarr quality profile ID
+                <input type="number" name="sonarr_quality_profile_id" value="{{ settings.sonarr_quality_profile_id }}" />
+            </label>
+            <label>Sonarr root folder
+                <input type="text" name="root_folder_series" value="{{ settings.root_folder_series }}" placeholder="/tv" />
+            </label>
+        </section>
+
+        <section class="card">
+            <h2>Tautulli settings</h2>
+            <label>Tautulli URL
+                <input type="text" name="tautulli_url" value="{{ settings.tautulli_url }}" placeholder="http://tautulli:8181" />
+            </label>
+            <label>Tautulli API Key
+                <input type="text" name="tautulli_api_key" value="{{ settings.tautulli_api_key }}" />
+            </label>
+            <label>Tautulli lookback days
+                <input type="number" name="tautulli_lookback_days" value="{{ settings.tautulli_lookback_days }}" />
+            </label>
+        </section>
+
+        <section class="card">
+            <h2>Retention & sync</h2>
+            <label>Sync interval seconds
+                <input type="number" name="run_interval_seconds" value="{{ settings.run_interval_seconds }}" />
+            </label>
+            <label>Delete old media
+                <select name="delete_old_media">
+                    <option value="false" {% if not settings.delete_old_media %}selected{% endif %}>False</option>
+                    <option value="true" {% if settings.delete_old_media %}selected{% endif %}>True</option>
+                </select>
+            </label>
+            <label>Movie retention days
+                <input type="number" name="movie_retention_days" value="{{ settings.movie_retention_days }}" />
+            </label>
+            <label>Series retention days
+                <input type="number" name="series_retention_days" value="{{ settings.series_retention_days }}" />
+            </label>
+            <label>Web interface port
+                <input type="number" name="web_port" value="{{ settings.web_port }}" />
+            </label>
+            <label>Netflix Top 10 regions
+                <select name="netflix_top_countries" multiple size="8">
+                    {% for code, name in country_options %}
+                        <option value="{{ code }}" {% if code in settings.netflix_top_countries %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <p class="field-help">Select one or more countries for the Netflix Top 10 sync. If none are selected, the global page fallback is used.</p>
+        </section>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="button button-primary">Save settings</button>
+        <div id="saveResult" class="status-box"></div>
+    </div>
+</form>
+{% endblock %}

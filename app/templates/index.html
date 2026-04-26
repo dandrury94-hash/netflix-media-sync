@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-title">
+    <h1>Dashboard</h1>
+    <p>Monitor sync status and trigger a manual update.</p>
+</div>
+
+<div class="grid">
+    <section class="card">
+        <h2>Current settings</h2>
+        <dl>
+            <dt>Radarr URL</dt>
+            <dd>{{ settings.radarr_url or 'Not configured' }}</dd>
+            <dt>Sonarr URL</dt>
+            <dd>{{ settings.sonarr_url or 'Not configured' }}</dd>
+            <dt>Tautulli URL</dt>
+            <dd>{{ settings.tautulli_url or 'Not configured' }}</dd>
+            <dt>Netflix regions</dt>
+            <dd>{% if settings.netflix_top_countries %}{{ settings.netflix_top_countries | join(', ') | upper }}{% else %}Global fallback{% endif %}</dd>
+            <dt>Sync interval</dt>
+            <dd>{{ settings.run_interval_seconds }} seconds</dd>
+            <dt>Protect recent watch history</dt>
+            <dd>{{ settings.tautulli_lookback_days }} days</dd>
+        </dl>
+    </section>
+
+    <section class="card">
+        <h2>Actions</h2>
+        <button id="syncButton" class="button button-primary">Trigger sync now</button>
+        <div id="syncResult" class="status-box"></div>
+    </section>
+</div>
+
+<section class="card wide-card">
+    <h2>How to use</h2>
+    <ol>
+        <li>Open <strong>Settings</strong> and configure your Radarr, Sonarr, and Tautulli URLs / API keys.</li>
+        <li>Save settings and verify via the web UI.</li>
+        <li>Use the dashboard button to run a manual sync immediately.</li>
+        <li>Let the container run continuously for daily automatic updates.</li>
+    </ol>
+</section>
+{% endblock %}
