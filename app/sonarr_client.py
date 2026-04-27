@@ -5,6 +5,8 @@ from app.settings import SettingsStore
 
 logger = logging.getLogger(__name__)
 
+_TAG_NAME = "netflix-sync"
+
 
 class SonarrClient:
     def __init__(self, settings: SettingsStore):
@@ -49,6 +51,28 @@ class SonarrClient:
         response.raise_for_status()
         return response.json()
 
+    def ensure_tag(self, name: str) -> int:
+        """Return the ID of an existing tag, creating it first if needed."""
+        tags = self._get("/api/v3/tag")
+        for tag in tags:
+            if tag.get("label") == name:
+                return tag["id"]
+        result = self._post("/api/v3/tag", {"label": name})
+        return result["id"]
+
+    def get_tagged_series(self, tag_name: str) -> list[dict]:
+        """Return all Sonarr series carrying the named tag."""
+        try:
+            tags = self._get("/api/v3/tag")
+            tag_id = next((t["id"] for t in tags if t.get("label") == tag_name), None)
+            if tag_id is None:
+                return []
+            series = self._get("/api/v3/series")
+            return [s for s in series if tag_id in s.get("tags", [])]
+        except Exception as exc:
+            logger.warning("Failed to fetch tagged series from Sonarr: %s", exc)
+            return []
+
     def lookup_series(self, title: str) -> dict | None:
         results = self._get("/api/v3/series/lookup", {"term": title})
         if isinstance(results, list) and results:
@@ -70,6 +94,13 @@ class SonarrClient:
             logger.warning("Unable to add series without TVDB ID: %s", title)
             return False
 
+        try:
+            tag_id = self.ensure_tag(_TAG_NAME)
+            tags = [tag_id]
+        except Exception:
+            logger.warning("Could not create '%s' tag, adding series without tag: %s", _TAG_NAME, title)
+            tags = []
+
         self._post("/api/v3/series", {
             "title": details.get("title"),
             "tvdbId": tvdb_id,
@@ -78,6 +109,7 @@ class SonarrClient:
             "seasonFolder": True,
             "monitored": True,
             "addOptions": {"searchForMissingEpisodes": True},
+            "tags": tags,
         })
         logger.info("Added series to Sonarr: %s", title)
         return True

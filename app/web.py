@@ -1,5 +1,10 @@
-from flask import Flask, Response, jsonify, render_template, request, url_for
+import datetime
+
+from flask import Flask, Response, jsonify, render_template, request
+
+from app.manual_overrides import ManualOverrides
 from app.settings import SettingsStore
+from app.sync_log import SyncLog
 from app.sync_service import SyncService
 
 _SENTINEL = "__REDACTED__"
@@ -23,7 +28,12 @@ COUNTRY_OPTIONS = [
 ]
 
 
-def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
+def create_app(
+    settings: SettingsStore,
+    sync_service: SyncService,
+    sync_log: SyncLog,
+    manual_overrides: ManualOverrides,
+) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
     @app.before_request
@@ -41,7 +51,18 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
 
     @app.route("/")
     def index():
-        return render_template("index.html", settings=settings.to_dict())
+        last_sync = sync_log.get_last_sync()
+        manual = manual_overrides.to_set()
+        tautulli_protected = set(last_sync.get("protected", [])) if last_sync else set()
+        all_protected = sorted(tautulli_protected | manual)
+        return render_template(
+            "index.html",
+            settings=settings.to_dict(),
+            last_sync=last_sync,
+            protected_titles=all_protected,
+            tautulli_protected=tautulli_protected,
+            manual_protected=manual,
+        )
 
     @app.route("/settings")
     def settings_page():
@@ -71,6 +92,10 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
             except (TypeError, ValueError):
                 return default
 
+        def sensitive(key):
+            v = payload.get(key, "").strip()
+            return settings.get(key, "") if v == _SENTINEL else v
+
         countries = payload.get("netflix_top_countries")
         if isinstance(countries, str):
             countries = [c.strip().lower() for c in countries.split(",") if c.strip()]
@@ -78,10 +103,6 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
             countries = [c.strip().lower() for c in countries if isinstance(c, str) and c.strip()]
         else:
             countries = []
-
-        def sensitive(key):
-            v = payload.get(key, "").strip()
-            return settings.get(key, "") if v == _SENTINEL else v
 
         normalized = {
             "radarr_url": payload.get("radarr_url", "").strip(),
@@ -107,11 +128,86 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
             "netflix_top_countries": countries,
         }
         settings.update(normalized)
-        return jsonify({"status": "saved", "settings": settings.to_dict()})
+        return jsonify({"status": "saved"})
 
     @app.route("/api/sync", methods=["POST"])
     def trigger_sync():
         result = sync_service.run_once()
         return jsonify({"status": "ok", "result": result})
 
+    @app.route("/api/overrides", methods=["POST"])
+    def post_overrides():
+        payload = request.json or {}
+        title = payload.get("title", "").strip()
+        if not title:
+            return jsonify({"error": "title required"}), 400
+        protected = bool(payload.get("protected", False))
+        manual_overrides.set_override(title, protected)
+        return jsonify({"status": "ok", "title": title, "protected": protected})
+
+    @app.route("/api/removal-schedule")
+    def removal_schedule():
+        radarr_mode = settings.get("radarr_mode", "disabled")
+        sonarr_mode = settings.get("sonarr_mode", "disabled")
+        movie_retention = int(settings.get("movie_retention_days", 30))
+        series_retention = int(settings.get("series_retention_days", 30))
+
+        last_sync = sync_log.get_last_sync() or {}
+        tautulli_protected = set(last_sync.get("protected", []))
+        all_protected = tautulli_protected | manual_overrides.to_set()
+
+        today = datetime.date.today()
+        schedule = []
+
+        if radarr_mode != "disabled":
+            for movie in sync_service.radarr.get_tagged_movies("netflix-sync"):
+                title = movie.get("title", "")
+                date_added = _resolve_date(sync_log.get_date_added(title), movie.get("added"), today)
+                removal_date = date_added + datetime.timedelta(days=movie_retention)
+                schedule.append({
+                    "title": title,
+                    "type": "movie",
+                    "date_added": date_added.isoformat(),
+                    "removal_date": removal_date.isoformat(),
+                    "protected": title in all_protected,
+                    "days_remaining": (removal_date - today).days,
+                })
+
+        if sonarr_mode != "disabled":
+            for series in sync_service.sonarr.get_tagged_series("netflix-sync"):
+                title = series.get("title", "")
+                date_added = _resolve_date(sync_log.get_date_added(title), series.get("added"), today)
+                removal_date = date_added + datetime.timedelta(days=series_retention)
+                schedule.append({
+                    "title": title,
+                    "type": "series",
+                    "date_added": date_added.isoformat(),
+                    "removal_date": removal_date.isoformat(),
+                    "protected": title in all_protected,
+                    "days_remaining": (removal_date - today).days,
+                })
+
+        schedule.sort(key=lambda x: x["days_remaining"])
+        return jsonify({"schedule": schedule})
+
     return app
+
+
+def _resolve_date(
+    log_date: str | None,
+    api_added: str | None,
+    fallback: datetime.date,
+) -> datetime.date:
+    if log_date:
+        try:
+            return datetime.date.fromisoformat(log_date)
+        except ValueError:
+            pass
+    if api_added:
+        try:
+            return datetime.datetime.fromisoformat(
+                api_added.replace("Z", "+00:00")
+            ).date()
+        except ValueError:
+            pass
+    return fallback

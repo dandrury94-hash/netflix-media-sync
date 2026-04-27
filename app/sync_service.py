@@ -5,14 +5,16 @@ from app.netflix_fetcher import fetch_netflix_top_10_for_countries
 from app.radarr_client import RadarrClient
 from app.settings import SettingsStore
 from app.sonarr_client import SonarrClient
+from app.sync_log import SyncLog
 from app.tautulli_client import TautulliClient
 
 logger = logging.getLogger(__name__)
 
 
 class SyncService:
-    def __init__(self, settings: SettingsStore) -> None:
+    def __init__(self, settings: SettingsStore, sync_log: SyncLog) -> None:
         self.settings = settings
+        self.sync_log = sync_log
         self.radarr = RadarrClient(settings)
         self.sonarr = SonarrClient(settings)
         self.tautulli = TautulliClient(settings)
@@ -48,6 +50,7 @@ class SyncService:
             for title in netflix_movies:
                 if self.radarr.add_movie(title):
                     added_movies.append(title)
+                    self.sync_log.log_add(title, "movie")
         elif radarr_mode == "read":
             for title in netflix_movies:
                 details = self.radarr.lookup_movie(title)
@@ -67,6 +70,7 @@ class SyncService:
             for title in netflix_series:
                 if self.sonarr.add_series(title):
                     added_series.append(title)
+                    self.sync_log.log_add(title, "series")
         elif sonarr_mode == "read":
             for title in netflix_series:
                 details = self.sonarr.lookup_series(title)
@@ -83,7 +87,7 @@ class SyncService:
         else:
             logger.info("Tautulli disabled, skipping protection check")
 
-        return {
+        result = {
             "added_movies": added_movies,
             "added_series": added_series,
             "would_add_movies": would_add_movies,
@@ -91,4 +95,8 @@ class SyncService:
             "already_in_radarr": already_in_radarr,
             "already_in_sonarr": already_in_sonarr,
             "protected": sorted(protected_titles),
+            "top_movies": netflix_movies,
+            "top_series": netflix_series,
         }
+        self.sync_log.set_last_sync(result)
+        return result

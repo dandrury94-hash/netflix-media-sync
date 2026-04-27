@@ -3,7 +3,9 @@ from threading import Event, Thread
 
 from waitress import serve
 
+from app.manual_overrides import ManualOverrides
 from app.settings import SettingsStore
+from app.sync_log import SyncLog
 from app.sync_service import SyncService
 from app.web import create_app
 
@@ -31,13 +33,15 @@ def main() -> None:
     logger.info("Starting Netflix Sync service")
 
     settings = SettingsStore()
-    sync_service = SyncService(settings)
+    sync_log = SyncLog()
+    manual_overrides = ManualOverrides()
+    sync_service = SyncService(settings, sync_log)
     stop_event = Event()
 
     worker = Thread(target=run_worker, args=(stop_event, sync_service), daemon=True)
     worker.start()
 
-    app = create_app(settings, sync_service)
+    app = create_app(settings, sync_service, sync_log, manual_overrides)
     port = settings.get("web_port", 8080)
     logger.info("Opening web interface on port %s", port)
     serve(app, host="0.0.0.0", port=port)

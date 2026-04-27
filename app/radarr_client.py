@@ -5,6 +5,8 @@ from app.settings import SettingsStore
 
 logger = logging.getLogger(__name__)
 
+_TAG_NAME = "netflix-sync"
+
 
 class RadarrClient:
     def __init__(self, settings: SettingsStore):
@@ -49,6 +51,28 @@ class RadarrClient:
         response.raise_for_status()
         return response.json()
 
+    def ensure_tag(self, name: str) -> int:
+        """Return the ID of an existing tag, creating it first if needed."""
+        tags = self._get("/api/v3/tag")
+        for tag in tags:
+            if tag.get("label") == name:
+                return tag["id"]
+        result = self._post("/api/v3/tag", {"label": name})
+        return result["id"]
+
+    def get_tagged_movies(self, tag_name: str) -> list[dict]:
+        """Return all Radarr movies carrying the named tag."""
+        try:
+            tags = self._get("/api/v3/tag")
+            tag_id = next((t["id"] for t in tags if t.get("label") == tag_name), None)
+            if tag_id is None:
+                return []
+            movies = self._get("/api/v3/movie")
+            return [m for m in movies if tag_id in m.get("tags", [])]
+        except Exception as exc:
+            logger.warning("Failed to fetch tagged movies from Radarr: %s", exc)
+            return []
+
     def lookup_movie(self, title: str) -> dict | None:
         results = self._get("/api/v3/movie/lookup", {"term": title})
         if isinstance(results, list) and results:
@@ -70,12 +94,20 @@ class RadarrClient:
             logger.warning("Unable to add movie without TMDb ID: %s", title)
             return False
 
+        try:
+            tag_id = self.ensure_tag(_TAG_NAME)
+            tags = [tag_id]
+        except Exception:
+            logger.warning("Could not create '%s' tag, adding movie without tag: %s", _TAG_NAME, title)
+            tags = []
+
         self._post("/api/v3/movie", {
             "tmdbId": tmdb_id,
             "qualityProfileId": self.quality_profile_id,
             "rootFolderPath": self.root_folder,
             "monitored": True,
             "addOptions": {"searchForMovie": True},
+            "tags": tags,
         })
         logger.info("Added movie to Radarr: %s", title)
         return True

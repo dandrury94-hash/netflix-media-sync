@@ -4,6 +4,31 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-005 — 2026-04-27 — Dashboard features
+
+### Additions
+- Integration status panel on dashboard showing Radarr, Sonarr, and Tautulli mode with colour-coded dot indicator and badge (🔴 Disabled / 🟡 Read / 🟢 Enabled) (`app/templates/index.html`, `app/static/style.css`)
+- Trakt Top 10 movies and Top 10 series panels populated from last sync result (`app/templates/index.html`)
+- Import preview panel: shows added titles (enabled mode) or would-add titles (read mode) and already-in-library titles per Radarr and Sonarr; hidden when both integrations are disabled (`app/templates/index.html`)
+- `netflix-sync` tag applied to every movie and series added in enabled mode; tag is created automatically if it does not exist; falls back to no tag rather than failing the add (`app/radarr_client.py`, `app/sonarr_client.py`)
+- `get_tagged_movies` / `get_tagged_series` methods to retrieve all Radarr/Sonarr titles carrying the `netflix-sync` tag (`app/radarr_client.py`, `app/sonarr_client.py`)
+- Tautulli protection list on dashboard with manual override checkboxes; checking a title pins it permanently; unchecking removes the override (`app/templates/index.html`, `app/static/script.js`)
+- Manual overrides persisted to `/config/manual_overrides.json` via new `ManualOverrides` class (`app/manual_overrides.py`, `app/config.py`)
+- `POST /api/overrides` endpoint to set or clear a manual override (`app/web.py`)
+- Scheduled removal table loaded via AJAX on page load; shows all `netflix-sync` tagged titles with date added, scheduled removal date, protected status, and days remaining; rows colour-coded by urgency (`app/templates/index.html`, `app/static/script.js`, `app/web.py`)
+- `GET /api/removal-schedule` endpoint; queries Radarr and Sonarr live, resolves date-added from sync log, computes removal date from retention settings, and checks combined Tautulli + manual protection (`app/web.py`)
+- Last sync summary card on dashboard: timestamp and per-mode counts for added / would-add movies and series, and protected title count (`app/templates/index.html`)
+- Sync log written to `/config/sync_log.json` on every successful add and after every sync run; records title, type, date added, source, and full last-sync result including top 10 lists (`app/sync_log.py`, `app/sync_service.py`, `app/config.py`)
+- After a manual sync trigger the page reloads automatically so all dashboard panels reflect fresh data (`app/static/script.js`)
+
+### Infrastructure
+- New `SyncLog` class with thread-safe read/write to `/config/sync_log.json` (`app/sync_log.py`)
+- New `ManualOverrides` class with thread-safe read/write to `/config/manual_overrides.json` (`app/manual_overrides.py`)
+- `SyncService` now accepts a `SyncLog` instance; logs each add and saves last-sync state including `top_movies` and `top_series` (`app/sync_service.py`)
+- `create_app` now accepts `SyncLog` and `ManualOverrides`; dashboard route passes last-sync data and protection sets to the template (`app/web.py`, `app/main.py`)
+
+---
+
 ## CHG-004 — 2026-04-27 — sync_service review fixes
 
 ### Correctness
