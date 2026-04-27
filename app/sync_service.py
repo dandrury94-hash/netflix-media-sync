@@ -46,6 +46,7 @@ class SyncService:
         would_add_movies: list[str] = []
         already_in_radarr: list[str] = []
         radarr_mode = self.settings.get("radarr_mode", "disabled")
+        radarr_cache: dict = {}
         if radarr_mode != "disabled":
             # Fetch the full library once so per-title existence checks need no network calls.
             radarr_cache = {m["title"].lower(): m for m in self.radarr.get_all_movies()}
@@ -71,6 +72,7 @@ class SyncService:
         would_add_series: list[str] = []
         already_in_sonarr: list[str] = []
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
+        sonarr_cache: dict = {}
         if sonarr_mode != "disabled":
             # Fetch the full library once so per-title existence checks need no network calls.
             sonarr_cache = {s["title"].lower(): s for s in self.sonarr.get_all_series()}

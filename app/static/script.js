@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Top-nav tab switching ──
   document.querySelectorAll(".topnav a[data-tab-target]").forEach((link) => {
     link.addEventListener("click", (e) => {
+      if (!document.querySelector(".tab-panel")) return;
       e.preventDefault();
       const tab = link.dataset.tabTarget;
       document.querySelectorAll(".tab-panel").forEach((p) =>
@@ -36,6 +37,12 @@ document.addEventListener("DOMContentLoaded", () => {
       link.classList.add("active");
     });
   });
+
+  // Set the correct tab-target link as active on initial page load.
+  if (document.querySelector(".tab-panel")) {
+    const dashLink = document.querySelector(".topnav a[data-tab-target='dashboard']");
+    if (dashLink) dashLink.classList.add("active");
+  }
 
   // ── Sync button ──
   if (syncButton) {

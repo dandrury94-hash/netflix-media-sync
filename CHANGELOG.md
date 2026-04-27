@@ -4,6 +4,14 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-010 — 2026-04-27 — Bug fixes from CHG-009
+
+### Fixed
+- `SyncService._run()`: `radarr_cache` and `sonarr_cache` were only assigned inside `if mode != "disabled"` blocks but referenced in the `enabled` / `read` branches below, causing a potential `NameError` when either integration is disabled. Both are now initialised to `{}` before the conditional blocks (`app/sync_service.py`)
+- Topnav Dashboard and Logs links had no active class applied on initial page load — active state was only set by the click handler. On `DOMContentLoaded`, the Dashboard link now receives the `active` class when the page is the index route. The hardcoded Jinja active-class expression and the empty `class=""` attribute have been removed from both tab-target links in the template, as active state is managed entirely by JS for those links (`app/static/script.js`, `app/templates/base.html`)
+
+---
+
 ## CHG-009 — 2026-04-27 — Sync performance, status accuracy, and Logs nav
 
 ### Fixed
