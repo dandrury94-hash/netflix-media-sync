@@ -64,14 +64,16 @@ body::before {
 .brand-icon {
     width: 52px;
     height: 52px;
-    display: grid;
-    place-items: center;
     border-radius: 16px;
-    background: linear-gradient(135deg, rgba(60, 141, 255, 0.18), rgba(11, 16, 27, 0.95));
-    color: #58f1ff;
-    font-weight: 800;
-    font-size: 1.05rem;
-    letter-spacing: 0.04em;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.brand-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
 }
 
 .brand strong {
@@ -603,6 +605,54 @@ body::before {
 .log-debug   { color: #4a5878; }
 .log-default { color: #6b7a99; }
 .log-empty   { color: #4a5878; font-style: italic; }
+
+/* ── Tab bar ── */
+.tab-bar {
+    display: flex;
+    gap: 5px;
+    padding: 5px;
+    background: rgba(13, 19, 33, 0.8);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    width: fit-content;
+    margin-bottom: 22px;
+}
+
+.tab-btn {
+    padding: 8px 22px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tab-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.tab-btn.active { background: rgba(60, 141, 255, 0.15); color: var(--accent); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Top 10 status icons ── */
+.top10-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.top10-status {
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    cursor: default;
+}
+
+/* ── Log output — full height variant ── */
+.log-output--full {
+    height: calc(100vh - 370px);
+    min-height: 300px;
+}
 
 /* ── Test connection ── */
 .test-conn-row {

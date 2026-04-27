@@ -5,6 +5,13 @@
     <p>Integration status, last sync results, and protected title management.</p>
 </div>
 
+<div class="tab-bar">
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="logs">Logs</button>
+</div>
+
+{# ── Dashboard tab ── #}
+<div id="tab-dashboard" class="tab-panel active">
 <div class="grid">
 
     {# ── Integration status ── #}
@@ -74,7 +81,9 @@
         {% if top_movies %}
         <ol class="top10-list">
             {% for title in top_movies %}
-            <li class="top10-item">{{ title }}</li>
+            <li class="top10-item" data-title="{{ title | e }}">
+                <span class="top10-title">{{ title }}</span>
+            </li>
             {% endfor %}
         </ol>
         {% else %}
@@ -89,7 +98,9 @@
         {% if top_series %}
         <ol class="top10-list">
             {% for title in top_series %}
-            <li class="top10-item">{{ title }}</li>
+            <li class="top10-item" data-title="{{ title | e }}">
+                <span class="top10-title">{{ title }}</span>
+            </li>
             {% endfor %}
         </ol>
         {% else %}
@@ -234,8 +245,12 @@
         </table>
     </section>
 
-    {# ── Live log feed ── #}
-    <section class="card wide-card">
+</div>
+</div>
+
+{# ── Logs tab ── #}
+<div id="tab-logs" class="tab-panel">
+    <section class="card">
         <div class="log-toolbar">
             <h2 style="margin:0">Live logs</h2>
             <div class="log-actions">
@@ -246,8 +261,8 @@
                 <button id="logsClearBtn" class="button button-secondary button-sm">Clear</button>
             </div>
         </div>
-        <div id="logOutput" class="log-output"><div class="log-empty">No log entries yet.</div></div>
+        <div id="logOutput" class="log-output log-output--full"><div class="log-empty">No log entries yet.</div></div>
     </section>
-
 </div>
+
 {% endblock %}

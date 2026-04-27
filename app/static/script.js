@@ -1,3 +1,17 @@
+const STATUS_ICONS = {
+  pending:  "⏳",
+  available: "✅",
+  will_add: "➕",
+  disabled: "➖",
+};
+
+const STATUS_LABELS = {
+  pending:  "Pending — monitored but not yet downloaded",
+  available: "Available — downloaded and in library",
+  will_add: "Will Add — not yet in Radarr/Sonarr",
+  disabled: "Disabled — integration disabled",
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   const syncButton = document.getElementById("syncButton");
   const syncResult = document.getElementById("syncResult");
@@ -9,6 +23,19 @@ document.addEventListener("DOMContentLoaded", () => {
     element.classList.remove("success", "error");
     if (state) element.classList.add(state);
   };
+
+  // ── Tab switching ──
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll(".tab-btn").forEach((b) =>
+        b.classList.toggle("active", b.dataset.tab === tab)
+      );
+      document.querySelectorAll(".tab-panel").forEach((p) =>
+        p.classList.toggle("active", p.id === `tab-${tab}`)
+      );
+    });
+  });
 
   // ── Sync button ──
   if (syncButton) {
@@ -136,6 +163,12 @@ document.addEventListener("DOMContentLoaded", () => {
     loadRemovalSchedule(removalBody);
   }
 
+  // ── Top 10 status icons ──
+  const top10Items = document.querySelectorAll(".top10-item[data-title]");
+  if (top10Items.length) {
+    loadTop10Status();
+  }
+
   // ── Live log panel ──
   const logOutput = document.getElementById("logOutput");
   if (logOutput) {
@@ -210,6 +243,24 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchLogs, 3000);
   }
 });
+
+async function loadTop10Status() {
+  try {
+    const resp = await fetch("/api/top10-status");
+    const data = await resp.json();
+    const all = { ...data.movies, ...data.series };
+    document.querySelectorAll(".top10-item[data-title]").forEach((li) => {
+      const title = li.dataset.title;
+      const status = all[title];
+      if (!status || !STATUS_ICONS[status]) return;
+      const span = document.createElement("span");
+      span.className = "top10-status";
+      span.title = STATUS_LABELS[status] || "";
+      span.textContent = STATUS_ICONS[status];
+      li.appendChild(span);
+    });
+  } catch { /* ignore */ }
+}
 
 async function loadRemovalSchedule(tbody) {
   try {

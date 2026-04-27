@@ -231,9 +231,50 @@ def create_app(
         except Exception as exc:
             return jsonify({"status": "error", "message": _exc_msg(exc)})
 
+    @app.route("/api/top10-status")
+    def top10_status():
+        last = sync_log.get_last_sync() or {}
+        top_movies = last.get("top_movies") or []
+        top_series = last.get("top_series") or []
+
+        radarr_mode = settings.get("radarr_mode", "disabled")
+        sonarr_mode = settings.get("sonarr_mode", "disabled")
+
+        movie_statuses: dict[str, str] = {}
+        series_statuses: dict[str, str] = {}
+
+        for title in top_movies:
+            if radarr_mode == "disabled":
+                movie_statuses[title] = "disabled"
+                continue
+            try:
+                result = sync_service.radarr.lookup_movie(title)
+                if result and result.get("id"):
+                    movie_statuses[title] = "available" if result.get("hasFile") else "pending"
+                else:
+                    movie_statuses[title] = "will_add"
+            except Exception:
+                pass
+
+        for title in top_series:
+            if sonarr_mode == "disabled":
+                series_statuses[title] = "disabled"
+                continue
+            try:
+                result = sync_service.sonarr.lookup_series(title)
+                if result and result.get("id"):
+                    ep_count = (result.get("statistics") or {}).get("episodeFileCount", 0)
+                    series_statuses[title] = "available" if ep_count > 0 else "pending"
+                else:
+                    series_statuses[title] = "will_add"
+            except Exception:
+                pass
+
+        return jsonify({"movies": movie_statuses, "series": series_statuses})
+
     @app.route("/api/logs")
     def get_logs():
-        return jsonify({"lines": _tail_file(LOG_PATH, 100)})
+        return jsonify({"lines": _tail_file(LOG_PATH, 2000)})
 
     @app.route("/api/logs/clear", methods=["POST"])
     def clear_logs():
