@@ -1,5 +1,5 @@
 import logging
-from app.netflix_fetcher import fetch_netflix_top_10
+from app.netflix_fetcher import fetch_netflix_top_10_for_countries, fetch_netflix_top_10
 from app.radarr_client import RadarrClient
 from app.sonarr_client import SonarrClient
 from app.tautulli_client import TautulliClient
