@@ -2,6 +2,9 @@ from flask import Flask, Response, jsonify, render_template, request, url_for
 from app.settings import SettingsStore
 from app.sync_service import SyncService
 
+_SENTINEL = "__REDACTED__"
+_SENSITIVE_KEYS = {"radarr_api_key", "sonarr_api_key", "tautulli_api_key", "trakt_client_id", "web_password"}
+
 COUNTRY_OPTIONS = [
     ("us", "United States"),
     ("gb", "United Kingdom"),
@@ -46,7 +49,11 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
 
     @app.route("/api/settings", methods=["GET"])
     def get_settings():
-        return jsonify(settings.to_dict())
+        data = settings.to_dict()
+        for key in _SENSITIVE_KEYS:
+            if data.get(key):
+                data[key] = _SENTINEL
+        return jsonify(data)
 
     @app.route("/api/settings", methods=["POST"])
     def post_settings():
@@ -72,17 +79,21 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
         else:
             countries = []
 
+        def sensitive(key):
+            v = payload.get(key, "").strip()
+            return settings.get(key, "") if v == _SENTINEL else v
+
         normalized = {
             "radarr_url": payload.get("radarr_url", "").strip(),
-            "radarr_api_key": payload.get("radarr_api_key", "").strip(),
+            "radarr_api_key": sensitive("radarr_api_key"),
             "sonarr_url": payload.get("sonarr_url", "").strip(),
-            "sonarr_api_key": payload.get("sonarr_api_key", "").strip(),
+            "sonarr_api_key": sensitive("sonarr_api_key"),
             "tautulli_url": payload.get("tautulli_url", "").strip(),
-            "tautulli_api_key": payload.get("tautulli_api_key", "").strip(),
+            "tautulli_api_key": sensitive("tautulli_api_key"),
             "radarr_mode": payload.get("radarr_mode", "disabled").strip(),
             "sonarr_mode": payload.get("sonarr_mode", "disabled").strip(),
             "tautulli_mode": payload.get("tautulli_mode", "disabled").strip(),
-            "trakt_client_id": payload.get("trakt_client_id", "").strip(),
+            "trakt_client_id": sensitive("trakt_client_id"),
             "root_folder_movies": payload.get("root_folder_movies", "").strip(),
             "root_folder_series": payload.get("root_folder_series", "").strip(),
             "radarr_quality_profile_id": safe_int(payload.get("radarr_quality_profile_id"), 1),
@@ -92,7 +103,7 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
             "movie_retention_days": safe_int(payload.get("movie_retention_days"), 30),
             "series_retention_days": safe_int(payload.get("series_retention_days"), 30),
             "web_port": safe_int(payload.get("web_port"), 8080),
-            "web_password": payload.get("web_password", ""),
+            "web_password": sensitive("web_password"),
             "netflix_top_countries": countries,
         }
         settings.update(normalized)
