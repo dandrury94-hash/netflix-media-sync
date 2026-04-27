@@ -69,6 +69,7 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
             "radarr_mode": payload.get("radarr_mode", "disabled").strip(),
             "sonarr_mode": payload.get("sonarr_mode", "disabled").strip(),
             "tautulli_mode": payload.get("tautulli_mode", "disabled").strip(),
+            "trakt_client_id": payload.get("trakt_client_id", "").strip(),
             "root_folder_movies": payload.get("root_folder_movies", "").strip(),
             "root_folder_series": payload.get("root_folder_series", "").strip(),
             "radarr_quality_profile_id": safe_int(payload.get("radarr_quality_profile_id"), 1),

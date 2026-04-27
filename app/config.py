@@ -8,6 +8,7 @@ DEFAULT_SETTINGS = {
     "radarr_mode": "disabled",
     "sonarr_mode": "disabled",
     "tautulli_mode": "disabled",
+    "trakt_client_id": "",
     "radarr_url": "http://radarr:7878",
     "radarr_api_key": "",
     "sonarr_url": "http://sonarr:8989",

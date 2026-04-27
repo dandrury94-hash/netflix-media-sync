@@ -11,22 +11,26 @@
             <h2>Radarr settings</h2>
             <label>Radarr mode
                 <select name="radarr_mode">
-                    <option value="disabled" {% if settings.radarr_mode == 'disabled' %}selected{% endif %}>Disabled</option>
-                    <option value="read" {% if settings.radarr_mode == 'read' %}selected{% endif %}>Read only</option>
-                    <option value="enabled" {% if settings.radarr_mode == 'enabled' %}selected{% endif %}>Enabled</option>
+                    <option value="disabled" {% if settings.radarr_mode=='disabled' %}selected{% endif %}>Disabled
+                    </option>
+                    <option value="read" {% if settings.radarr_mode=='read' %}selected{% endif %}>Read only</option>
+                    <option value="enabled" {% if settings.radarr_mode=='enabled' %}selected{% endif %}>Enabled</option>
                 </select>
             </label>
             <label>Radarr URL
-                <input type="text" name="radarr_url" value="{{ settings.radarr_url }}" placeholder="http://radarr:7878" />
+                <input type="text" name="radarr_url" value="{{ settings.radarr_url }}"
+                    placeholder="http://radarr:7878" />
             </label>
             <label>Radarr API Key
                 <input type="text" name="radarr_api_key" value="{{ settings.radarr_api_key }}" />
             </label>
             <label>Radarr quality profile ID
-                <input type="number" name="radarr_quality_profile_id" value="{{ settings.radarr_quality_profile_id }}" />
+                <input type="number" name="radarr_quality_profile_id"
+                    value="{{ settings.radarr_quality_profile_id }}" />
             </label>
             <label>Radarr root folder
-                <input type="text" name="root_folder_movies" value="{{ settings.root_folder_movies }}" placeholder="/movies" />
+                <input type="text" name="root_folder_movies" value="{{ settings.root_folder_movies }}"
+                    placeholder="/movies" />
             </label>
         </section>
 
@@ -34,22 +38,26 @@
             <h2>Sonarr settings</h2>
             <label>Sonarr mode
                 <select name="sonarr_mode">
-                    <option value="disabled" {% if settings.sonarr_mode == 'disabled' %}selected{% endif %}>Disabled</option>
-                    <option value="read" {% if settings.sonarr_mode == 'read' %}selected{% endif %}>Read only</option>
-                    <option value="enabled" {% if settings.sonarr_mode == 'enabled' %}selected{% endif %}>Enabled</option>
+                    <option value="disabled" {% if settings.sonarr_mode=='disabled' %}selected{% endif %}>Disabled
+                    </option>
+                    <option value="read" {% if settings.sonarr_mode=='read' %}selected{% endif %}>Read only</option>
+                    <option value="enabled" {% if settings.sonarr_mode=='enabled' %}selected{% endif %}>Enabled</option>
                 </select>
             </label>
             <label>Sonarr URL
-                <input type="text" name="sonarr_url" value="{{ settings.sonarr_url }}" placeholder="http://sonarr:8989" />
+                <input type="text" name="sonarr_url" value="{{ settings.sonarr_url }}"
+                    placeholder="http://sonarr:8989" />
             </label>
             <label>Sonarr API Key
                 <input type="text" name="sonarr_api_key" value="{{ settings.sonarr_api_key }}" />
             </label>
             <label>Sonarr quality profile ID
-                <input type="number" name="sonarr_quality_profile_id" value="{{ settings.sonarr_quality_profile_id }}" />
+                <input type="number" name="sonarr_quality_profile_id"
+                    value="{{ settings.sonarr_quality_profile_id }}" />
             </label>
             <label>Sonarr root folder
-                <input type="text" name="root_folder_series" value="{{ settings.root_folder_series }}" placeholder="/tv" />
+                <input type="text" name="root_folder_series" value="{{ settings.root_folder_series }}"
+                    placeholder="/tv" />
             </label>
         </section>
 
@@ -57,19 +65,30 @@
             <h2>Tautulli settings</h2>
             <label>Tautulli mode
                 <select name="tautulli_mode">
-                    <option value="disabled" {% if settings.tautulli_mode == 'disabled' %}selected{% endif %}>Disabled</option>
-                    <option value="read" {% if settings.tautulli_mode == 'read' %}selected{% endif %}>Read only</option>
-                    <option value="enabled" {% if settings.tautulli_mode == 'enabled' %}selected{% endif %}>Enabled</option>
+                    <option value="disabled" {% if settings.tautulli_mode=='disabled' %}selected{% endif %}>Disabled
+                    </option>
+                    <option value="read" {% if settings.tautulli_mode=='read' %}selected{% endif %}>Read only</option>
+                    <option value="enabled" {% if settings.tautulli_mode=='enabled' %}selected{% endif %}>Enabled
+                    </option>
                 </select>
             </label>
             <label>Tautulli URL
-                <input type="text" name="tautulli_url" value="{{ settings.tautulli_url }}" placeholder="http://tautulli:8181" />
+                <input type="text" name="tautulli_url" value="{{ settings.tautulli_url }}"
+                    placeholder="http://tautulli:8181" />
             </label>
             <label>Tautulli API Key
                 <input type="text" name="tautulli_api_key" value="{{ settings.tautulli_api_key }}" />
             </label>
             <label>Tautulli lookback days
                 <input type="number" name="tautulli_lookback_days" value="{{ settings.tautulli_lookback_days }}" />
+            </label>
+        </section>
+
+        <section class="card">
+            <h2>Trakt settings</h2>
+            <label>Trakt Client ID
+                <input type="text" name="trakt_client_id" value="{{ settings.trakt_client_id }}"
+                    placeholder="Enter Trakt Client ID" />
             </label>
         </section>
 
@@ -90,11 +109,13 @@
             <label>Netflix Top 10 regions
                 <select name="netflix_top_countries" multiple size="8">
                     {% for code, name in country_options %}
-                        <option value="{{ code }}" {% if code in settings.netflix_top_countries %}selected{% endif %}>{{ name }}</option>
+                    <option value="{{ code }}" {% if code in settings.netflix_top_countries %}selected{% endif %}>{{
+                        name }}</option>
                     {% endfor %}
                 </select>
             </label>
-            <p class="field-help">Select one or more countries for the Netflix Top 10 sync. If none are selected, the global page fallback is used.</p>
+            <p class="field-help">Select one or more countries for the Netflix Top 10 sync. If none are selected, the
+                global page fallback is used.</p>
         </section>
     </div>
 

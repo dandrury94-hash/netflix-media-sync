@@ -1,5 +1,5 @@
 import logging
-from app.netflix_fetcher import fetch_netflix_top_10_for_countries, fetch_netflix_top_10
+from app.netflix_fetcher import fetch_netflix_top_10_for_countries
 from app.radarr_client import RadarrClient
 from app.sonarr_client import SonarrClient
 from app.tautulli_client import TautulliClient
@@ -21,7 +21,7 @@ class SyncService:
             countries = [countries.strip().lower()]
 
         if countries:
-            netflix_movies, netflix_series = fetch_netflix_top_10_for_countries(countries)
+            netflix_movies, netflix_series = fetch_netflix_top_10_for_countries(countries, self.settings.get("trakt_client_id", ""))
             logger.info("Fetching Netflix top titles for countries: %s", countries)
         else:
             netflix_movies, netflix_series = fetch_netflix_top_10(self.settings.get("netflix_top_url"))
