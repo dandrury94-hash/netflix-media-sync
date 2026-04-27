@@ -22,7 +22,9 @@
                     placeholder="http://radarr:7878" />
             </label>
             <label>Radarr API Key
-                <input type="text" name="radarr_api_key" value="{{ settings.radarr_api_key }}" />
+                <input type="password" name="radarr_api_key"
+                    value="{{ '__REDACTED__' if settings.radarr_api_key else '' }}"
+                    placeholder="{{ 'Paste to replace' if settings.radarr_api_key else 'Paste API key' }}" />
             </label>
             <label>Radarr quality profile ID
                 <input type="number" name="radarr_quality_profile_id"
@@ -49,7 +51,9 @@
                     placeholder="http://sonarr:8989" />
             </label>
             <label>Sonarr API Key
-                <input type="text" name="sonarr_api_key" value="{{ settings.sonarr_api_key }}" />
+                <input type="password" name="sonarr_api_key"
+                    value="{{ '__REDACTED__' if settings.sonarr_api_key else '' }}"
+                    placeholder="{{ 'Paste to replace' if settings.sonarr_api_key else 'Paste API key' }}" />
             </label>
             <label>Sonarr quality profile ID
                 <input type="number" name="sonarr_quality_profile_id"
@@ -77,7 +81,9 @@
                     placeholder="http://tautulli:8181" />
             </label>
             <label>Tautulli API Key
-                <input type="text" name="tautulli_api_key" value="{{ settings.tautulli_api_key }}" />
+                <input type="password" name="tautulli_api_key"
+                    value="{{ '__REDACTED__' if settings.tautulli_api_key else '' }}"
+                    placeholder="{{ 'Paste to replace' if settings.tautulli_api_key else 'Paste API key' }}" />
             </label>
             <label>Tautulli lookback days
                 <input type="number" name="tautulli_lookback_days" value="{{ settings.tautulli_lookback_days }}" />
@@ -87,8 +93,9 @@
         <section class="card">
             <h2>Trakt settings</h2>
             <label>Trakt Client ID
-                <input type="text" name="trakt_client_id" value="{{ settings.trakt_client_id }}"
-                    placeholder="Enter Trakt Client ID" />
+                <input type="password" name="trakt_client_id"
+                    value="{{ '__REDACTED__' if settings.trakt_client_id else '' }}"
+                    placeholder="{{ 'Paste to replace' if settings.trakt_client_id else 'Paste Client ID' }}" />
             </label>
         </section>
 
@@ -105,6 +112,12 @@
             </label>
             <label>Web interface port
                 <input type="number" name="web_port" value="{{ settings.web_port }}" />
+            </label>
+            <label>Web UI password
+                <input type="password" name="web_password"
+                    value="{{ '__REDACTED__' if settings.web_password else '' }}"
+                    placeholder="{{ 'Paste to replace' if settings.web_password else 'Leave empty to disable auth' }}" />
+                <p class="field-help">HTTP Basic Auth password. Leave empty to disable authentication.</p>
             </label>
             <label>Netflix Top 10 regions
                 <select name="netflix_top_countries" multiple size="8">

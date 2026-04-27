@@ -31,7 +31,7 @@ A Dockerized service with a built-in web interface for configuring:
 
 ## Features
 
-- Daily sync from Trakt trending movies and series (with optional country filter)
+- Scheduled sync from Trakt trending movies and series (with optional country filter)
 - Adds movies to Radarr and series to Sonarr
 - Protects partially or recently watched media using Tautulli
 - Built-in web UI for settings and manual sync
@@ -54,6 +54,7 @@ A Dockerized service with a built-in web interface for configuring:
 
 ```text
 netflix-media-sync/
+├── CHANGELOG.md
 ├── Dockerfile
 ├── README.md
 ├── docker-compose.yml
@@ -89,7 +90,7 @@ The container exposes a web UI on port `8080` by default.
 From the web UI you can:
 
 - configure Radarr, Sonarr, and Tautulli integration settings
-- adjust sync interval and retention windows
+- adjust the sync interval
 - trigger a manual sync immediately
 
 Open the interface at `http://<host>:8080` after the container is running.
@@ -102,20 +103,30 @@ Set `web_password` in `settings.json` (or the `WEB_PASSWORD` environment variabl
 
 ## Configuration settings
 
-These values are managed from the web UI Settings page and persisted to `/config/settings.json`.
+These values are managed from the web UI Settings page and persisted to `/config/settings.json`. Each setting can also be set via its environment variable equivalent (shown in parentheses).
 
-| Setting key | Description |
-| --- | --- |
-| `TAUTULLI_URL` | Base Tautulli URL, e.g. `http://tautulli:8181` |
-| `TAUTULLI_API_KEY` | Tautulli API key |
-| `ROOT_FOLDER_MOVIES` | Root folder path in Radarr |
-| `ROOT_FOLDER_SERIES` | Root folder path in Sonarr |
-| `RADARR_QUALITY_PROFILE_ID` | Radarr quality profile ID |
-| `SONARR_QUALITY_PROFILE_ID` | Sonarr quality profile ID |
-| `RUN_INTERVAL_SECONDS` | Seconds between sync runs (default `86400`) |
-| `TAUTULLI_LOOKBACK_DAYS` | Protect media watched within this many days (default `30`) |
-| `WEB_PORT` | Web UI port (default `8080`) |
-| `WEB_PASSWORD` | Password for HTTP Basic Auth on the web UI (empty = no auth) |
+To use the Trakt API you must register a free application at [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications) and copy the **Client ID** into `trakt_client_id`.
+
+| JSON key | Env var | Description |
+| --- | --- | --- |
+| `radarr_url` | `RADARR_URL` | Radarr base URL, e.g. `http://radarr:7878` |
+| `radarr_api_key` | `RADARR_API_KEY` | Radarr API key |
+| `radarr_mode` | `RADARR_MODE` | `enabled`, `read`, or `disabled` (default `disabled`) |
+| `sonarr_url` | `SONARR_URL` | Sonarr base URL, e.g. `http://sonarr:8989` |
+| `sonarr_api_key` | `SONARR_API_KEY` | Sonarr API key |
+| `sonarr_mode` | `SONARR_MODE` | `enabled`, `read`, or `disabled` (default `disabled`) |
+| `tautulli_url` | `TAUTULLI_URL` | Tautulli base URL, e.g. `http://tautulli:8181` |
+| `tautulli_api_key` | `TAUTULLI_API_KEY` | Tautulli API key |
+| `tautulli_mode` | `TAUTULLI_MODE` | `enabled`, `read`, or `disabled` (default `disabled`) |
+| `trakt_client_id` | `TRAKT_CLIENT_ID` | Trakt application Client ID (required) |
+| `root_folder_movies` | `ROOT_FOLDER_MOVIES` | Root folder path in Radarr |
+| `root_folder_series` | `ROOT_FOLDER_SERIES` | Root folder path in Sonarr |
+| `radarr_quality_profile_id` | `RADARR_QUALITY_PROFILE_ID` | Radarr quality profile ID |
+| `sonarr_quality_profile_id` | `SONARR_QUALITY_PROFILE_ID` | Sonarr quality profile ID |
+| `run_interval_seconds` | `RUN_INTERVAL_SECONDS` | Seconds between sync runs (default `86400`) |
+| `tautulli_lookback_days` | `TAUTULLI_LOOKBACK_DAYS` | Protect media watched within this many days (default `30`) |
+| `web_port` | `WEB_PORT` | Web UI port (default `8080`) |
+| `web_password` | `WEB_PASSWORD` | Password for HTTP Basic Auth on the web UI (empty = no auth) |
 
 ---
 
@@ -134,7 +145,7 @@ docker build -t netflix-media-sync .
 docker run -d \
   --name netflix-media-sync \
   -p 8080:8080 \
-  -v ./config:/config \
+  -v "$(pwd)/config:/config" \
   netflix-media-sync
 ```
 
@@ -236,6 +247,8 @@ Unraid can run this container through the Docker tab.
 - It waits `RUN_INTERVAL_SECONDS` seconds between cycles (default 24 hours).
 - The web UI allows manual sync and live settings configuration.
 - Tautulli-protected titles are logged but no media is automatically removed.
+
+---
 
 ## Customization
 
