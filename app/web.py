@@ -5,12 +5,21 @@ from flask import Flask, Response, jsonify, render_template, request
 
 from app.config import LOG_PATH
 from app.manual_overrides import ManualOverrides
+from app.removal_history import RemovalHistory
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
 from app.sync_service import SyncService
 
 _SENTINEL = "__REDACTED__"
-_SENSITIVE_KEYS = {"radarr_api_key", "sonarr_api_key", "tautulli_api_key", "trakt_client_id", "web_password"}
+_SENSITIVE_KEYS = {
+    "radarr_api_key",
+    "sonarr_api_key",
+    "tautulli_api_key",
+    "trakt_client_id",
+    "web_password",
+    "pushover_user_key",
+    "pushover_api_token",
+}
 
 COUNTRY_OPTIONS = [
     ("us", "United States"),
@@ -35,6 +44,7 @@ def create_app(
     sync_service: SyncService,
     sync_log: SyncLog,
     manual_overrides: ManualOverrides,
+    removal_history: RemovalHistory,
 ) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
@@ -94,6 +104,9 @@ def create_app(
             except (TypeError, ValueError):
                 return default
 
+        def to_bool(value):
+            return value in (True, "true", "on", "1", 1)
+
         def sensitive(key):
             v = payload.get(key, "").strip()
             return settings.get(key, "") if v == _SENTINEL else v
@@ -128,6 +141,11 @@ def create_app(
             "web_port": safe_int(payload.get("web_port"), 8080),
             "web_password": sensitive("web_password"),
             "netflix_top_countries": countries,
+            "pushover_enabled": to_bool(payload.get("pushover_enabled")),
+            "pushover_user_key": sensitive("pushover_user_key"),
+            "pushover_api_token": sensitive("pushover_api_token"),
+            "deletion_enabled": to_bool(payload.get("deletion_enabled")),
+            "grace_period_days": safe_int(payload.get("grace_period_days"), 7),
         }
         settings.update(normalized)
         return jsonify({"status": "saved"})
@@ -153,10 +171,12 @@ def create_app(
         sonarr_mode = settings.get("sonarr_mode", "disabled")
         movie_retention = int(settings.get("movie_retention_days", 30))
         series_retention = int(settings.get("series_retention_days", 30))
+        grace_period_days = int(settings.get("grace_period_days", 7))
 
         last_sync = sync_log.get_last_sync() or {}
         tautulli_protected = set(last_sync.get("protected", []))
         all_protected = tautulli_protected | manual_overrides.to_set()
+        grace_periods = sync_log.get_grace_periods()
 
         today = datetime.date.today()
         schedule = []
@@ -166,6 +186,10 @@ def create_app(
                 title = movie.get("title", "")
                 date_added = _resolve_date(sync_log.get_date_added(title), movie.get("added"), today)
                 removal_date = date_added + datetime.timedelta(days=movie_retention)
+                grace_info = grace_periods.get(title, {})
+                in_grace, grace_expires_iso, days_until_deletion = _grace_fields(
+                    grace_info, removal_date, grace_period_days, today
+                )
                 schedule.append({
                     "title": title,
                     "type": "movie",
@@ -173,6 +197,9 @@ def create_app(
                     "removal_date": removal_date.isoformat(),
                     "protected": title in all_protected,
                     "days_remaining": (removal_date - today).days,
+                    "in_grace": in_grace,
+                    "grace_expires": grace_expires_iso,
+                    "days_until_deletion": days_until_deletion,
                 })
 
         if sonarr_mode != "disabled":
@@ -180,6 +207,10 @@ def create_app(
                 title = series.get("title", "")
                 date_added = _resolve_date(sync_log.get_date_added(title), series.get("added"), today)
                 removal_date = date_added + datetime.timedelta(days=series_retention)
+                grace_info = grace_periods.get(title, {})
+                in_grace, grace_expires_iso, days_until_deletion = _grace_fields(
+                    grace_info, removal_date, grace_period_days, today
+                )
                 schedule.append({
                     "title": title,
                     "type": "series",
@@ -187,49 +218,17 @@ def create_app(
                     "removal_date": removal_date.isoformat(),
                     "protected": title in all_protected,
                     "days_remaining": (removal_date - today).days,
+                    "in_grace": in_grace,
+                    "grace_expires": grace_expires_iso,
+                    "days_until_deletion": days_until_deletion,
                 })
 
         schedule.sort(key=lambda x: x["days_remaining"])
         return jsonify({"schedule": schedule})
 
-    @app.route("/api/test/radarr", methods=["POST"])
-    def test_radarr():
-        payload = request.json or {}
-        url = payload.get("url", "").rstrip("/")
-        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("radarr_api_key", ""))
-        return _test_arr(url, api_key)
-
-    @app.route("/api/test/sonarr", methods=["POST"])
-    def test_sonarr():
-        payload = request.json or {}
-        url = payload.get("url", "").rstrip("/")
-        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("sonarr_api_key", ""))
-        return _test_arr(url, api_key)
-
-    @app.route("/api/test/tautulli", methods=["POST"])
-    def test_tautulli():
-        payload = request.json or {}
-        url = payload.get("url", "").rstrip("/")
-        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("tautulli_api_key", ""))
-        if not url:
-            return jsonify({"status": "error", "message": "URL is required"})
-        if not api_key:
-            return jsonify({"status": "error", "message": "API key is required"})
-        try:
-            r = _requests.get(
-                f"{url}/api/v2",
-                params={"apikey": api_key, "cmd": "get_server_info"},
-                timeout=10,
-            )
-            r.raise_for_status()
-            data = r.json()
-            if data.get("response", {}).get("result") == "success":
-                name = data["response"]["data"].get("pms_name", "Plex")
-                return jsonify({"status": "ok", "message": f"Connected — {name}"})
-            msg = data.get("response", {}).get("message", "Unexpected response")
-            return jsonify({"status": "error", "message": msg})
-        except Exception as exc:
-            return jsonify({"status": "error", "message": _exc_msg(exc)})
+    @app.route("/api/removal-history")
+    def get_removal_history():
+        return jsonify({"history": removal_history.get_recent()})
 
     @app.route("/api/top10-status")
     def top10_status():
@@ -273,6 +272,75 @@ def create_app(
                 pass
 
         return jsonify({"movies": movie_statuses, "series": series_statuses})
+
+    @app.route("/api/test/radarr", methods=["POST"])
+    def test_radarr():
+        payload = request.json or {}
+        url = payload.get("url", "").rstrip("/")
+        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("radarr_api_key", ""))
+        return _test_arr(url, api_key)
+
+    @app.route("/api/test/sonarr", methods=["POST"])
+    def test_sonarr():
+        payload = request.json or {}
+        url = payload.get("url", "").rstrip("/")
+        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("sonarr_api_key", ""))
+        return _test_arr(url, api_key)
+
+    @app.route("/api/test/tautulli", methods=["POST"])
+    def test_tautulli():
+        payload = request.json or {}
+        url = payload.get("url", "").rstrip("/")
+        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("tautulli_api_key", ""))
+        if not url:
+            return jsonify({"status": "error", "message": "URL is required"})
+        if not api_key:
+            return jsonify({"status": "error", "message": "API key is required"})
+        try:
+            r = _requests.get(
+                f"{url}/api/v2",
+                params={"apikey": api_key, "cmd": "get_server_info"},
+                timeout=10,
+            )
+            r.raise_for_status()
+            data = r.json()
+            if data.get("response", {}).get("result") == "success":
+                name = data["response"]["data"].get("pms_name", "Plex")
+                return jsonify({"status": "ok", "message": f"Connected — {name}"})
+            msg = data.get("response", {}).get("message", "Unexpected response")
+            return jsonify({"status": "error", "message": msg})
+        except Exception as exc:
+            return jsonify({"status": "error", "message": _exc_msg(exc)})
+
+    @app.route("/api/test/pushover", methods=["POST"])
+    def test_pushover():
+        payload = request.json or {}
+        user_key = _resolve_test_key(payload.get("user_key", ""), settings.get("pushover_user_key", ""))
+        api_token = _resolve_test_key(payload.get("api_token", ""), settings.get("pushover_api_token", ""))
+        if not user_key:
+            return jsonify({"status": "error", "message": "User key is required"})
+        if not api_token:
+            return jsonify({"status": "error", "message": "API token is required"})
+        try:
+            r = _requests.post(
+                "https://api.pushover.net/1/messages.json",
+                data={
+                    "token": api_token,
+                    "user": user_key,
+                    "title": "Netflix Sync — Test",
+                    "message": "Test notification from Netflix Media Sync",
+                    "priority": 0,
+                },
+                timeout=10,
+            )
+            r.raise_for_status()
+            data = r.json()
+            if data.get("status") == 1:
+                return jsonify({"status": "ok", "message": "Notification sent"})
+            errors = ", ".join(data.get("errors", ["Unknown error"]))
+            return jsonify({"status": "error", "message": errors})
+        except Exception as exc:
+            return jsonify({"status": "error", "message": _exc_msg(exc)})
 
     @app.route("/api/logs")
     def get_logs():
@@ -359,3 +427,21 @@ def _resolve_date(
         except ValueError:
             pass
     return fallback
+
+
+def _grace_fields(
+    grace_info: dict,
+    removal_date: datetime.date,
+    grace_period_days: int,
+    today: datetime.date,
+) -> tuple[bool, str | None, int | None]:
+    started = grace_info.get("started")
+    if not started:
+        return False, None, None
+    try:
+        grace_start = datetime.date.fromisoformat(started)
+    except ValueError:
+        return False, None, None
+    grace_expires = grace_start + datetime.timedelta(days=grace_period_days)
+    days_until_deletion = (grace_expires - today).days
+    return True, grace_expires.isoformat(), days_until_deletion

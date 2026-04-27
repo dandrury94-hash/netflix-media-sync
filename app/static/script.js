@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Top-nav tab switching ──
   document.querySelectorAll(".topnav a[data-tab-target]").forEach((link) => {
     link.addEventListener("click", (e) => {
+      if (!document.querySelector(".tab-panel")) return;
       e.preventDefault();
       const tab = link.dataset.tabTarget;
       document.querySelectorAll(".tab-panel").forEach((p) =>
@@ -36,6 +37,12 @@ document.addEventListener("DOMContentLoaded", () => {
       link.classList.add("active");
     });
   });
+
+  // Set the correct tab-target link as active on initial page load.
+  if (document.querySelector(".tab-panel")) {
+    const dashLink = document.querySelector(".topnav a[data-tab-target='dashboard']");
+    if (dashLink) dashLink.classList.add("active");
+  }
 
   // ── Sync button ──
   if (syncButton) {
@@ -118,6 +125,34 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", async () => {
       const service = btn.dataset.service;
       const resultEl = document.getElementById(`${service}TestResult`);
+
+      if (service === "pushover") {
+        const keyEl = document.querySelector('[name="pushover_user_key"]');
+        const tokenEl = document.querySelector('[name="pushover_api_token"]');
+        const user_key = keyEl ? keyEl.value.trim() : "";
+        const api_token = tokenEl ? tokenEl.value.trim() : "";
+        setTestResult(resultEl, "Sending…", "");
+        btn.disabled = true;
+        try {
+          const resp = await fetch("/api/test/pushover", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_key, api_token }),
+          });
+          const data = await resp.json();
+          if (data.status === "ok") {
+            setTestResult(resultEl, `✅ ${data.message}`, "success");
+          } else {
+            setTestResult(resultEl, `❌ ${data.message}`, "error");
+          }
+        } catch (err) {
+          setTestResult(resultEl, `❌ ${err.message}`, "error");
+        } finally {
+          btn.disabled = false;
+        }
+        return;
+      }
+
       const urlEl = document.querySelector(`[name="${service}_url"]`);
       const keyEl = document.querySelector(`[name="${service}_api_key"]`);
       const url = urlEl ? urlEl.value.trim() : "";
@@ -161,6 +196,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const removalBody = document.getElementById("removalScheduleBody");
   if (removalBody) {
     loadRemovalSchedule(removalBody);
+  }
+
+  // ── Removal history ──
+  const historyBody = document.getElementById("removalHistoryBody");
+  if (historyBody) {
+    loadRemovalHistory(historyBody);
   }
 
   // ── Top 10 status icons ──
@@ -268,13 +309,23 @@ async function loadRemovalSchedule(tbody) {
     const data = await resp.json();
     renderSchedule(tbody, data.schedule || []);
   } catch {
-    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Failed to load removal schedule.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Failed to load removal schedule.</td></tr>';
+  }
+}
+
+async function loadRemovalHistory(tbody) {
+  try {
+    const resp = await fetch("/api/removal-history");
+    const data = await resp.json();
+    renderHistory(tbody, data.history || []);
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Failed to load removal history.</td></tr>';
   }
 }
 
 function renderSchedule(tbody, schedule) {
   if (!schedule.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No <code>netflix-sync</code> tagged titles found in Radarr / Sonarr.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No <code>netflix-sync</code> tagged titles found in Radarr / Sonarr.</td></tr>';
     return;
   }
   tbody.innerHTML = schedule.map((item) => {
@@ -282,12 +333,21 @@ function renderSchedule(tbody, schedule) {
       item.days_remaining < 0 ? "days-urgent" :
       item.days_remaining <= 7 ? "days-urgent" :
       item.days_remaining <= 14 ? "days-warning" : "days-ok";
-    const daysLabel = item.days_remaining < 0
-      ? "Overdue"
-      : `${item.days_remaining}d`;
+    const daysLabel = item.days_remaining < 0 ? "Overdue" : `${item.days_remaining}d`;
     const statusCell = item.protected
       ? '<span class="protected-badge">Protected</span>'
       : '<span style="color:var(--muted)">—</span>';
+    const graceCell = item.in_grace && item.grace_expires
+      ? escHtml(item.grace_expires)
+      : '<span style="color:var(--muted)">—</span>';
+    let deleteCell = '<span style="color:var(--muted)">—</span>';
+    if (item.in_grace && item.days_until_deletion != null) {
+      const dc =
+        item.days_until_deletion <= 2 ? "days-urgent" :
+        item.days_until_deletion <= 5 ? "days-warning" : "days-ok";
+      const dl = item.days_until_deletion <= 0 ? "Due" : `${item.days_until_deletion}d`;
+      deleteCell = `<span class="${dc}">${dl}</span>`;
+    }
     return `<tr>
       <td>${escHtml(item.title)}</td>
       <td style="text-transform:capitalize">${escHtml(item.type)}</td>
@@ -295,8 +355,24 @@ function renderSchedule(tbody, schedule) {
       <td>${item.removal_date}</td>
       <td>${statusCell}</td>
       <td><span class="${daysClass}">${daysLabel}</span></td>
+      <td>${graceCell}</td>
+      <td>${deleteCell}</td>
     </tr>`;
   }).join("");
+}
+
+function renderHistory(tbody, history) {
+  if (!history.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="table-empty">No titles have been removed yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = history.map((item) => `<tr>
+    <td>${escHtml(item.title)}</td>
+    <td style="text-transform:capitalize">${escHtml(item.type)}</td>
+    <td>${escHtml(item.date_removed)}</td>
+    <td>${escHtml(item.reason)}</td>
+    <td>${item.was_watched ? "✅" : "—"}</td>
+  </tr>`).join("");
 }
 
 function escHtml(str) {

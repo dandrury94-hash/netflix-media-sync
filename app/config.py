@@ -4,6 +4,7 @@ from pathlib import Path
 SETTINGS_PATH = Path(os.getenv("SETTINGS_PATH", "/config/settings.json"))
 SYNC_LOG_PATH = Path(os.getenv("SYNC_LOG_PATH", "/config/sync_log.json"))
 MANUAL_OVERRIDES_PATH = Path(os.getenv("MANUAL_OVERRIDES_PATH", "/config/manual_overrides.json"))
+REMOVAL_HISTORY_PATH = Path(os.getenv("REMOVAL_HISTORY_PATH", "/config/removal_history.json"))
 LOG_PATH = Path(os.getenv("LOG_PATH", "/config/app.log"))
 
 DEFAULT_SETTINGS = {
@@ -29,6 +30,11 @@ DEFAULT_SETTINGS = {
     "web_password": "",
     "netflix_top_url": "https://top10.netflix.com/",
     "netflix_top_countries": ["us"],
+    "pushover_enabled": False,
+    "pushover_user_key": "",
+    "pushover_api_token": "",
+    "deletion_enabled": False,
+    "grace_period_days": 7,
 }
 
 ENV_VAR_TO_SETTING = {
@@ -42,4 +48,8 @@ ENV_VAR_TO_SETTING = {
     "TAUTULLI_LOOKBACK_DAYS": "tautulli_lookback_days",
     "WEB_PORT": "web_port",
     "WEB_PASSWORD": "web_password",
+    "PUSHOVER_USER_KEY": "pushover_user_key",
+    "PUSHOVER_API_TOKEN": "pushover_api_token",
+    "DELETION_ENABLED": "deletion_enabled",
+    "GRACE_PERIOD_DAYS": "grace_period_days",
 }

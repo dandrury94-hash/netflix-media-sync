@@ -112,7 +112,29 @@
         </section>
 
         <section class="card">
-            <h2>Retention & sync</h2>
+            <h2>Pushover notifications</h2>
+            <label class="setting-checkbox">
+                <input type="checkbox" name="pushover_enabled" {% if settings.pushover_enabled %}checked{% endif %} />
+                Enable Pushover notifications
+            </label>
+            <label>User key
+                <input type="password" name="pushover_user_key"
+                    value="{{ '__REDACTED__' if settings.pushover_user_key else '' }}"
+                    placeholder="{{ 'Paste to replace' if settings.pushover_user_key else 'Paste user key' }}" />
+            </label>
+            <label>API token
+                <input type="password" name="pushover_api_token"
+                    value="{{ '__REDACTED__' if settings.pushover_api_token else '' }}"
+                    placeholder="{{ 'Paste to replace' if settings.pushover_api_token else 'Paste API token' }}" />
+            </label>
+            <div class="test-conn-row">
+                <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="pushover">Test notification</button>
+                <span id="pushoverTestResult" class="test-conn-result"></span>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Retention &amp; sync</h2>
             <label>Sync interval seconds
                 <input type="number" name="run_interval_seconds" value="{{ settings.run_interval_seconds }}" />
             </label>
@@ -141,6 +163,16 @@
             </label>
             <p class="field-help">Select one or more countries for the Netflix Top 10 sync. If none are selected, the
                 global page fallback is used.</p>
+            <div class="setting-divider"></div>
+            <label class="setting-checkbox">
+                <input type="checkbox" name="deletion_enabled" {% if settings.deletion_enabled %}checked{% endif %} />
+                Enable automatic deletion
+            </label>
+            <p class="field-help">⚠️ When enabled, titles past their retention date and grace period will be permanently deleted from Radarr / Sonarr including media files. Only titles tagged <code>netflix-sync</code> are affected. Protected titles are never deleted.</p>
+            <label>Grace period days
+                <input type="number" name="grace_period_days" value="{{ settings.grace_period_days }}" />
+                <p class="field-help">Days to wait after the retention date before deleting.</p>
+            </label>
         </section>
     </div>
 

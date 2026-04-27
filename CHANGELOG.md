@@ -4,6 +4,66 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-011 — 2026-04-27 — Pushover notifications, automatic deletion, and removal history
+
+### Added
+- **Pushover notifications** (`app/pushover_client.py`):
+  - `PushoverClient` class wrapping the Pushover API (`https://api.pushover.net/1/messages.json`)
+  - `is_enabled()` — returns `True` only when `pushover_enabled`, `pushover_user_key`, and `pushover_api_token` are all set
+  - `send(title, message, priority)` — never raises; logs a warning on delivery failure
+  - Notifications sent for: titles added during sync, per-title deletion, and sync errors (priority 1)
+  - `POST /api/test/pushover` endpoint for in-UI delivery test (`app/web.py`)
+  - Pushover card in Settings with enable checkbox, user key, API token, and test button (`app/templates/settings.html`)
+- **Automatic deletion with grace period** (`app/sync_service.py`):
+  - `SyncService.run_deletions()` — runs after every sync when `deletion_enabled` is `True`
+  - Only processes titles tagged `netflix-sync` in Radarr / Sonarr; protected titles are never deleted
+  - Two-phase flow: title first enters a grace period (`sync_log.start_grace_period`), then is deleted once `grace_period_days` have elapsed
+  - `grace_period_days` and `deletion_enabled` settings added to `DEFAULT_SETTINGS` and `ENV_VAR_TO_SETTING` (`app/config.py`)
+  - Deletion checkbox and grace-period input added to the Retention & sync settings card with a `⚠️` warning (`app/templates/settings.html`)
+- **Grace period tracking** (`app/sync_log.py`):
+  - `grace_periods` dict added to persisted state; migrated in on load if absent
+  - `start_grace_period(title, media_type)` — idempotent; only records start date on first call
+  - `get_grace_periods()` — returns the full dict
+  - `clear_grace_period(title)` — removes the entry after successful deletion
+- **Removal history** (`app/removal_history.py`):
+  - `RemovalHistory` class persisting deletions to `/config/removal_history.json`
+  - `log_removal(title, media_type, reason, was_watched)` — appends an entry and saves
+  - `get_recent(days)` — returns entries within the given window (default 180 days)
+  - `_save()` prunes entries older than 180 days before writing
+  - `GET /api/removal-history` endpoint (`app/web.py`)
+- **History tab** (`app/templates/index.html`, `app/templates/base.html`, `app/static/script.js`):
+  - History tab added to the top navigation bar alongside Dashboard and Logs
+  - 5-column table (Title, Type, Date removed, Reason, Watched) loaded asynchronously
+  - `loadRemovalHistory(tbody)` and `renderHistory(tbody, history)` functions in `script.js`
+- **Scheduled removals table expanded** (`app/templates/index.html`, `app/static/script.js`):
+  - Two new columns: **Grace expires** and **Days to delete**
+  - `Days to delete` colour-coded: red (≤ 2 days), yellow (≤ 5 days), green (> 5 days)
+  - "Due" label shown when `days_until_deletion` ≤ 0
+- **Weekly deletion preview** (`app/main.py`):
+  - `run_weekly_preview()` daemon thread wakes on the next Saturday at 05:00
+  - Scans tagged titles with upcoming removal dates within 7 days and sends a Pushover summary
+  - Silently skips if Pushover is not enabled
+- **Module-level `_resolve_date()` helper** (`app/sync_service.py`) — resolves a title's add date from the sync log, the Radarr/Sonarr API `added` field, or a fallback date, in that priority order
+
+### Changed
+- `SyncService.__init__` now accepts `removal_history: RemovalHistory` and instantiates `PushoverClient` (`app/sync_service.py`)
+- `create_app` now accepts `removal_history` parameter and passes it to the removal-history endpoint (`app/web.py`)
+- `main()` instantiates `RemovalHistory` and passes it to both `SyncService` and `create_app` (`app/main.py`)
+- Settings form `post_settings` adds a `to_bool()` helper for checkbox fields (`deletion_enabled`, `pushover_enabled`) (`app/web.py`)
+- `_SENSITIVE_KEYS` extended with `pushover_user_key` and `pushover_api_token` (`app/web.py`)
+- Scheduled removals table colspan updated from 6 to 8 for empty-state rows (`app/static/script.js`)
+- `.setting-checkbox` and `.setting-divider` styles added for the new settings form layout (`app/static/style.css`)
+
+---
+
+## CHG-010 — 2026-04-27 — Bug fixes from CHG-009
+
+### Fixed
+- `SyncService._run()`: `radarr_cache` and `sonarr_cache` were only assigned inside `if mode != "disabled"` blocks but referenced in the `enabled` / `read` branches below, causing a potential `NameError` when either integration is disabled. Both are now initialised to `{}` before the conditional blocks (`app/sync_service.py`)
+- Topnav Dashboard and Logs links had no active class applied on initial page load — active state was only set by the click handler. On `DOMContentLoaded`, the Dashboard link now receives the `active` class when the page is the index route. The hardcoded Jinja active-class expression and the empty `class=""` attribute have been removed from both tab-target links in the template, as active state is managed entirely by JS for those links (`app/static/script.js`, `app/templates/base.html`)
+
+---
+
 ## CHG-009 — 2026-04-27 — Sync performance, status accuracy, and Logs nav
 
 ### Fixed
