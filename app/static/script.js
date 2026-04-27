@@ -24,16 +24,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state) element.classList.add(state);
   };
 
-  // ── Tab switching ──
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const tab = btn.dataset.tab;
-      document.querySelectorAll(".tab-btn").forEach((b) =>
-        b.classList.toggle("active", b.dataset.tab === tab)
-      );
+  // ── Top-nav tab switching ──
+  document.querySelectorAll(".topnav a[data-tab-target]").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const tab = link.dataset.tabTarget;
       document.querySelectorAll(".tab-panel").forEach((p) =>
         p.classList.toggle("active", p.id === `tab-${tab}`)
       );
+      document.querySelectorAll(".topnav a").forEach((a) => a.classList.remove("active"));
+      link.classList.add("active");
     });
   });
 

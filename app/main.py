@@ -40,6 +40,7 @@ def run_worker(stop_event: Event, sync_service: SyncService) -> None:
         except Exception as exc:
             logger.exception("Sync run failed: %s", exc)
 
+        # Interval is read after each run so UI changes take effect on the next cycle without restart.
         interval = sync_service.settings.get("run_interval_seconds", 86400)
         logger.info("Waiting %s seconds until next sync", interval)
         if stop_event.wait(interval):

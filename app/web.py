@@ -248,9 +248,10 @@ def create_app(
                 movie_statuses[title] = "disabled"
                 continue
             try:
-                result = sync_service.radarr.lookup_movie(title)
-                if result and result.get("id"):
-                    movie_statuses[title] = "available" if result.get("hasFile") else "pending"
+                stub = sync_service.radarr.lookup_movie(title)
+                if stub and stub.get("id"):
+                    record = sync_service.radarr.get_movie_by_id(stub["id"])
+                    movie_statuses[title] = "available" if (record or {}).get("hasFile") else "pending"
                 else:
                     movie_statuses[title] = "will_add"
             except Exception:
@@ -261,9 +262,10 @@ def create_app(
                 series_statuses[title] = "disabled"
                 continue
             try:
-                result = sync_service.sonarr.lookup_series(title)
-                if result and result.get("id"):
-                    ep_count = (result.get("statistics") or {}).get("episodeFileCount", 0)
+                stub = sync_service.sonarr.lookup_series(title)
+                if stub and stub.get("id"):
+                    record = sync_service.sonarr.get_series_by_id(stub["id"])
+                    ep_count = ((record or {}).get("statistics") or {}).get("episodeFileCount", 0)
                     series_statuses[title] = "available" if ep_count > 0 else "pending"
                 else:
                     series_statuses[title] = "will_add"

@@ -75,13 +75,33 @@ class RadarrClient:
             logger.warning("Failed to fetch tagged movies from Radarr: %s", exc)
             return []
 
+    def get_all_movies(self) -> list[dict]:
+        try:
+            return self._get("/api/v3/movie")
+        except Exception as exc:
+            logger.warning("Failed to fetch Radarr library: %s", exc)
+            return []
+
+    def get_movie_by_id(self, movie_id: int) -> dict | None:
+        try:
+            return self._get(f"/api/v3/movie/{movie_id}")
+        except Exception as exc:
+            logger.warning("Failed to fetch Radarr movie %d: %s", movie_id, exc)
+            return None
+
     def lookup_movie(self, title: str) -> dict | None:
         results = self._get("/api/v3/movie/lookup", {"term": title})
         if isinstance(results, list) and results:
             return results[0]
         return None
 
-    def add_movie(self, title: str) -> bool:
+    def add_movie(self, title: str, library_cache: dict | None = None) -> bool:
+        if library_cache is not None:
+            cached = library_cache.get(title.lower())
+            if cached and cached.get("id"):
+                logger.info("Movie already exists in Radarr (cache): %s", title)
+                return False
+
         details = self.lookup_movie(title)
         if not details:
             logger.warning("Radarr lookup failed for movie: %s", title)

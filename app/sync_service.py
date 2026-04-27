@@ -46,17 +46,22 @@ class SyncService:
         would_add_movies: list[str] = []
         already_in_radarr: list[str] = []
         radarr_mode = self.settings.get("radarr_mode", "disabled")
+        if radarr_mode != "disabled":
+            # Fetch the full library once so per-title existence checks need no network calls.
+            radarr_cache = {m["title"].lower(): m for m in self.radarr.get_all_movies()}
+            logger.info("Radarr library cache: %d records", len(radarr_cache))
+
         if radarr_mode == "enabled":
             for title in netflix_movies:
-                if self.radarr.add_movie(title):
+                if self.radarr.add_movie(title, library_cache=radarr_cache):
                     added_movies.append(title)
                     self.sync_log.log_add(title, "movie")
         elif radarr_mode == "read":
             for title in netflix_movies:
-                details = self.radarr.lookup_movie(title)
-                if details and details.get("id"):
+                cached = radarr_cache.get(title.lower())
+                if cached and cached.get("id"):
                     already_in_radarr.append(title)
-                elif details:
+                else:
                     would_add_movies.append(title)
             logger.info("Radarr read — would add: %s, already exists: %s", would_add_movies, already_in_radarr)
         else:
@@ -66,17 +71,22 @@ class SyncService:
         would_add_series: list[str] = []
         already_in_sonarr: list[str] = []
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
+        if sonarr_mode != "disabled":
+            # Fetch the full library once so per-title existence checks need no network calls.
+            sonarr_cache = {s["title"].lower(): s for s in self.sonarr.get_all_series()}
+            logger.info("Sonarr library cache: %d records", len(sonarr_cache))
+
         if sonarr_mode == "enabled":
             for title in netflix_series:
-                if self.sonarr.add_series(title):
+                if self.sonarr.add_series(title, library_cache=sonarr_cache):
                     added_series.append(title)
                     self.sync_log.log_add(title, "series")
         elif sonarr_mode == "read":
             for title in netflix_series:
-                details = self.sonarr.lookup_series(title)
-                if details and details.get("id"):
+                cached = sonarr_cache.get(title.lower())
+                if cached and cached.get("id"):
                     already_in_sonarr.append(title)
-                elif details:
+                else:
                     would_add_series.append(title)
             logger.info("Sonarr read — would add: %s, already exists: %s", would_add_series, already_in_sonarr)
         else:
