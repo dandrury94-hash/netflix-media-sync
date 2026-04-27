@@ -48,6 +48,8 @@ class SonarrClient:
             json=json_data,
             timeout=20,
         )
+        if not response.ok:
+            logger.error("Sonarr API error %s: %s", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
 

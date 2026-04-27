@@ -125,6 +125,17 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    const copyBtn = document.getElementById("logsCopyBtn");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        if (!currentLines.length) return;
+        await navigator.clipboard.writeText(currentLines.join("\n"));
+        const original = copyBtn.textContent;
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => { copyBtn.textContent = original; }, 1500);
+      });
+    }
+
     if (downloadBtn) {
       downloadBtn.addEventListener("click", () => {
         const blob = new Blob([currentLines.join("\n")], { type: "text/plain" });

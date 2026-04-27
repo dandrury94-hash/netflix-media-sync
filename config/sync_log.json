@@ -1,36 +1,12 @@
 {
   "last_sync": {
-    "timestamp": "2026-04-27T16:19:53",
+    "timestamp": "2026-04-27T17:00:40",
     "added_movies": [],
     "added_series": [],
-    "would_add_movies": [
-      "Apex",
-      "Send Help",
-      "undertone"
-    ],
-    "would_add_series": [
-      "FROM",
-      "Euphoria",
-      "The Pitt",
-      "Your Friends & Neighbors",
-      "For All Mankind"
-    ],
-    "already_in_radarr": [
-      "Project Hail Mary",
-      "The Super Mario Galaxy Movie",
-      "Michael",
-      "Greenland 2: Migration",
-      "Avatar: Fire and Ash",
-      "Crime 101",
-      "Hoppers"
-    ],
-    "already_in_sonarr": [
-      "The Boys",
-      "Invincible",
-      "Marshals",
-      "Monarch: Legacy of Monsters",
-      "Daredevil: Born Again"
-    ],
+    "would_add_movies": [],
+    "would_add_series": [],
+    "already_in_radarr": [],
+    "already_in_sonarr": [],
     "protected": [],
     "top_movies": [
       "Apex",
@@ -57,5 +33,54 @@
       "Daredevil: Born Again"
     ]
   },
-  "entries": []
+  "entries": [
+    {
+      "title": "Apex",
+      "type": "movie",
+      "date_added": "2026-04-27",
+      "source": "trakt"
+    },
+    {
+      "title": "Send Help",
+      "type": "movie",
+      "date_added": "2026-04-27",
+      "source": "trakt"
+    },
+    {
+      "title": "undertone",
+      "type": "movie",
+      "date_added": "2026-04-27",
+      "source": "trakt"
+    },
+    {
+      "title": "FROM",
+      "type": "series",
+      "date_added": "2026-04-27",
+      "source": "trakt"
+    },
+    {
+      "title": "Euphoria",
+      "type": "series",
+      "date_added": "2026-04-27",
+      "source": "trakt"
+    },
+    {
+      "title": "The Pitt",
+      "type": "series",
+      "date_added": "2026-04-27",
+      "source": "trakt"
+    },
+    {
+      "title": "Your Friends & Neighbors",
+      "type": "series",
+      "date_added": "2026-04-27",
+      "source": "trakt"
+    },
+    {
+      "title": "For All Mankind",
+      "type": "series",
+      "date_added": "2026-04-27",
+      "source": "trakt"
+    }
+  ]
 }

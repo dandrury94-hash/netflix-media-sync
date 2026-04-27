@@ -1,0 +1,58 @@
+2026-04-27 16:57:14 [INFO] app.sync_service: Fetching top titles via Trakt (countries: ['gb'])
+2026-04-27 16:57:15 [INFO] app.netflix_fetcher: Fetched 10 movies and 10 series from Trakt (countries: ['gb'])
+2026-04-27 16:57:15 [INFO] app.sync_service: Top movies: ['Apex', 'Project Hail Mary', 'The Super Mario Galaxy Movie', 'Michael', 'Send Help', 'Greenland 2: Migration', 'Avatar: Fire and Ash', 'Crime 101', 'Hoppers', 'undertone']
+2026-04-27 16:57:15 [INFO] app.sync_service: Top series: ['FROM', 'Euphoria', 'The Boys', 'The Pitt', 'Invincible', 'Marshals', 'Your Friends & Neighbors', 'Monarch: Legacy of Monsters', 'For All Mankind', 'Daredevil: Born Again']
+2026-04-27 16:57:15 [INFO] app.tautulli_client: Fetching Tautulli history to protect watched media
+2026-04-27 16:57:30 [INFO] app.tautulli_client: Protected titles from Tautulli: []
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: Apex
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: Project Hail Mary
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: The Super Mario Galaxy Movie
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: Michael
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: Send Help
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: Greenland 2: Migration
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: Avatar: Fire and Ash
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: Crime 101
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: Hoppers
+2026-04-27 16:57:33 [INFO] app.radarr_client: Movie already exists in Radarr: undertone
+2026-04-27 16:57:38 [INFO] app.sonarr_client: Added series to Sonarr: FROM
+2026-04-27 16:57:38 [INFO] app.sonarr_client: Added series to Sonarr: Euphoria
+2026-04-27 16:57:40 [INFO] app.sonarr_client: Series already exists in Sonarr: The Boys
+2026-04-27 16:57:41 [INFO] app.sonarr_client: Added series to Sonarr: The Pitt
+2026-04-27 16:57:42 [INFO] app.sonarr_client: Series already exists in Sonarr: Invincible
+2026-04-27 16:57:47 [INFO] app.sonarr_client: Series already exists in Sonarr: Marshals
+2026-04-27 16:57:48 [INFO] app.sonarr_client: Added series to Sonarr: Your Friends & Neighbors
+2026-04-27 16:57:49 [INFO] app.sonarr_client: Series already exists in Sonarr: Monarch: Legacy of Monsters
+2026-04-27 16:57:49 [INFO] app.sonarr_client: Added series to Sonarr: For All Mankind
+2026-04-27 16:58:07 [INFO] app.sonarr_client: Series already exists in Sonarr: Daredevil: Born Again
+2026-04-27 16:58:07 [INFO] app.sync_service: Tautulli enabled — protected media count: 0
+2026-04-27 17:00:15 [INFO] __main__: Starting Netflix Sync service
+2026-04-27 17:00:15 [INFO] app.sync_service: Fetching top titles via Trakt (countries: ['gb'])
+2026-04-27 17:00:15 [INFO] __main__: Opening web interface on port 8080
+2026-04-27 17:00:15 [INFO] waitress: Serving on http://0.0.0.0:8080
+2026-04-27 17:00:16 [INFO] app.netflix_fetcher: Fetched 10 movies and 10 series from Trakt (countries: ['gb'])
+2026-04-27 17:00:16 [INFO] app.sync_service: Top movies: ['Apex', 'Project Hail Mary', 'The Super Mario Galaxy Movie', 'Michael', 'Send Help', 'Greenland 2: Migration', 'Avatar: Fire and Ash', 'Crime 101', 'Hoppers', 'undertone']
+2026-04-27 17:00:16 [INFO] app.sync_service: Top series: ['FROM', 'Euphoria', 'The Boys', 'The Pitt', 'Invincible', 'Marshals', 'Your Friends & Neighbors', 'Monarch: Legacy of Monsters', 'For All Mankind', 'Daredevil: Born Again']
+2026-04-27 17:00:16 [INFO] app.tautulli_client: Fetching Tautulli history to protect watched media
+2026-04-27 17:00:31 [INFO] app.tautulli_client: Protected titles from Tautulli: []
+2026-04-27 17:00:34 [INFO] app.radarr_client: Movie already exists in Radarr: Apex
+2026-04-27 17:00:34 [INFO] app.radarr_client: Movie already exists in Radarr: Project Hail Mary
+2026-04-27 17:00:34 [INFO] app.radarr_client: Movie already exists in Radarr: The Super Mario Galaxy Movie
+2026-04-27 17:00:35 [INFO] app.radarr_client: Movie already exists in Radarr: Michael
+2026-04-27 17:00:35 [INFO] app.radarr_client: Movie already exists in Radarr: Send Help
+2026-04-27 17:00:35 [INFO] app.radarr_client: Movie already exists in Radarr: Greenland 2: Migration
+2026-04-27 17:00:35 [INFO] app.radarr_client: Movie already exists in Radarr: Avatar: Fire and Ash
+2026-04-27 17:00:35 [INFO] app.radarr_client: Movie already exists in Radarr: Crime 101
+2026-04-27 17:00:35 [INFO] app.radarr_client: Movie already exists in Radarr: Hoppers
+2026-04-27 17:00:35 [INFO] app.radarr_client: Movie already exists in Radarr: undertone
+2026-04-27 17:00:38 [INFO] app.sonarr_client: Series already exists in Sonarr: FROM
+2026-04-27 17:00:38 [INFO] app.sonarr_client: Series already exists in Sonarr: Euphoria
+2026-04-27 17:00:38 [INFO] app.sonarr_client: Series already exists in Sonarr: The Boys
+2026-04-27 17:00:39 [INFO] app.sonarr_client: Series already exists in Sonarr: The Pitt
+2026-04-27 17:00:39 [INFO] app.sonarr_client: Series already exists in Sonarr: Invincible
+2026-04-27 17:00:40 [INFO] app.sonarr_client: Series already exists in Sonarr: Marshals
+2026-04-27 17:00:40 [INFO] app.sonarr_client: Series already exists in Sonarr: Your Friends & Neighbors
+2026-04-27 17:00:40 [INFO] app.sonarr_client: Series already exists in Sonarr: Monarch: Legacy of Monsters
+2026-04-27 17:00:40 [INFO] app.sonarr_client: Series already exists in Sonarr: For All Mankind
+2026-04-27 17:00:40 [INFO] app.sonarr_client: Series already exists in Sonarr: Daredevil: Born Again
+2026-04-27 17:00:40 [INFO] app.sync_service: Tautulli enabled — protected media count: 0
+2026-04-27 17:00:40 [INFO] __main__: Waiting 86400 seconds until next sync
