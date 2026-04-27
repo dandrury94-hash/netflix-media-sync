@@ -4,6 +4,17 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-008 — 2026-04-27 — Dashboard improvements
+
+### Additions
+- Tab navigation bar on dashboard with **Dashboard** and **Logs** tabs; all log content moved to the Logs tab, freeing the main grid from the log panel (`app/templates/index.html`, `app/static/script.js`, `app/static/style.css`)
+- Log output in the Logs tab dynamically fills available screen height via `calc(100vh - 370px)` with a 300 px minimum (`app/static/style.css`)
+- Log scrollback buffer increased from 100 to 2000 lines (`app/web.py`)
+- Status icons next to each title in the Trakt Top 10 Movies and Series panels: ⏳ Pending (monitored, no file), ✅ Available (file downloaded), ➕ Will Add (not in library), ➖ Disabled (integration off); icons are loaded asynchronously after page render with tooltip labels (`app/static/script.js`, `app/templates/index.html`)
+- `GET /api/top10-status` — queries Radarr and Sonarr for each title in the last-sync top 10 lists and returns per-title status; individual lookup failures are silently skipped so one bad title does not affect the rest (`app/web.py`)
+
+---
+
 ## CHG-007 — 2026-04-27 — Test connection buttons
 
 ### Additions
