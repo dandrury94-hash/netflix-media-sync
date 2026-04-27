@@ -204,6 +204,12 @@ document.addEventListener("DOMContentLoaded", () => {
     loadRemovalHistory(historyBody);
   }
 
+  // ── Protection manager ──
+  const protectionPanel = document.getElementById("protectionPanel");
+  if (protectionPanel) {
+    loadProtectionState(protectionPanel);
+  }
+
   // ── Top 10 status icons ──
   const top10Items = document.querySelectorAll(".top10-item[data-title]");
   if (top10Items.length) {
@@ -373,6 +379,126 @@ function renderHistory(tbody, history) {
     <td>${escHtml(item.reason)}</td>
     <td>${item.was_watched ? "✅" : "—"}</td>
   </tr>`).join("");
+}
+
+async function loadProtectionState(container) {
+  container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">Loading…</p>';
+  try {
+    const resp = await fetch("/api/protection-state");
+    const data = await resp.json();
+    renderProtectionState(container, data);
+  } catch {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">Failed to load protection state.</p>';
+  }
+}
+
+function renderProtectionState(container, data) {
+  const protectedItems = data.protected || [];
+  const unprotectedItems = data.unprotected || [];
+
+  if (!protectedItems.length && !unprotectedItems.length) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">No <code>netflix-sync</code> tagged titles found. Run a sync to populate.</p>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="protection-manager">
+      <div class="protection-column">
+        <div class="prot-col-header">
+          <h3 class="prot-col-title">Protected</h3>
+          <span class="prot-count prot-count--protected">${protectedItems.length}</span>
+        </div>
+        <ul class="prot-list" id="protMgrProtectedList"></ul>
+      </div>
+      <div class="protection-column">
+        <div class="prot-col-header">
+          <h3 class="prot-col-title">Not Protected</h3>
+          <span class="prot-count prot-count--unprotected">${unprotectedItems.length}</span>
+        </div>
+        <ul class="prot-list" id="protMgrUnprotectedList"></ul>
+      </div>
+    </div>`;
+
+  const protList = document.getElementById("protMgrProtectedList");
+  protectedItems.forEach((item) => {
+    const isTautulli = item.source === "tautulli";
+    const li = document.createElement("li");
+    li.className = "prot-entry";
+
+    const meta = document.createElement("div");
+    meta.className = "prot-entry-meta";
+
+    const titleEl = document.createElement("span");
+    titleEl.className = "prot-entry-title";
+    titleEl.textContent = item.title;
+
+    const typeBadge = document.createElement("span");
+    typeBadge.className = "prot-entry-type";
+    typeBadge.textContent = item.type;
+
+    const sourceBadge = document.createElement("span");
+    sourceBadge.className = `prot-source-badge prot-source-badge--${item.source}`;
+    sourceBadge.textContent = isTautulli ? "Tautulli" : "Manual";
+
+    meta.append(titleEl, typeBadge, sourceBadge);
+    li.appendChild(meta);
+
+    if (isTautulli) {
+      const lock = document.createElement("span");
+      lock.className = "prot-lock-label";
+      lock.textContent = "Tautulli protected";
+      li.appendChild(lock);
+    } else {
+      const btn = document.createElement("button");
+      btn.className = "button button-secondary button-sm prot-action-btn";
+      btn.textContent = "Unprotect";
+      btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, false, container));
+      li.appendChild(btn);
+    }
+    protList.appendChild(li);
+  });
+
+  const unprotList = document.getElementById("protMgrUnprotectedList");
+  unprotectedItems.forEach((item) => {
+    const li = document.createElement("li");
+    li.className = "prot-entry";
+
+    const meta = document.createElement("div");
+    meta.className = "prot-entry-meta";
+
+    const titleEl = document.createElement("span");
+    titleEl.className = "prot-entry-title";
+    titleEl.textContent = item.title;
+
+    const typeBadge = document.createElement("span");
+    typeBadge.className = "prot-entry-type";
+    typeBadge.textContent = item.type;
+
+    meta.append(titleEl, typeBadge);
+    li.appendChild(meta);
+
+    const btn = document.createElement("button");
+    btn.className = "button button-secondary button-sm prot-action-btn prot-action-btn--protect";
+    btn.textContent = "Protect";
+    btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, true, container));
+    li.appendChild(btn);
+    unprotList.appendChild(li);
+  });
+}
+
+async function handleProtectionToggle(btn, title, protect, container) {
+  btn.disabled = true;
+  try {
+    const resp = await fetch("/api/overrides", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, protected: protect }),
+    });
+    if (!resp.ok) throw new Error("Request failed");
+    await loadProtectionState(container);
+  } catch {
+    btn.disabled = false;
+  }
 }
 
 function escHtml(str) {

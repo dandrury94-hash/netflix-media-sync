@@ -695,3 +695,112 @@ body::before {
     background: rgba(255, 255, 255, 0.07);
     margin: 18px 0;
 }
+
+/* ── Protection manager ── */
+.protection-manager {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.prot-col-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.prot-col-title {
+    margin: 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.prot-count {
+    font-size: 0.75rem;
+    padding: 1px 8px;
+    border-radius: 5px;
+    font-weight: 700;
+}
+
+.prot-count--protected   { background: rgba(46, 207, 125, 0.14); color: #2ecf7d; }
+.prot-count--unprotected { background: rgba(240, 180, 41, 0.14);  color: #f0b429; }
+
+.prot-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 2px;
+    max-height: 480px;
+    overflow-y: auto;
+}
+
+.prot-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 8px;
+    border-radius: 8px;
+}
+
+.prot-entry:hover { background: rgba(255, 255, 255, 0.03); }
+
+.prot-entry-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.prot-entry-title {
+    font-size: 0.9rem;
+    color: #c5d2eb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.prot-entry-type {
+    font-size: 0.72rem;
+    padding: 1px 7px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--muted);
+    text-transform: capitalize;
+    flex-shrink: 0;
+}
+
+.prot-source-badge {
+    font-size: 0.72rem;
+    padding: 1px 7px;
+    border-radius: 5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.prot-source-badge--tautulli { background: rgba(60, 141, 255, 0.14); color: #88c4f8; }
+.prot-source-badge--manual   { background: rgba(240, 180, 41, 0.14);  color: #f0b429; }
+
+.prot-lock-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.prot-action-btn { flex-shrink: 0; }
+
+.prot-action-btn--protect {
+    color: #2ecf7d;
+    border-color: rgba(46, 207, 125, 0.25);
+}

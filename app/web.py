@@ -230,6 +230,53 @@ def create_app(
     def get_removal_history():
         return jsonify({"history": removal_history.get_recent()})
 
+    @app.route("/api/protection-state")
+    def protection_state():
+        radarr_mode = settings.get("radarr_mode", "disabled")
+        sonarr_mode = settings.get("sonarr_mode", "disabled")
+
+        last_sync = sync_log.get_last_sync() or {}
+        tautulli_protected = set(last_sync.get("protected", []))
+        manual_set = manual_overrides.to_set()
+
+        all_titles: list[dict] = []
+
+        if radarr_mode != "disabled":
+            try:
+                for movie in sync_service.radarr.get_tagged_movies("netflix-sync"):
+                    title = movie.get("title", "")
+                    if title:
+                        all_titles.append({"title": title, "type": "movie"})
+            except Exception:
+                pass
+
+        if sonarr_mode != "disabled":
+            try:
+                for series in sync_service.sonarr.get_tagged_series("netflix-sync"):
+                    title = series.get("title", "")
+                    if title:
+                        all_titles.append({"title": title, "type": "series"})
+            except Exception:
+                pass
+
+        protected: list[dict] = []
+        unprotected: list[dict] = []
+
+        for item in all_titles:
+            title = item["title"]
+            in_tautulli = title in tautulli_protected
+            in_manual = title in manual_set
+            if in_tautulli or in_manual:
+                source = "tautulli" if in_tautulli else "manual"
+                protected.append({"title": title, "type": item["type"], "source": source})
+            else:
+                unprotected.append({"title": title, "type": item["type"]})
+
+        protected.sort(key=lambda x: x["title"].lower())
+        unprotected.sort(key=lambda x: x["title"].lower())
+
+        return jsonify({"protected": protected, "unprotected": unprotected})
+
     @app.route("/api/top10-status")
     def top10_status():
         last = sync_log.get_last_sync() or {}

@@ -4,6 +4,20 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-012 — 2026-04-27 — Protection manager
+
+### Added
+- `GET /api/protection-state` endpoint: fetches all `netflix-sync` tagged titles from Radarr and Sonarr in one bulk call each, determines protection status from the last Tautulli sync result and the manual overrides set, and returns `{"protected": [...], "unprotected": [...]}` sorted alphabetically. Failures in either service are caught and skipped without affecting the other (`app/web.py`)
+- **Protection tab** in the top navigation bar; clicking it switches to the protection manager panel client-side (`app/templates/base.html`, `app/templates/index.html`, `app/static/script.js`)
+- **Protection manager panel** — two-column layout (Protected / Not Protected) loaded asynchronously from `GET /api/protection-state`:
+  - Each protected item shows title, type badge, source badge (Tautulli or Manual), and either an **Unprotect** button (manual) or a "Tautulli protected" lock label (Tautulli — unprotection not allowed)
+  - Each unprotected item shows title, type badge, and a **Protect** button
+  - Protect / Unprotect actions POST to the existing `/api/overrides` endpoint and refresh the panel in-place (`app/static/script.js`)
+- `loadProtectionState(container)`, `renderProtectionState(container, data)`, `handleProtectionToggle(btn, title, protect, container)` JS functions (`app/static/script.js`)
+- Protection manager CSS: `.protection-manager`, `.prot-col-header`, `.prot-entry`, `.prot-entry-meta`, `.prot-source-badge`, `.prot-lock-label`, `.prot-action-btn` (`app/static/style.css`)
+
+---
+
 ## CHG-011 — 2026-04-27 — Pushover notifications, automatic deletion, and removal history
 
 ### Added
