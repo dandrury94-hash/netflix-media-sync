@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 
 SETTINGS_PATH = Path(os.getenv("SETTINGS_PATH", "/config/settings.json"))
-CONFIG_PATH = SETTINGS_PATH
 
 DEFAULT_SETTINGS = {
     "radarr_mode": "disabled",
@@ -24,6 +23,7 @@ DEFAULT_SETTINGS = {
     "movie_retention_days": 30,
     "series_retention_days": 30,
     "web_port": 8080,
+    "web_password": "",
     "netflix_top_url": "https://top10.netflix.com/",
     "netflix_top_countries": ["us"],
 }
@@ -38,4 +38,5 @@ ENV_VAR_TO_SETTING = {
     "RUN_INTERVAL_SECONDS": "run_interval_seconds",
     "TAUTULLI_LOOKBACK_DAYS": "tautulli_lookback_days",
     "WEB_PORT": "web_port",
+    "WEB_PASSWORD": "web_password",
 }

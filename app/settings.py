@@ -1,38 +1,38 @@
 import json
-from pathlib import Path
+import logging
+import os
+import threading
 from typing import Any
 
-from app.config import CONFIG_PATH, DEFAULT_SETTINGS, ENV_VAR_TO_SETTING
+from app.config import DEFAULT_SETTINGS, ENV_VAR_TO_SETTING, SETTINGS_PATH
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsStore:
     def __init__(self) -> None:
-        self.path = CONFIG_PATH
+        self.path = SETTINGS_PATH
+        self._lock = threading.RLock()
         self.values = DEFAULT_SETTINGS.copy()
         self.load()
 
     def _load_from_file(self) -> None:
         if not self.path.exists():
             return
-
         try:
             content = self.path.read_text(encoding="utf-8")
             loaded = json.loads(content)
             if isinstance(loaded, dict):
                 self.values.update({k: loaded[k] for k in loaded if k in self.values})
         except Exception:
-            pass
+            logger.warning("Failed to load settings from %s", self.path, exc_info=True)
 
     def load(self) -> None:
         self._load_from_file()
         self._apply_environment_overrides()
 
     def _apply_environment_overrides(self) -> None:
-        import os
-
         for env_key, setting_key in ENV_VAR_TO_SETTING.items():
-            if os.getenv(env_key) is None:
-                continue
             raw = os.getenv(env_key)
             if raw is None:
                 continue
@@ -47,17 +47,21 @@ class SettingsStore:
                 self.values[setting_key] = raw
 
     def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.values, indent=2), encoding="utf-8")
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(self.values, indent=2), encoding="utf-8")
 
     def update(self, updated: dict[str, Any]) -> None:
-        for key, value in updated.items():
-            if key in self.values:
-                self.values[key] = value
-        self.save()
+        with self._lock:
+            for key, value in updated.items():
+                if key in self.values:
+                    self.values[key] = value
+            self.save()
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self.values.get(key, default)
+        with self._lock:
+            return self.values.get(key, default)
 
     def to_dict(self) -> dict[str, Any]:
-        return self.values.copy()
+        with self._lock:
+            return self.values.copy()

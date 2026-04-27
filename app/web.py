@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, jsonify, render_template, request, url_for
 from app.settings import SettingsStore
 from app.sync_service import SyncService
 
@@ -22,6 +22,19 @@ COUNTRY_OPTIONS = [
 
 def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
+
+    @app.before_request
+    def check_auth():
+        password = settings.get("web_password", "")
+        if not password:
+            return
+        auth = request.authorization
+        if not auth or auth.password != password:
+            return Response(
+                "Authentication required",
+                401,
+                {"WWW-Authenticate": 'Basic realm="Netflix Sync"'},
+            )
 
     @app.route("/")
     def index():
@@ -53,9 +66,9 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
 
         countries = payload.get("netflix_top_countries")
         if isinstance(countries, str):
-            countries = [country.strip().lower() for country in countries.split(",") if country.strip()]
+            countries = [c.strip().lower() for c in countries.split(",") if c.strip()]
         elif isinstance(countries, list):
-            countries = [country.strip().lower() for country in countries if isinstance(country, str) and country.strip()]
+            countries = [c.strip().lower() for c in countries if isinstance(c, str) and c.strip()]
         else:
             countries = []
 
@@ -79,6 +92,7 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
             "movie_retention_days": safe_int(payload.get("movie_retention_days"), 30),
             "series_retention_days": safe_int(payload.get("series_retention_days"), 30),
             "web_port": safe_int(payload.get("web_port"), 8080),
+            "web_password": payload.get("web_password", ""),
             "netflix_top_countries": countries,
         }
         settings.update(normalized)

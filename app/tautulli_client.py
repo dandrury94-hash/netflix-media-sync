@@ -8,12 +8,15 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_timestamp(value):
-    if isinstance(value, (int, float)):
-        return datetime.datetime.utcfromtimestamp(value)
-    if isinstance(value, str) and value.isdigit():
-        return datetime.datetime.utcfromtimestamp(int(value))
     try:
-        return datetime.datetime.fromisoformat(value)
+        if isinstance(value, (int, float)):
+            return datetime.datetime.fromtimestamp(value, tz=datetime.timezone.utc).replace(tzinfo=None)
+        if isinstance(value, str) and value.isdigit():
+            return datetime.datetime.fromtimestamp(int(value), tz=datetime.timezone.utc).replace(tzinfo=None)
+        dt = datetime.datetime.fromisoformat(value)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        return dt
     except Exception:
         return None
 
@@ -45,7 +48,7 @@ class TautulliClient:
         return data.get("response", {})
 
     def fetch_protected_titles(self) -> set[str]:
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         cutoff = now - datetime.timedelta(days=self.lookback_days)
         protected_titles: set[str] = set()
 

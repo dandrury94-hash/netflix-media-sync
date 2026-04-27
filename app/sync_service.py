@@ -1,9 +1,11 @@
 import logging
+import threading
+
 from app.netflix_fetcher import fetch_netflix_top_10_for_countries
 from app.radarr_client import RadarrClient
+from app.settings import SettingsStore
 from app.sonarr_client import SonarrClient
 from app.tautulli_client import TautulliClient
-from app.settings import SettingsStore
 
 logger = logging.getLogger(__name__)
 
@@ -14,31 +16,31 @@ class SyncService:
         self.radarr = RadarrClient(settings)
         self.sonarr = SonarrClient(settings)
         self.tautulli = TautulliClient(settings)
+        self._lock = threading.Lock()
 
     def run_once(self) -> dict[str, list[str]]:
+        with self._lock:
+            return self._run()
+
+    def _run(self) -> dict[str, list[str]]:
         countries = self.settings.get("netflix_top_countries", [])
         if isinstance(countries, str):
             countries = [countries.strip().lower()]
 
-        if countries:
-            netflix_movies, netflix_series = fetch_netflix_top_10_for_countries(countries, self.settings.get("trakt_client_id", ""))
-            logger.info("Fetching Netflix top titles for countries: %s", countries)
-        else:
-            netflix_movies, netflix_series = fetch_netflix_top_10(self.settings.get("netflix_top_url"))
-            logger.info("Fetching Netflix top titles from URL: %s", self.settings.get("netflix_top_url"))
+        logger.info("Fetching top titles via Trakt (countries: %s)", countries or ["global"])
+        netflix_movies, netflix_series = fetch_netflix_top_10_for_countries(
+            countries, self.settings.get("trakt_client_id", "")
+        )
 
-        logger.info("Netflix top movies: %s", netflix_movies)
-        logger.info("Netflix top series: %s", netflix_series)
+        logger.info("Top movies: %s", netflix_movies)
+        logger.info("Top series: %s", netflix_series)
 
         tautulli_mode = self.settings.get("tautulli_mode", "disabled")
-        protected_titles = self.tautulli.fetch_protected_titles() if tautulli_mode in ("read", "enabled") else []
-        movie_retention_days = int(self.settings.get("movie_retention_days", 30))
-        series_retention_days = int(self.settings.get("series_retention_days", 30))
-
-        logger.info("Retention settings: movies=%s days, series=%s days", movie_retention_days, series_retention_days)
+        protected_titles: list[str] | set[str] = (
+            self.tautulli.fetch_protected_titles() if tautulli_mode in ("read", "enabled") else []
+        )
 
         added_movies: list[str] = []
-        added_series: list[str] = []
         radarr_mode = self.settings.get("radarr_mode", "disabled")
         if radarr_mode == "enabled":
             for title in netflix_movies:
@@ -47,7 +49,7 @@ class SyncService:
         else:
             logger.info("Radarr mode is %s, skipping movie import", radarr_mode)
 
-        logger.info("Adding top series to Sonarr")
+        added_series: list[str] = []
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
         if sonarr_mode == "enabled":
             for title in netflix_series:
@@ -56,18 +58,13 @@ class SyncService:
         else:
             logger.info("Sonarr mode is %s, skipping series import", sonarr_mode)
 
-        if tautulli_mode == "enabled":
-            logger.info("Tautulli enabled, cleanup evaluation active. Protected media count: %d", len(protected_titles))
-        elif tautulli_mode == "read":
-            logger.info("Tautulli read-only, protected media count: %d", len(protected_titles))
+        if tautulli_mode in ("read", "enabled"):
+            logger.info("Tautulli %s — protected media count: %d", tautulli_mode, len(protected_titles))
         else:
-            logger.info("Tautulli disabled, no protection or cleanup evaluated.")
+            logger.info("Tautulli disabled, skipping protection check")
 
-        result = {
+        return {
             "added_movies": added_movies,
             "added_series": added_series,
             "protected": sorted(protected_titles),
-            "movie_retention_days": movie_retention_days,
-            "series_retention_days": series_retention_days,
         }
-        return result

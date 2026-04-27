@@ -278,6 +278,13 @@ body::before {
     color: #ffb3b3;
 }
 
+.field-help {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
 .footer {
     margin-top: 28px;
     padding: 18px 22px;

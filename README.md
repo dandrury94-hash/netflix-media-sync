@@ -1,14 +1,15 @@
-# Netflix Top 10 Sync
+# Netflix Media Sync
 
 A Dockerized service with a built-in web interface for configuring:
 
-- Netflix Top 10 sync settings
+- Trending content sync via the [Trakt](https://trakt.tv) API
 - Radarr integration
 - Sonarr integration
-- Tautulli protection rules
-- retention and cleanup timing
+- Tautulli watch-history protection rules
 
-> **Important:** Netflix does not provide a public Top 10 API. This service uses a best-effort extraction from the public Netflix Top 10 page. Page structure or access rules may change over time.
+> **Data source:** Content is fetched from the Trakt trending API, not directly from Netflix. The country selector passes a country code to Trakt — whether Trakt applies regional filtering depends on their API behaviour at the time.
+
+> **Credentials:** Copy `config/settings.json.example` to `config/settings.json` and fill in your values. The `config/settings.json` file is excluded from version control via `.gitignore` — never commit it.
 
 ---
 
@@ -30,21 +31,22 @@ A Dockerized service with a built-in web interface for configuring:
 
 ## Features
 
-- Daily sync from Netflix Top 10 movies and series
+- Daily sync from Trakt trending movies and series (with optional country filter)
 - Adds movies to Radarr and series to Sonarr
 - Protects partially or recently watched media using Tautulli
-- Built-in web UI for settings, manual sync, and retention configuration
+- Built-in web UI for settings and manual sync
+- Optional HTTP Basic Auth to protect the web UI
 - Config persistence through a mounted JSON settings file
 
 ---
 
 ## How it works
 
-1. The container fetches Netflix Top 10 content.
-2. It determines the top movies and top series.
-3. It adds new titles to Radarr and Sonarr via API.
+1. The container fetches trending content from the Trakt API.
+2. It determines the top movies and top series (up to 10 each).
+3. It adds new titles to Radarr and Sonarr via their APIs.
 4. It reads Tautulli watch history and active sessions to build a protected media list.
-5. When enabled, it can use protected media status as a guardrail before cleanup.
+5. Tautulli-protected titles are reported in logs; no automatic deletion is performed.
 
 ---
 
@@ -57,6 +59,8 @@ netflix-media-sync/
 ├── docker-compose.yml
 ├── entrypoint.sh
 ├── requirements.txt
+├── config/
+│   └── settings.json.example
 └── app/
     ├── config.py
     ├── main.py
@@ -86,10 +90,13 @@ From the web UI you can:
 
 - configure Radarr, Sonarr, and Tautulli integration settings
 - adjust sync interval and retention windows
-- enable or disable old-media cleanup
 - trigger a manual sync immediately
 
 Open the interface at `http://<host>:8080` after the container is running.
+
+### Protecting the web UI
+
+Set `web_password` in `settings.json` (or the `WEB_PASSWORD` environment variable) to enable HTTP Basic Auth. Leave it empty to disable auth (suitable for private networks). The username field is ignored — only the password is checked.
 
 ---
 
@@ -105,11 +112,10 @@ These values are managed from the web UI Settings page and persisted to `/config
 | `ROOT_FOLDER_SERIES` | Root folder path in Sonarr |
 | `RADARR_QUALITY_PROFILE_ID` | Radarr quality profile ID |
 | `SONARR_QUALITY_PROFILE_ID` | Sonarr quality profile ID |
-| `NETFLIX_TOP_COUNTRIES` | List of region codes used for Netflix Top 10 sync (e.g. `us`, `gb`) |
 | `RUN_INTERVAL_SECONDS` | Seconds between sync runs (default `86400`) |
-| `DELETE_OLD_MEDIA` | `true` to enable deletion candidate evaluation (default `false`) |
 | `TAUTULLI_LOOKBACK_DAYS` | Protect media watched within this many days (default `30`) |
 | `WEB_PORT` | Web UI port (default `8080`) |
+| `WEB_PASSWORD` | Password for HTTP Basic Auth on the web UI (empty = no auth) |
 
 ---
 
@@ -143,18 +149,24 @@ cd netflix-media-sync
 docker build -t netflix-media-sync .
 ```
 
-2. Run the container with the config mount:
+2. Copy the example settings file and fill in your values:
+
+```powershell
+Copy-Item config\settings.json.example config\settings.json
+```
+
+3. Run the container with the config mount:
 
 ```powershell
 docker run -d --name netflix-media-sync -p 8080:8080 -v ${PWD}\config:/config netflix-media-sync
 ```
 
-3. Open `http://localhost:8080` in your browser.
-4. In the Settings page, enter the local app URLs using `host.docker.internal`:
+4. Open `http://localhost:8080` in your browser.
+5. In the Settings page, enter the local app URLs using `host.docker.internal`:
    - Radarr: `http://host.docker.internal:7878`
    - Sonarr: `http://host.docker.internal:8989`
    - Tautulli: `http://host.docker.internal:8181`
-5. Enter the API keys for each service and save settings.
+6. Enter the API keys for each service and save settings.
 
 > Note: `host.docker.internal` resolves from the container back to the Windows host. If your Windows apps are listening on other ports, update the URLs accordingly.
 
@@ -171,7 +183,6 @@ docker run -d --name netflix-media-sync -p 8080:8080 -v ${PWD}\config:/config ne
 The provided `docker-compose.yml` exposes the web UI and mounts the configuration directory. All integration settings are configured from the Settings page once the container starts.
 
 ```yaml
-version: "3.9"
 services:
   netflix-sync:
     build: .
@@ -196,8 +207,9 @@ Unraid can run this container through the Docker tab.
 ### Option 1: Use Docker Compose (recommended)
 
 1. Copy the repository to an Unraid share or local folder.
-2. In Unraid, enable the `docker-compose` plugin if available.
-3. Start the stack with `docker-compose up -d` from the project folder.
+2. Copy `config/settings.json.example` to `config/settings.json` and fill in your values.
+3. In Unraid, enable the `docker-compose` plugin if available.
+4. Start the stack with `docker-compose up -d` from the project folder.
 
 ### Option 2: Create a custom Docker container in Unraid
 
@@ -221,17 +233,14 @@ Unraid can run this container through the Docker tab.
 ## Usage and runtime behavior
 
 - The service starts and immediately runs one sync cycle.
-- It waits `RUN_INTERVAL_SECONDS` seconds between cycles.
-- By default, the interval is `86400` seconds (24 hours).
-- If `DELETE_OLD_MEDIA=false`, the service gathers protected titles but does not remove media.
-- If `DELETE_OLD_MEDIA=true`, the service evaluates protected media before any cleanup actions.
+- It waits `RUN_INTERVAL_SECONDS` seconds between cycles (default 24 hours).
 - The web UI allows manual sync and live settings configuration.
+- Tautulli-protected titles are logged but no media is automatically removed.
 
 ## Customization
 
 - To change the interval, update the setting in the UI or `/config/settings.json`.
-- To protect a longer watch history window, update the setting in the UI or `/config/settings.json`.
-- To update retention rules, use `movie_retention_days` and `series_retention_days` in the web UI.
+- To protect a longer watch history window, update `tautulli_lookback_days` in the UI.
 
 ---
 
@@ -244,14 +253,15 @@ Unraid can run this container through the Docker tab.
   - Confirm the container can reach those hosts.
   - Use Docker networking or service names if services are in the same stack.
 
-- Netflix fetch returns empty lists:
-  - Netflix may have changed the Top 10 page structure.
-  - Inspect or update `app/netflix_fetcher.py` if extraction no longer works.
+- Trakt fetch returns empty lists:
+  - Verify your Trakt Client ID is correct in Settings.
+  - Check container logs for HTTP errors from the Trakt API.
 
 - Titles are not being added:
   - Verify API keys.
   - Confirm quality profile IDs and root folder paths exist.
   - Review container logs for warnings and errors.
+  - Ensure Radarr/Sonarr mode is set to `Enabled` (not `Read only` or `Disabled`).
 
 ### Logging
 
@@ -261,10 +271,9 @@ Logs are written to standard output. Use `docker logs netflix-media-sync` or `do
 
 ## Notes and caveats
 
-- The service is an automation helper, not a production-grade Netflix metadata source.
-- Netflix Top 10 is scraped from a public page; reliability may vary.
-- Deletion is intentionally conservative; enable `DELETE_OLD_MEDIA` only once you have verified behavior.
-- Tautulli protection relies on similar title matching across services.
+- The service fetches from Trakt trending, not a Netflix API.
+- The Tautulli integration is read-only by default; it logs protected titles but does not trigger any deletion.
+- Tautulli title matching is approximate (string comparison across services).
 
 ---
 

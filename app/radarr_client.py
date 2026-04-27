@@ -26,10 +26,14 @@ class RadarrClient:
     def root_folder(self) -> str:
         return self.settings.get("root_folder_movies", "")
 
+    def _headers(self) -> dict:
+        return {"X-Api-Key": self.api_key}
+
     def _get(self, path: str, params: dict | None = None):
         response = requests.get(
             f"{self.base_url}{path}",
-            params={**(params or {}), "apikey": self.api_key},
+            params=params or {},
+            headers=self._headers(),
             timeout=20,
         )
         response.raise_for_status()
@@ -38,16 +42,12 @@ class RadarrClient:
     def _post(self, path: str, json_data: dict):
         response = requests.post(
             f"{self.base_url}{path}",
-            params={"apikey": self.api_key},
+            headers=self._headers(),
             json=json_data,
             timeout=20,
         )
         response.raise_for_status()
         return response.json()
-
-    def _movie_exists(self, title: str) -> bool:
-        movies = self._get("/api/v3/movie")
-        return any(movie.get("title", "").strip().lower() == title.strip().lower() for movie in movies)
 
     def lookup_movie(self, title: str) -> dict | None:
         results = self._get("/api/v3/movie/lookup", {"term": title})
@@ -56,26 +56,26 @@ class RadarrClient:
         return None
 
     def add_movie(self, title: str) -> bool:
-        if self._movie_exists(title):
-            logger.info("Movie already exists in Radarr: %s", title)
-            return False
-
         details = self.lookup_movie(title)
         if not details:
             logger.warning("Radarr lookup failed for movie: %s", title)
             return False
 
-        payload = {
-            "tmdbId": details.get("tmdbId"),
+        if details.get("id"):
+            logger.info("Movie already exists in Radarr: %s", title)
+            return False
+
+        tmdb_id = details.get("tmdbId")
+        if not tmdb_id:
+            logger.warning("Unable to add movie without TMDb ID: %s", title)
+            return False
+
+        self._post("/api/v3/movie", {
+            "tmdbId": tmdb_id,
             "qualityProfileId": self.quality_profile_id,
             "rootFolderPath": self.root_folder,
             "monitored": True,
             "addOptions": {"searchForMovie": True},
-        }
-        if not payload["tmdbId"]:
-            logger.warning("Unable to add movie without TMDb ID: %s", title)
-            return False
-
-        self._post("/api/v3/movie", payload)
+        })
         logger.info("Added movie to Radarr: %s", title)
         return True
