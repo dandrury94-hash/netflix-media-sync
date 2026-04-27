@@ -30,7 +30,8 @@ class SyncService:
         logger.info("Netflix top movies: %s", netflix_movies)
         logger.info("Netflix top series: %s", netflix_series)
 
-        protected_titles = self.tautulli.fetch_protected_titles()
+        tautulli_mode = self.settings.get("tautulli_mode", "disabled")
+        protected_titles = self.tautulli.fetch_protected_titles() if tautulli_mode in ("read", "enabled") else []
         movie_retention_days = int(self.settings.get("movie_retention_days", 30))
         series_retention_days = int(self.settings.get("series_retention_days", 30))
 
@@ -38,20 +39,29 @@ class SyncService:
 
         added_movies: list[str] = []
         added_series: list[str] = []
-        for title in netflix_movies:
-            if self.radarr.add_movie(title):
-                added_movies.append(title)
+        radarr_mode = self.settings.get("radarr_mode", "disabled")
+        if radarr_mode == "enabled":
+            for title in netflix_movies:
+                if self.radarr.add_movie(title):
+                    added_movies.append(title)
+        else:
+            logger.info("Radarr mode is %s, skipping movie import", radarr_mode)
 
         logger.info("Adding top series to Sonarr")
-        for title in netflix_series:
-            if self.sonarr.add_series(title):
-                added_series.append(title)
-
-        if self.settings.get("delete_old_media"):
-            logger.info("DELETE_OLD_MEDIA=true, cleanup evaluation is enabled.")
-            logger.info("Protected media count: %d", len(protected_titles))
+        sonarr_mode = self.settings.get("sonarr_mode", "disabled")
+        if sonarr_mode == "enabled":
+            for title in netflix_series:
+                if self.sonarr.add_series(title):
+                    added_series.append(title)
         else:
-            logger.info("DELETE_OLD_MEDIA=false, no removals will be performed.")
+            logger.info("Sonarr mode is %s, skipping series import", sonarr_mode)
+
+        if tautulli_mode == "enabled":
+            logger.info("Tautulli enabled, cleanup evaluation active. Protected media count: %d", len(protected_titles))
+        elif tautulli_mode == "read":
+            logger.info("Tautulli read-only, protected media count: %d", len(protected_titles))
+        else:
+            logger.info("Tautulli disabled, no protection or cleanup evaluated.")
 
         result = {
             "added_movies": added_movies,
