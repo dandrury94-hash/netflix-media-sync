@@ -1,7 +1,7 @@
 {
-  "radarr_mode": "read",
+  "radarr_mode": "enabled",
   "sonarr_mode": "read",
-  "tautulli_mode": "read",
+  "tautulli_mode": "enabled",
   "trakt_client_id": "cbe298bf01e5f1383d4219af17423a8a81283be270098b16695861bea7718c75",
   "radarr_url": "http://10.0.0.10:7878",
   "radarr_api_key": "9a086486f68f4ba3ac641fda451fc0a3",
@@ -11,13 +11,14 @@
   "tautulli_api_key": "b57446662d404ee58383ad2ffc95a919",
   "root_folder_movies": "/movies",
   "root_folder_series": "/tv",
-  "radarr_quality_profile_id": 2,
+  "radarr_quality_profile_id": 1,
   "sonarr_quality_profile_id": 2,
   "run_interval_seconds": 86400,
   "tautulli_lookback_days": 30,
   "movie_retention_days": 30,
   "series_retention_days": 30,
   "web_port": 8080,
+  "web_password": "",
   "netflix_top_url": "https://top10.netflix.com/",
   "netflix_top_countries": [
     "gb"

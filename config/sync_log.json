@@ -1,0 +1,61 @@
+{
+  "last_sync": {
+    "timestamp": "2026-04-27T16:19:53",
+    "added_movies": [],
+    "added_series": [],
+    "would_add_movies": [
+      "Apex",
+      "Send Help",
+      "undertone"
+    ],
+    "would_add_series": [
+      "FROM",
+      "Euphoria",
+      "The Pitt",
+      "Your Friends & Neighbors",
+      "For All Mankind"
+    ],
+    "already_in_radarr": [
+      "Project Hail Mary",
+      "The Super Mario Galaxy Movie",
+      "Michael",
+      "Greenland 2: Migration",
+      "Avatar: Fire and Ash",
+      "Crime 101",
+      "Hoppers"
+    ],
+    "already_in_sonarr": [
+      "The Boys",
+      "Invincible",
+      "Marshals",
+      "Monarch: Legacy of Monsters",
+      "Daredevil: Born Again"
+    ],
+    "protected": [],
+    "top_movies": [
+      "Apex",
+      "Project Hail Mary",
+      "The Super Mario Galaxy Movie",
+      "Michael",
+      "Send Help",
+      "Greenland 2: Migration",
+      "Avatar: Fire and Ash",
+      "Crime 101",
+      "Hoppers",
+      "undertone"
+    ],
+    "top_series": [
+      "FROM",
+      "Euphoria",
+      "The Boys",
+      "The Pitt",
+      "Invincible",
+      "Marshals",
+      "Your Friends & Neighbors",
+      "Monarch: Legacy of Monsters",
+      "For All Mankind",
+      "Daredevil: Born Again"
+    ]
+  },
+  "entries": []
+}

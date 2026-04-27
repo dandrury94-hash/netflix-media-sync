@@ -1,8 +1,10 @@
 import logging
+from logging.handlers import RotatingFileHandler
 from threading import Event, Thread
 
 from waitress import serve
 
+from app.config import LOG_PATH
 from app.manual_overrides import ManualOverrides
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
@@ -12,7 +14,22 @@ from app.web import create_app
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+_file_handler = RotatingFileHandler(
+    LOG_PATH,
+    maxBytes=5 * 1024 * 1024,
+    backupCount=3,
+    encoding="utf-8",
+)
+_file_handler.setFormatter(logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+))
+logging.getLogger().addHandler(_file_handler)
+
 logger = logging.getLogger(__name__)
 
 

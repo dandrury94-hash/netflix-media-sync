@@ -4,6 +4,7 @@ from pathlib import Path
 SETTINGS_PATH = Path(os.getenv("SETTINGS_PATH", "/config/settings.json"))
 SYNC_LOG_PATH = Path(os.getenv("SYNC_LOG_PATH", "/config/sync_log.json"))
 MANUAL_OVERRIDES_PATH = Path(os.getenv("MANUAL_OVERRIDES_PATH", "/config/manual_overrides.json"))
+LOG_PATH = Path(os.getenv("LOG_PATH", "/config/app.log"))
 
 DEFAULT_SETTINGS = {
     "radarr_mode": "disabled",

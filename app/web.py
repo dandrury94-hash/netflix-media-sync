@@ -2,6 +2,7 @@ import datetime
 
 from flask import Flask, Response, jsonify, render_template, request
 
+from app.config import LOG_PATH
 from app.manual_overrides import ManualOverrides
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
@@ -190,7 +191,28 @@ def create_app(
         schedule.sort(key=lambda x: x["days_remaining"])
         return jsonify({"schedule": schedule})
 
+    @app.route("/api/logs")
+    def get_logs():
+        return jsonify({"lines": _tail_file(LOG_PATH, 100)})
+
+    @app.route("/api/logs/clear", methods=["POST"])
+    def clear_logs():
+        try:
+            open(LOG_PATH, "w").close()
+        except OSError as exc:
+            return jsonify({"error": str(exc)}), 500
+        return jsonify({"status": "cleared"})
+
     return app
+
+
+def _tail_file(path, n: int = 100) -> list[str]:
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        return [line.rstrip("\n") for line in lines[-n:]]
+    except FileNotFoundError:
+        return []
 
 
 def _resolve_date(

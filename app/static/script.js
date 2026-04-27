@@ -91,6 +91,69 @@ document.addEventListener("DOMContentLoaded", () => {
   if (removalBody) {
     loadRemovalSchedule(removalBody);
   }
+
+  // ── Live log panel ──
+  const logOutput = document.getElementById("logOutput");
+  if (logOutput) {
+    const pauseBtn = document.getElementById("logsPauseBtn");
+    const clearBtn = document.getElementById("logsClearBtn");
+    const downloadBtn = document.getElementById("logsDownloadBtn");
+    const statusBadge = document.getElementById("logStatusBadge");
+    let logPaused = false;
+    let lastSnapshot = "";
+    let currentLines = [];
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener("click", () => {
+        logPaused = !logPaused;
+        pauseBtn.textContent = logPaused ? "Resume" : "Pause";
+        if (statusBadge) {
+          statusBadge.textContent = logPaused ? "Paused" : "Live";
+          statusBadge.classList.toggle("paused", logPaused);
+        }
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener("click", async () => {
+        try {
+          await fetch("/api/logs/clear", { method: "POST" });
+        } catch { /* ignore */ }
+        currentLines = [];
+        lastSnapshot = "";
+        logOutput.innerHTML = '<div class="log-empty">Log cleared.</div>';
+      });
+    }
+
+    if (downloadBtn) {
+      downloadBtn.addEventListener("click", () => {
+        const blob = new Blob([currentLines.join("\n")], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `netflix-sync-${new Date().toISOString().slice(0, 10)}.log`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    async function fetchLogs() {
+      if (logPaused) return;
+      try {
+        const resp = await fetch("/api/logs");
+        const data = await resp.json();
+        const lines = data.lines || [];
+        const snapshot = lines.join("\n");
+        if (snapshot === lastSnapshot) return;
+        lastSnapshot = snapshot;
+        currentLines = lines;
+        renderLogs(logOutput, lines);
+      } catch { /* ignore */ }
+    }
+
+    fetchLogs();
+    setInterval(fetchLogs, 3000);
+  }
 });
 
 async function loadRemovalSchedule(tbody) {
@@ -136,4 +199,25 @@ function escHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function logLineClass(line) {
+  if (/\[ERROR\]/.test(line)) return "log-error";
+  if (/\[WARNING\]/.test(line)) return "log-warn";
+  if (/\[DEBUG\]/.test(line)) return "log-debug";
+  if (/\[INFO\]/.test(line)) return "log-info";
+  return "log-default";
+}
+
+function renderLogs(container, lines) {
+  const atBottom =
+    container.scrollHeight - container.scrollTop - container.clientHeight < 40;
+  if (!lines.length) {
+    container.innerHTML = '<div class="log-empty">No log entries yet.</div>';
+    return;
+  }
+  container.innerHTML = lines
+    .map((l) => `<div class="log-line ${logLineClass(l)}">${escHtml(l)}</div>`)
+    .join("");
+  if (atBottom) container.scrollTop = container.scrollHeight;
 }

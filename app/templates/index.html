@@ -234,5 +234,19 @@
         </table>
     </section>
 
+    {# ── Live log feed ── #}
+    <section class="card wide-card">
+        <div class="log-toolbar">
+            <h2 style="margin:0">Live logs</h2>
+            <div class="log-actions">
+                <span id="logStatusBadge" class="log-status-badge">Live</span>
+                <button id="logsPauseBtn" class="button button-secondary button-sm">Pause</button>
+                <button id="logsDownloadBtn" class="button button-secondary button-sm">Download</button>
+                <button id="logsClearBtn" class="button button-secondary button-sm">Clear</button>
+            </div>
+        </div>
+        <div id="logOutput" class="log-output"><div class="log-empty">No log entries yet.</div></div>
+    </section>
+
 </div>
 {% endblock %}

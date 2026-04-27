@@ -525,3 +525,81 @@ body::before {
     color: #2ecf7d;
     font-weight: 700;
 }
+
+/* ── Log panel ── */
+.log-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.log-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.log-status-badge {
+    font-size: 0.72rem;
+    padding: 2px 9px;
+    border-radius: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(46, 207, 125, 0.14);
+    color: #2ecf7d;
+    transition: background 0.2s, color 0.2s;
+}
+
+.log-status-badge.paused {
+    background: rgba(240, 180, 41, 0.14);
+    color: #f0b429;
+}
+
+.button-secondary {
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+}
+
+.button-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.button-sm {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    border-radius: 9px;
+}
+
+.log-output {
+    height: 400px;
+    overflow-y: auto;
+    background: rgba(6, 10, 18, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-family: 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    scroll-behavior: smooth;
+}
+
+.log-line {
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: text;
+}
+
+.log-info    { color: #2ecf7d; }
+.log-warn    { color: #f0b429; }
+.log-error   { color: #e05252; }
+.log-debug   { color: #4a5878; }
+.log-default { color: #6b7a99; }
+.log-empty   { color: #4a5878; font-style: italic; }

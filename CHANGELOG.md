@@ -4,6 +4,23 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-006 — 2026-04-27 — Live log feed
+
+### Infrastructure
+- `RotatingFileHandler` added to the root logger at startup; writes to `/config/app.log`, max 5 MB per file, 3 backups; all existing `logging` calls are captured automatically without changes to any other module (`app/main.py`)
+- Both the file handler and the existing stdout handler now share the same `datefmt="%Y-%m-%d %H:%M:%S"` format: `YYYY-MM-DD HH:MM:SS [LEVEL] logger_name: message` (`app/main.py`)
+- `LOG_PATH` constant added (`app/config.py`); defaults to `/config/app.log`, overridable via `LOG_PATH` env var
+
+### Additions
+- `GET /api/logs` — returns the last 100 lines of `/config/app.log` as `{"lines": [...]}` (`app/web.py`)
+- `POST /api/logs/clear` — truncates `/config/app.log` to zero bytes while keeping the file in place (`app/web.py`)
+- `_tail_file(path, n)` helper reads last N lines of any file, returns `[]` when the file does not yet exist (`app/web.py`)
+- Live log panel on dashboard: polls `/api/logs` every 3 seconds, colour-coded by level (green INFO / yellow WARNING / red ERROR / grey DEBUG), auto-scrolls to bottom unless user has scrolled up (`app/templates/index.html`, `app/static/script.js`, `app/static/style.css`)
+- Pause / Resume button stops polling and updates a Live / Paused badge; Download button exports current lines as a dated `.log` file; Clear button truncates the file via `/api/logs/clear` and empties the panel (`app/static/script.js`, `app/templates/index.html`)
+- Log output uses monospace font, selectable text, `pre-wrap` line wrapping — contents can be selected and copied directly (`app/static/style.css`)
+
+---
+
 ## CHG-005 — 2026-04-27 — Dashboard features
 
 ### Additions
