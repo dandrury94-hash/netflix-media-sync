@@ -51,7 +51,12 @@ class TautulliClient:
 
         logger.info("Fetching Tautulli history to protect watched media")
         history = self._request("get_history", {"length": 200})
-        for item in history.get("data", []):
+        items = history.get("data", [])
+        if not isinstance(items, list):
+            items = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
             title = item.get("title")
             if not title:
                 continue
@@ -67,9 +72,13 @@ class TautulliClient:
             if progress > 0 and progress < 100:
                 protected_titles.add(title.strip())
 
-        logger.info("Fetching Tautulli activity to protect currently watched media")
         activity = self._request("get_activity")
-        for item in activity.get("data", []):
+        sessions = activity.get("sessions", [])
+        if not isinstance(sessions, list):
+            sessions = []
+        for item in sessions:
+            if not isinstance(item, dict):
+                continue
             title = item.get("title")
             if title:
                 protected_titles.add(title.strip())

@@ -1,18 +1,18 @@
 {
-  "radarr_mode": "disabled",
-  "sonarr_mode": "disabled",
-  "tautulli_mode": "disabled",
+  "radarr_mode": "read",
+  "sonarr_mode": "read",
+  "tautulli_mode": "read",
   "trakt_client_id": "cbe298bf01e5f1383d4219af17423a8a81283be270098b16695861bea7718c75",
-  "radarr_url": "http://radarr:7878",
-  "radarr_api_key": "",
-  "sonarr_url": "http://sonarr:8989",
-  "sonarr_api_key": "",
-  "tautulli_url": "http://tautulli:8181",
-  "tautulli_api_key": "",
+  "radarr_url": "http://10.0.0.10:7878",
+  "radarr_api_key": "9a086486f68f4ba3ac641fda451fc0a3",
+  "sonarr_url": "http://10.0.0.10:8989",
+  "sonarr_api_key": "112bdaff7f5c433ba5e37bb85b16c91c",
+  "tautulli_url": "http://10.0.0.10:8181",
+  "tautulli_api_key": "b57446662d404ee58383ad2ffc95a919",
   "root_folder_movies": "/movies",
   "root_folder_series": "/tv",
-  "radarr_quality_profile_id": 1,
-  "sonarr_quality_profile_id": 1,
+  "radarr_quality_profile_id": 2,
+  "sonarr_quality_profile_id": 2,
   "run_interval_seconds": 86400,
   "tautulli_lookback_days": 30,
   "movie_retention_days": 30,
@@ -20,6 +20,6 @@
   "web_port": 8080,
   "netflix_top_url": "https://top10.netflix.com/",
   "netflix_top_countries": [
-    "us"
+    "gb"
   ]
 }
