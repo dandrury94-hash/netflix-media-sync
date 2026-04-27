@@ -232,15 +232,39 @@
                     <th>Removal date</th>
                     <th>Status</th>
                     <th>Days remaining</th>
+                    <th>Grace expires</th>
+                    <th>Days to delete</th>
                 </tr>
             </thead>
             <tbody id="removalScheduleBody">
-                <tr><td colspan="6" class="table-empty">Loading…</td></tr>
+                <tr><td colspan="8" class="table-empty">Loading…</td></tr>
             </tbody>
         </table>
     </section>
 
 </div>
+</div>
+
+{# ── History tab ── #}
+<div id="tab-history" class="tab-panel">
+    <section class="card wide-card">
+        <h2>Removal history</h2>
+        <p class="field-help">Titles automatically deleted from Radarr / Sonarr. Records are kept for 180 days.</p>
+        <table class="removal-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Date removed</th>
+                    <th>Reason</th>
+                    <th>Watched</th>
+                </tr>
+            </thead>
+            <tbody id="removalHistoryBody">
+                <tr><td colspan="5" class="table-empty">Loading…</td></tr>
+            </tbody>
+        </table>
+    </section>
 </div>
 
 {# ── Logs tab ── #}

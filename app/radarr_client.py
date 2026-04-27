@@ -95,6 +95,21 @@ class RadarrClient:
             return results[0]
         return None
 
+    def delete_movie(self, movie_id: int, delete_files: bool = True) -> bool:
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/v3/movie/{movie_id}",
+                params={"deleteFiles": "true" if delete_files else "false"},
+                headers=self._headers(),
+                timeout=20,
+            )
+            response.raise_for_status()
+            logger.info("Deleted Radarr movie id=%d (deleteFiles=%s)", movie_id, delete_files)
+            return True
+        except Exception as exc:
+            logger.error("Failed to delete Radarr movie id=%d: %s", movie_id, exc)
+            return False
+
     def add_movie(self, title: str, library_cache: dict | None = None) -> bool:
         if library_cache is not None:
             cached = library_cache.get(title.lower())

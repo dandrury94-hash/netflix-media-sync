@@ -95,6 +95,21 @@ class SonarrClient:
             return results[0]
         return None
 
+    def delete_series(self, series_id: int, delete_files: bool = True) -> bool:
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/v3/series/{series_id}",
+                params={"deleteFiles": "true" if delete_files else "false"},
+                headers=self._headers(),
+                timeout=20,
+            )
+            response.raise_for_status()
+            logger.info("Deleted Sonarr series id=%d (deleteFiles=%s)", series_id, delete_files)
+            return True
+        except Exception as exc:
+            logger.error("Failed to delete Sonarr series id=%d: %s", series_id, exc)
+            return False
+
     def add_series(self, title: str, library_cache: dict | None = None) -> bool:
         if library_cache is not None:
             cached = library_cache.get(title.lower())

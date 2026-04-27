@@ -14,7 +14,7 @@ class SyncLog:
     def __init__(self, path: Path = SYNC_LOG_PATH) -> None:
         self.path = path
         self._lock = threading.Lock()
-        self._data: dict[str, Any] = {"last_sync": None, "entries": []}
+        self._data: dict[str, Any] = {"last_sync": None, "entries": [], "grace_periods": {}}
         self._load()
 
     def _load(self) -> None:
@@ -24,6 +24,8 @@ class SyncLog:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 self._data = data
+                if "grace_periods" not in self._data:
+                    self._data["grace_periods"] = {}
         except Exception:
             logger.warning("Failed to load sync log from %s", self.path, exc_info=True)
 
@@ -62,6 +64,27 @@ class SyncLog:
         with self._lock:
             entries = self._data.get("entries", [])
             return list(entries) if isinstance(entries, list) else []
+
+    def start_grace_period(self, title: str, media_type: str) -> None:
+        with self._lock:
+            gp = self._data.setdefault("grace_periods", {})
+            if title not in gp:
+                gp[title] = {
+                    "started": datetime.date.today().isoformat(),
+                    "type": media_type,
+                }
+                self._save()
+
+    def get_grace_periods(self) -> dict:
+        with self._lock:
+            return dict(self._data.get("grace_periods", {}))
+
+    def clear_grace_period(self, title: str) -> None:
+        with self._lock:
+            gp = self._data.get("grace_periods", {})
+            if title in gp:
+                del gp[title]
+                self._save()
 
     def get_date_added(self, title: str) -> str | None:
         """Return the earliest date_added recorded for a title."""

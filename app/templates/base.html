@@ -22,6 +22,7 @@
             <nav class="topnav">
                 <a href="{{ url_for('index') }}" data-tab-target="dashboard">Dashboard</a>
                 <a href="{{ url_for('index') }}" data-tab-target="logs">Logs</a>
+                <a href="{{ url_for('index') }}" data-tab-target="history">History</a>
                 <a href="{{ url_for('settings_page') }}" class="{% if request.path == url_for('settings_page') %}active{% endif %}">Settings</a>
             </nav>
         </header>
