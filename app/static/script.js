@@ -86,6 +86,50 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // ── Test connection buttons ──
+  document.querySelectorAll(".test-conn-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const service = btn.dataset.service;
+      const resultEl = document.getElementById(`${service}TestResult`);
+      const urlEl = document.querySelector(`[name="${service}_url"]`);
+      const keyEl = document.querySelector(`[name="${service}_api_key"]`);
+      const url = urlEl ? urlEl.value.trim() : "";
+      const api_key = keyEl ? keyEl.value.trim() : "";
+
+      setTestResult(resultEl, "Testing…", "");
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch(`/api/test/${service}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, api_key }),
+        });
+        const data = await resp.json();
+
+        if (data.status === "ok") {
+          setTestResult(resultEl, `✅ ${data.message}`, "success");
+          if (data.quality_profiles && data.quality_profiles.length) {
+            const qName = service === "radarr" ? "radarr_quality_profile_id" : "sonarr_quality_profile_id";
+            const curQ = document.querySelector(`[name="${qName}"]`)?.value ?? "1";
+            replaceWithSelect(qName, data.quality_profiles.map((p) => ({ value: p.id, label: p.name })), curQ);
+          }
+          if (data.root_folders && data.root_folders.length) {
+            const fName = service === "radarr" ? "root_folder_movies" : "root_folder_series";
+            const curF = document.querySelector(`[name="${fName}"]`)?.value ?? "";
+            replaceWithSelect(fName, data.root_folders.map((p) => ({ value: p, label: p })), curF);
+          }
+        } else {
+          setTestResult(resultEl, `❌ ${data.message}`, "error");
+        }
+      } catch (err) {
+        setTestResult(resultEl, `❌ ${err.message}`, "error");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
   // ── Removal schedule ──
   const removalBody = document.getElementById("removalScheduleBody");
   if (removalBody) {
@@ -210,6 +254,28 @@ function escHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function setTestResult(el, text, state) {
+  if (!el) return;
+  el.textContent = text;
+  el.className = "test-conn-result";
+  if (state) el.classList.add(`test-conn-result--${state}`);
+}
+
+function replaceWithSelect(fieldName, options, currentValue) {
+  const el = document.querySelector(`[name="${fieldName}"]`);
+  if (!el) return;
+  const sel = document.createElement("select");
+  sel.name = fieldName;
+  options.forEach(({ value, label }) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = label;
+    if (String(value) === String(currentValue)) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  el.replaceWith(sel);
 }
 
 function logLineClass(line) {

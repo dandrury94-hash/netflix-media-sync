@@ -4,6 +4,21 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-007 — 2026-04-27 — Test connection buttons
+
+### Additions
+- Test connection button added to each integration card in Settings (Radarr, Sonarr, Tautulli) (`app/templates/settings.html`)
+- `POST /api/test/radarr` and `POST /api/test/sonarr` — verify connectivity using the URL and API key submitted from the form; on success return available quality profiles (`/api/v3/qualityprofile`) and root folders (`/api/v3/rootfolder`) (`app/web.py`)
+- `POST /api/test/tautulli` — calls `/api/v2?cmd=get_server_info`; on success returns the Plex server name (`app/web.py`)
+- After a successful Radarr / Sonarr test, the quality profile ID number input and root folder text input are replaced in-place with populated dropdowns; form submission continues to work because the dropdowns carry the same `name` attributes (`app/static/script.js`)
+- `✅ Connected` shown on success; `❌ <reason>` shown on failure with specific messages for connection refused, timeout, 401/403, and other HTTP errors (`app/static/script.js`, `app/static/style.css`)
+- Sentinel `__REDACTED__` is resolved to the stored key server-side so Test Connection works even when the API key field has not been re-entered (`app/web.py`)
+
+### Infrastructure
+- `import requests as _requests` added to `web.py`; shared helpers `_resolve_test_key`, `_exc_msg`, and `_test_arr` avoid duplication across the three endpoints (`app/web.py`)
+
+---
+
 ## CHG-006 — 2026-04-27 — Live log feed
 
 ### Infrastructure

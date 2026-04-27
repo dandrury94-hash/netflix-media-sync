@@ -603,3 +603,20 @@ body::before {
 .log-debug   { color: #4a5878; }
 .log-default { color: #6b7a99; }
 .log-empty   { color: #4a5878; font-style: italic; }
+
+/* ── Test connection ── */
+.test-conn-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.test-conn-result {
+    font-size: 0.88rem;
+    color: var(--muted);
+}
+
+.test-conn-result--success { color: #2ecf7d; }
+.test-conn-result--error   { color: #e05252; }

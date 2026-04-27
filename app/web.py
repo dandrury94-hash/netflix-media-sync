@@ -1,5 +1,6 @@
 import datetime
 
+import requests as _requests
 from flask import Flask, Response, jsonify, render_template, request
 
 from app.config import LOG_PATH
@@ -191,6 +192,45 @@ def create_app(
         schedule.sort(key=lambda x: x["days_remaining"])
         return jsonify({"schedule": schedule})
 
+    @app.route("/api/test/radarr", methods=["POST"])
+    def test_radarr():
+        payload = request.json or {}
+        url = payload.get("url", "").rstrip("/")
+        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("radarr_api_key", ""))
+        return _test_arr(url, api_key)
+
+    @app.route("/api/test/sonarr", methods=["POST"])
+    def test_sonarr():
+        payload = request.json or {}
+        url = payload.get("url", "").rstrip("/")
+        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("sonarr_api_key", ""))
+        return _test_arr(url, api_key)
+
+    @app.route("/api/test/tautulli", methods=["POST"])
+    def test_tautulli():
+        payload = request.json or {}
+        url = payload.get("url", "").rstrip("/")
+        api_key = _resolve_test_key(payload.get("api_key", ""), settings.get("tautulli_api_key", ""))
+        if not url:
+            return jsonify({"status": "error", "message": "URL is required"})
+        if not api_key:
+            return jsonify({"status": "error", "message": "API key is required"})
+        try:
+            r = _requests.get(
+                f"{url}/api/v2",
+                params={"apikey": api_key, "cmd": "get_server_info"},
+                timeout=10,
+            )
+            r.raise_for_status()
+            data = r.json()
+            if data.get("response", {}).get("result") == "success":
+                name = data["response"]["data"].get("pms_name", "Plex")
+                return jsonify({"status": "ok", "message": f"Connected — {name}"})
+            msg = data.get("response", {}).get("message", "Unexpected response")
+            return jsonify({"status": "error", "message": msg})
+        except Exception as exc:
+            return jsonify({"status": "error", "message": _exc_msg(exc)})
+
     @app.route("/api/logs")
     def get_logs():
         return jsonify({"lines": _tail_file(LOG_PATH, 100)})
@@ -204,6 +244,49 @@ def create_app(
         return jsonify({"status": "cleared"})
 
     return app
+
+
+def _resolve_test_key(submitted: str, stored: str) -> str:
+    v = submitted.strip()
+    return stored if v == _SENTINEL else v
+
+
+def _exc_msg(exc: Exception) -> str:
+    if isinstance(exc, _requests.exceptions.ConnectionError):
+        return "Connection refused — check URL and port"
+    if isinstance(exc, _requests.exceptions.Timeout):
+        return "Request timed out"
+    if isinstance(exc, _requests.exceptions.HTTPError):
+        code = exc.response.status_code
+        if code == 401:
+            return "Invalid API key (401)"
+        if code == 403:
+            return "Forbidden — check API key permissions (403)"
+        return f"HTTP {code}"
+    return str(exc)
+
+
+def _test_arr(url: str, api_key: str):
+    if not url:
+        return jsonify({"status": "error", "message": "URL is required"})
+    if not api_key:
+        return jsonify({"status": "error", "message": "API key is required"})
+    try:
+        hdrs = {"X-Api-Key": api_key}
+        r = _requests.get(f"{url}/api/v3/qualityprofile", headers=hdrs, timeout=10)
+        r.raise_for_status()
+        profiles = [{"id": p["id"], "name": p["name"]} for p in r.json()]
+        r = _requests.get(f"{url}/api/v3/rootfolder", headers=hdrs, timeout=10)
+        r.raise_for_status()
+        folders = [f["path"] for f in r.json()]
+        return jsonify({
+            "status": "ok",
+            "message": "Connected",
+            "quality_profiles": profiles,
+            "root_folders": folders,
+        })
+    except Exception as exc:
+        return jsonify({"status": "error", "message": _exc_msg(exc)})
 
 
 def _tail_file(path, n: int = 100) -> list[str]:

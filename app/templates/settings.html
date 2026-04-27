@@ -26,7 +26,7 @@
                     value="{{ '__REDACTED__' if settings.radarr_api_key else '' }}"
                     placeholder="{{ 'Paste to replace' if settings.radarr_api_key else 'Paste API key' }}" />
             </label>
-            <label>Radarr quality profile ID
+            <label>Radarr quality profile
                 <input type="number" name="radarr_quality_profile_id"
                     value="{{ settings.radarr_quality_profile_id }}" />
             </label>
@@ -34,6 +34,10 @@
                 <input type="text" name="root_folder_movies" value="{{ settings.root_folder_movies }}"
                     placeholder="/movies" />
             </label>
+            <div class="test-conn-row">
+                <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="radarr">Test connection</button>
+                <span id="radarrTestResult" class="test-conn-result"></span>
+            </div>
         </section>
 
         <section class="card">
@@ -55,7 +59,7 @@
                     value="{{ '__REDACTED__' if settings.sonarr_api_key else '' }}"
                     placeholder="{{ 'Paste to replace' if settings.sonarr_api_key else 'Paste API key' }}" />
             </label>
-            <label>Sonarr quality profile ID
+            <label>Sonarr quality profile
                 <input type="number" name="sonarr_quality_profile_id"
                     value="{{ settings.sonarr_quality_profile_id }}" />
             </label>
@@ -63,6 +67,10 @@
                 <input type="text" name="root_folder_series" value="{{ settings.root_folder_series }}"
                     placeholder="/tv" />
             </label>
+            <div class="test-conn-row">
+                <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="sonarr">Test connection</button>
+                <span id="sonarrTestResult" class="test-conn-result"></span>
+            </div>
         </section>
 
         <section class="card">
@@ -88,6 +96,10 @@
             <label>Tautulli lookback days
                 <input type="number" name="tautulli_lookback_days" value="{{ settings.tautulli_lookback_days }}" />
             </label>
+            <div class="test-conn-row">
+                <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="tautulli">Test connection</button>
+                <span id="tautulliTestResult" class="test-conn-result"></span>
+            </div>
         </section>
 
         <section class="card">
