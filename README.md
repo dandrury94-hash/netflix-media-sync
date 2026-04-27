@@ -1,145 +1,146 @@
 # Netflix Media Sync
 
-A Dockerized service with a built-in web interface for configuring:
+A **policy-driven media sync service** that automatically adds trending content to Radarr and Sonarr, while protecting watched media using Tautulli.
 
-- Trending content sync via the [Trakt](https://trakt.tv) API
-- Radarr integration
-- Sonarr integration
-- Tautulli watch-history protection rules
-
-> **Data source:** Content is fetched from the Trakt trending API, not directly from Netflix. The country selector passes a country code to Trakt — whether Trakt applies regional filtering depends on their API behaviour at the time.
-
-> **Credentials:** Copy `config/settings.json.example` to `config/settings.json` and fill in your values. The `config/settings.json` file is excluded from version control via `.gitignore` — never commit it.
-
----
-
-## Contents
-
-- [Features](#features)
-- [How it works](#how-it-works)
-- [Repository structure](#repository-structure)
-- [Web interface](#web-interface)
-- [Configuration settings](#configuration-settings)
-- [Docker deployment](#docker-deployment)
-- [Docker Compose deployment](#docker-compose-deployment)
-- [Unraid deployment](#unraid-deployment)
-- [Usage and runtime behavior](#usage-and-runtime-behavior)
-- [Troubleshooting](#troubleshooting)
-- [Notes and caveats](#notes-and-caveats)
+Built as a Dockerized background worker with a web interface, the system supports safe dry runs, full automation, configurable retention policies, and live monitoring.
 
 ---
 
 ## Features
 
-- Scheduled sync from Trakt trending movies and series (with optional country filter)
-- Adds movies to Radarr and series to Sonarr
-- Protects partially or recently watched media using Tautulli
-- Built-in web UI for settings and manual sync
-- Optional HTTP Basic Auth to protect the web UI
-- Config persistence through a mounted JSON settings file
+- Sync trending movies and series from Trakt by country
+- Add content to Radarr (movies) and Sonarr (series) automatically
+- Protect recently watched media using Tautulli watch history
+- Manual protection overrides, persisted across restarts
+- Dry-run (read) mode for safe previewing before enabling
+- Scheduled removal tracking with urgency indicators
+- Live log feed with pause, copy, download, and clear controls
+- Test connection buttons for each integration with live validation
+- Status icons on Top 10 lists showing per-title Radarr/Sonarr state
+- Optional HTTP Basic Auth
+- All config and runtime data persisted in `/config`
+- Docker-first deployment with a single bind mount
 
 ---
 
-## How it works
+## Key Concepts
 
-1. The container fetches trending content from the Trakt API.
-2. It determines the top movies and top series (up to 10 each).
-3. It adds new titles to Radarr and Sonarr via their APIs.
-4. It reads Tautulli watch history and active sessions to build a protected media list.
-5. Tautulli-protected titles are reported in logs; no automatic deletion is performed.
+### Sync Modes
 
----
+Each integration (Radarr, Sonarr, Tautulli) is independently configured:
 
-## Repository structure
+| Mode | Behaviour |
+|------|-----------|
+| `disabled` | Integration is ignored entirely |
+| `read` | Dry-run — shows what would happen, makes no changes |
+| `enabled` | Fully active — adds titles, applies protection rules |
 
-```text
-netflix-media-sync/
-├── CHANGELOG.md
-├── Dockerfile
-├── README.md
-├── docker-compose.yml
-├── entrypoint.sh
-├── requirements.txt
-├── config/
-│   └── settings.json.example
-└── app/
-    ├── config.py
-    ├── main.py
-    ├── netflix_fetcher.py
-    ├── radarr_client.py
-    ├── sonarr_client.py
-    ├── settings.py
-    ├── sync_service.py
-    ├── tautulli_client.py
-    ├── web.py
-    ├── static/
-    │   ├── script.js
-    │   └── style.css
-    └── templates/
-        ├── base.html
-        ├── index.html
-        └── settings.html
-```
+### Protection Model
+
+A title is protected if either condition is true:
+- It appears in Tautulli watch history within the lookback window
+- It has been manually pinned via the dashboard override toggle
+
+Protected titles are never removed from the removal schedule and are surfaced prominently on the dashboard.
+
+### Top 10 Status Icons
+
+The dashboard Top 10 panels display a live status icon per title (loaded asynchronously):
+
+| Icon | Meaning |
+|------|---------|
+| ✅ | Available — file is downloaded and in the library |
+| ⏳ | Pending — monitored in Radarr/Sonarr but not yet downloaded |
+| ➕ | Will Add — not yet in Radarr/Sonarr, would be added on next enabled sync |
+| ➖ | Disabled — integration is off, status unknown |
+
+### Removal Schedule
+
+All `netflix-sync` tagged titles in Radarr and Sonarr appear in the removal schedule table, showing:
+- Date added (from sync log, falling back to Radarr/Sonarr metadata)
+- Calculated removal date based on retention settings
+- Protection status
+- Days remaining, colour-coded by urgency
 
 ---
 
-## Web interface
+## Web Interface
 
-The container exposes a web UI on port `8080` by default.
+Available at `http://<host>:8080` (port configurable).
 
-From the web UI you can:
+### Dashboard tab
 
-- configure Radarr, Sonarr, and Tautulli integration settings
-- adjust the sync interval
-- trigger a manual sync immediately
+- **Integration status** — mode and health indicator for each integration
+- **Last sync summary** — timestamp and per-mode counts
+- **Actions** — manual sync trigger
+- **Trakt Top 10 Movies / Series** — last sync results with live status icons
+- **Import preview** — titles added or would-be-added this sync
+- **Protected titles** — Tautulli and manually overridden titles with override toggles
+- **Scheduled removals** — all `netflix-sync` tagged titles with removal timeline
 
-Open the interface at `http://<host>:8080` after the container is running.
+### Logs tab
 
-### Protecting the web UI
+- Live log feed polling every 3 seconds, 2000-line scrollback
+- Colour-coded by level (INFO / WARNING / ERROR / DEBUG)
+- Auto-scrolls to bottom unless the user has scrolled up
+- Controls: Pause/Resume, Copy to clipboard, Download as `.log`, Clear
 
-Set `web_password` in `settings.json` (or the `WEB_PASSWORD` environment variable) to enable HTTP Basic Auth. Leave it empty to disable auth (suitable for private networks). The username field is ignored — only the password is checked.
+### Settings page
 
----
-
-## Configuration settings
-
-These values are managed from the web UI Settings page and persisted to `/config/settings.json`. Each setting can also be set via its environment variable equivalent (shown in parentheses).
-
-To use the Trakt API you must register a free application at [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications) and copy the **Client ID** into `trakt_client_id`.
-
-| JSON key | Env var | Description |
-| --- | --- | --- |
-| `radarr_url` | `RADARR_URL` | Radarr base URL, e.g. `http://radarr:7878` |
-| `radarr_api_key` | `RADARR_API_KEY` | Radarr API key |
-| `radarr_mode` | `RADARR_MODE` | `enabled`, `read`, or `disabled` (default `disabled`) |
-| `sonarr_url` | `SONARR_URL` | Sonarr base URL, e.g. `http://sonarr:8989` |
-| `sonarr_api_key` | `SONARR_API_KEY` | Sonarr API key |
-| `sonarr_mode` | `SONARR_MODE` | `enabled`, `read`, or `disabled` (default `disabled`) |
-| `tautulli_url` | `TAUTULLI_URL` | Tautulli base URL, e.g. `http://tautulli:8181` |
-| `tautulli_api_key` | `TAUTULLI_API_KEY` | Tautulli API key |
-| `tautulli_mode` | `TAUTULLI_MODE` | `enabled`, `read`, or `disabled` (default `disabled`) |
-| `trakt_client_id` | `TRAKT_CLIENT_ID` | Trakt application Client ID (required) |
-| `root_folder_movies` | `ROOT_FOLDER_MOVIES` | Root folder path in Radarr |
-| `root_folder_series` | `ROOT_FOLDER_SERIES` | Root folder path in Sonarr |
-| `radarr_quality_profile_id` | `RADARR_QUALITY_PROFILE_ID` | Radarr quality profile ID |
-| `sonarr_quality_profile_id` | `SONARR_QUALITY_PROFILE_ID` | Sonarr quality profile ID |
-| `run_interval_seconds` | `RUN_INTERVAL_SECONDS` | Seconds between sync runs (default `86400`) |
-| `tautulli_lookback_days` | `TAUTULLI_LOOKBACK_DAYS` | Protect media watched within this many days (default `30`) |
-| `web_port` | `WEB_PORT` | Web UI port (default `8080`) |
-| `web_password` | `WEB_PASSWORD` | Password for HTTP Basic Auth on the web UI (empty = no auth) |
+- Per-integration configuration (URL, API key, mode, quality profile, root folder)
+- **Test Connection** button on each card — validates live connectivity and populates quality profile and root folder dropdowns from the live API
+- Trakt Client ID, sync interval, retention days, web port, and Basic Auth password
+- Netflix Top 10 country selection (multi-select)
 
 ---
 
-## Docker deployment
+## Authentication
 
-### Build the image
+Set `web_password` in settings or the `WEB_PASSWORD` environment variable to enable HTTP Basic Auth. Leave empty to disable.
 
-```bash
-cd netflix-media-sync
-docker build -t netflix-media-sync .
-```
+---
 
-### Run the container
+## Configuration
+
+All settings are stored in `/config/settings.json` and can be overridden by environment variables.
+
+### Full settings reference
+
+| JSON key | Environment variable | Default | Description |
+|----------|---------------------|---------|-------------|
+| `radarr_url` | `RADARR_URL` | — | Radarr base URL (e.g. `http://radarr:7878`) |
+| `radarr_api_key` | `RADARR_API_KEY` | — | Radarr API key |
+| `radarr_mode` | `RADARR_MODE` | `disabled` | `disabled` / `read` / `enabled` |
+| `radarr_quality_profile_id` | `RADARR_QUALITY_PROFILE_ID` | `1` | Radarr quality profile ID |
+| `root_folder_movies` | `ROOT_FOLDER_MOVIES` | — | Radarr root folder path (e.g. `/movies`) |
+| `sonarr_url` | `SONARR_URL` | — | Sonarr base URL (e.g. `http://sonarr:8989`) |
+| `sonarr_api_key` | `SONARR_API_KEY` | — | Sonarr API key |
+| `sonarr_mode` | `SONARR_MODE` | `disabled` | `disabled` / `read` / `enabled` |
+| `sonarr_quality_profile_id` | `SONARR_QUALITY_PROFILE_ID` | `1` | Sonarr quality profile ID |
+| `root_folder_series` | `ROOT_FOLDER_SERIES` | — | Sonarr root folder path (e.g. `/tv`) |
+| `tautulli_url` | `TAUTULLI_URL` | — | Tautulli base URL (e.g. `http://tautulli:8181`) |
+| `tautulli_api_key` | `TAUTULLI_API_KEY` | — | Tautulli API key |
+| `tautulli_mode` | `TAUTULLI_MODE` | `disabled` | `disabled` / `read` / `enabled` |
+| `tautulli_lookback_days` | `TAUTULLI_LOOKBACK_DAYS` | `30` | Days of watch history to consider for protection |
+| `trakt_client_id` | `TRAKT_CLIENT_ID` | — | Trakt API client ID — obtain from trakt.tv/oauth/applications |
+| `netflix_top_countries` | `NETFLIX_TOP_COUNTRIES` | `[]` | List of country codes for Trakt Top 10 (e.g. `["us","gb"]`). Falls back to global trending if empty. |
+| `run_interval_seconds` | `RUN_INTERVAL_SECONDS` | `86400` | Seconds between automatic sync runs |
+| `movie_retention_days` | `MOVIE_RETENTION_DAYS` | `30` | Retention window used to calculate removal dates for movies |
+| `series_retention_days` | `SERIES_RETENTION_DAYS` | `30` | Retention window used to calculate removal dates for series |
+| `web_port` | `WEB_PORT` | `8080` | Web UI port |
+| `web_password` | `WEB_PASSWORD` | — | HTTP Basic Auth password. Leave empty to disable auth. |
+
+### Initial setup
+
+1. Copy `config/settings.json.example` to `config/settings.json`
+2. Fill in your API keys, or leave empty and use the Settings page on first run
+3. Use **Test Connection** in Settings to validate each integration before enabling it
+
+---
+
+## Docker
+
+### docker run
 
 ```bash
 docker run -d \
@@ -149,147 +150,84 @@ docker run -d \
   netflix-media-sync
 ```
 
-### Windows local app test deployment
-
-If you want to test with Radarr, Sonarr, and Tautulli running locally on Windows, use Docker Desktop and the `host.docker.internal` hostname.
-
-1. Build the image from the repository root:
-
-```powershell
-cd netflix-media-sync
-docker build -t netflix-media-sync .
-```
-
-2. Copy the example settings file and fill in your values:
-
-```powershell
-Copy-Item config\settings.json.example config\settings.json
-```
-
-3. Run the container with the config mount:
-
-```powershell
-docker run -d --name netflix-media-sync -p 8080:8080 -v ${PWD}\config:/config netflix-media-sync
-```
-
-4. Open `http://localhost:8080` in your browser.
-5. In the Settings page, enter the local app URLs using `host.docker.internal`:
-   - Radarr: `http://host.docker.internal:7878`
-   - Sonarr: `http://host.docker.internal:8989`
-   - Tautulli: `http://host.docker.internal:8181`
-6. Enter the API keys for each service and save settings.
-
-> Note: `host.docker.internal` resolves from the container back to the Windows host. If your Windows apps are listening on other ports, update the URLs accordingly.
-
-### Notes
-
-- Replace the example URLs with the actual service URLs from your network.
-- Use container names or hostnames consistent with your Docker network.
-- If Radarr, Sonarr, and Tautulli are in the same network, use their service names.
-
----
-
-## Docker Compose deployment
-
-The provided `docker-compose.yml` exposes the web UI and mounts the configuration directory. All integration settings are configured from the Settings page once the container starts.
+### docker-compose
 
 ```yaml
 services:
-  netflix-sync:
-    build: .
+  netflix-media-sync:
+    image: netflix-media-sync
     ports:
       - "8080:8080"
     volumes:
       - ./config:/config
-```
-
-To launch:
-
-```bash
-docker-compose up -d
+    restart: unless-stopped
 ```
 
 ---
 
-## Unraid deployment
+## Runtime Behaviour
 
-Unraid can run this container through the Docker tab.
-
-### Option 1: Use Docker Compose (recommended)
-
-1. Copy the repository to an Unraid share or local folder.
-2. Copy `config/settings.json.example` to `config/settings.json` and fill in your values.
-3. In Unraid, enable the `docker-compose` plugin if available.
-4. Start the stack with `docker-compose up -d` from the project folder.
-
-### Option 2: Create a custom Docker container in Unraid
-
-1. Open the Unraid web UI and go to `Docker` > `Add Container`.
-2. Set the image name to `netflix-media-sync` or build from the local `Dockerfile`.
-3. Configure the container and volume mappings.
-   - Mount `./config` to `/config`.
-   - Expose port `8080` for the web UI.
-   - Configure Radarr, Sonarr, and Tautulli settings from the Settings page after startup.
-4. Configure the network type to `bridge` or `custom` if you have a Docker network for Radarr/Sonarr/Tautulli.
-5. Start the container.
-
-### Recommended Unraid notes
-
-- Use `host` networking only if you understand the implications for port exposure.
-- Set `Restart Policy` to `Unless stopped`.
-- Match config volume mapping and root folder paths to your Radarr and Sonarr configuration.
+- Sync runs immediately on startup, then repeats on the configured interval
+- A manual sync can be triggered from the dashboard at any time
+- The background worker and web server share a single `SyncService` instance with a lock — concurrent runs queue rather than overlap
+- All runtime state (`sync_log.json`, `manual_overrides.json`, `app.log`) is written to `/config`
 
 ---
 
-## Usage and runtime behavior
+## Logging
 
-- The service starts and immediately runs one sync cycle.
-- It waits `RUN_INTERVAL_SECONDS` seconds between cycles (default 24 hours).
-- The web UI allows manual sync and live settings configuration.
-- Tautulli-protected titles are logged but no media is automatically removed.
+| Destination | Details |
+|-------------|---------|
+| Container stdout | Always active via `docker logs` |
+| `/config/app.log` | Rotating file, 5 MB max, 3 backups |
+| Dashboard → Logs tab | Live feed, 2000-line scrollback, pauseable |
 
----
-
-## Customization
-
-- To change the interval, update the setting in the UI or `/config/settings.json`.
-- To protect a longer watch history window, update `tautulli_lookback_days` in the UI.
+Log format: `YYYY-MM-DD HH:MM:SS [LEVEL] module: message`
 
 ---
 
-## Troubleshooting
+## Limitations
 
-### Common issues
-
-- `Connection refused` from Radarr/Sonarr/Tautulli:
-  - Check the URLs and ports.
-  - Confirm the container can reach those hosts.
-  - Use Docker networking or service names if services are in the same stack.
-
-- Trakt fetch returns empty lists:
-  - Verify your Trakt Client ID is correct in Settings.
-  - Check container logs for HTTP errors from the Trakt API.
-
-- Titles are not being added:
-  - Verify API keys.
-  - Confirm quality profile IDs and root folder paths exist.
-  - Review container logs for warnings and errors.
-  - Ensure Radarr/Sonarr mode is set to `Enabled` (not `Read only` or `Disabled`).
-
-### Logging
-
-Logs are written to standard output. Use `docker logs netflix-media-sync` or `docker-compose logs netflix-sync` to inspect.
+- Uses Trakt trending data, not real Netflix charts
+- Title matching against Radarr/Sonarr is approximate (search-based)
+- Retention days are used for display only — no automatic deletion of media
+- Designed for single-instance deployment
 
 ---
 
-## Notes and caveats
+## Project Structure
 
-- The service fetches from Trakt trending, not a Netflix API.
-- The Tautulli integration is read-only by default; it logs protected titles but does not trigger any deletion.
-- Tautulli title matching is approximate (string comparison across services).
+```
+app/
+├── main.py               # Entry point, WSGI server, background worker
+├── web.py                # Flask routes and API endpoints
+├── sync_service.py       # Core sync logic
+├── sync_log.py           # Thread-safe sync result persistence
+├── manual_overrides.py   # Thread-safe manual protection persistence
+├── settings.py           # Thread-safe settings store
+├── config.py             # Constants and path definitions
+├── netflix_fetcher.py    # Trakt API integration
+├── radarr_client.py      # Radarr API client
+├── sonarr_client.py      # Sonarr API client
+├── tautulli_client.py    # Tautulli API client
+├── templates/
+│   ├── base.html         # Shared layout, topbar, nav
+│   ├── index.html        # Dashboard (Dashboard / Logs tabs)
+│   └── settings.html     # Settings page
+└── static/
+    ├── script.js         # Tab switching, sync, overrides, logs, status icons
+    ├── style.css         # All UI styles
+    └── icon.svg          # App icon (favicon + topbar)
+config/
+├── settings.json         # Runtime configuration (gitignored)
+├── settings.json.example # Checked-in template with empty values
+├── sync_log.json         # Last sync results and title history (runtime)
+├── manual_overrides.json # Persisted manual protection overrides (runtime)
+└── app.log               # Rotating application log (runtime)
+```
 
 ---
 
 ## License
 
-This repository is provided without a specific license. Add a license file if you intend to publish it publicly.
+Add one if distributing publicly.

@@ -20,7 +20,8 @@
                 </div>
             </div>
             <nav class="topnav">
-                <a href="{{ url_for('index') }}" class="{% if request.path == url_for('index') %}active{% endif %}">Dashboard</a>
+                <a href="{{ url_for('index') }}" data-tab-target="dashboard" class="{% if request.path == url_for('index') %}active{% endif %}">Dashboard</a>
+                <a href="{{ url_for('index') }}" data-tab-target="logs" class="">Logs</a>
                 <a href="{{ url_for('settings_page') }}" class="{% if request.path == url_for('settings_page') %}active{% endif %}">Settings</a>
             </nav>
         </header>
