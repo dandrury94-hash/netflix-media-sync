@@ -51,9 +51,6 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
             except (TypeError, ValueError):
                 return default
 
-        def safe_bool(value):
-            return str(value).strip().lower() == "true"
-
         countries = payload.get("netflix_top_countries")
         if isinstance(countries, str):
             countries = [country.strip().lower() for country in countries.split(",") if country.strip()]
@@ -69,12 +66,14 @@ def create_app(settings: SettingsStore, sync_service: SyncService) -> Flask:
             "sonarr_api_key": payload.get("sonarr_api_key", "").strip(),
             "tautulli_url": payload.get("tautulli_url", "").strip(),
             "tautulli_api_key": payload.get("tautulli_api_key", "").strip(),
+            "radarr_mode": payload.get("radarr_mode", "disabled").strip(),
+            "sonarr_mode": payload.get("sonarr_mode", "disabled").strip(),
+            "tautulli_mode": payload.get("tautulli_mode", "disabled").strip(),
             "root_folder_movies": payload.get("root_folder_movies", "").strip(),
             "root_folder_series": payload.get("root_folder_series", "").strip(),
             "radarr_quality_profile_id": safe_int(payload.get("radarr_quality_profile_id"), 1),
             "sonarr_quality_profile_id": safe_int(payload.get("sonarr_quality_profile_id"), 1),
             "run_interval_seconds": safe_int(payload.get("run_interval_seconds"), 86400),
-            "delete_old_media": safe_bool(payload.get("delete_old_media", "false")),
             "tautulli_lookback_days": safe_int(payload.get("tautulli_lookback_days"), 30),
             "movie_retention_days": safe_int(payload.get("movie_retention_days"), 30),
             "series_retention_days": safe_int(payload.get("series_retention_days"), 30),

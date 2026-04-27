@@ -9,6 +9,13 @@
     <div class="settings-grid">
         <section class="card">
             <h2>Radarr settings</h2>
+            <label>Radarr mode
+                <select name="radarr_mode">
+                    <option value="disabled" {% if settings.radarr_mode == 'disabled' %}selected{% endif %}>Disabled</option>
+                    <option value="read" {% if settings.radarr_mode == 'read' %}selected{% endif %}>Read only</option>
+                    <option value="enabled" {% if settings.radarr_mode == 'enabled' %}selected{% endif %}>Enabled</option>
+                </select>
+            </label>
             <label>Radarr URL
                 <input type="text" name="radarr_url" value="{{ settings.radarr_url }}" placeholder="http://radarr:7878" />
             </label>
@@ -25,6 +32,13 @@
 
         <section class="card">
             <h2>Sonarr settings</h2>
+            <label>Sonarr mode
+                <select name="sonarr_mode">
+                    <option value="disabled" {% if settings.sonarr_mode == 'disabled' %}selected{% endif %}>Disabled</option>
+                    <option value="read" {% if settings.sonarr_mode == 'read' %}selected{% endif %}>Read only</option>
+                    <option value="enabled" {% if settings.sonarr_mode == 'enabled' %}selected{% endif %}>Enabled</option>
+                </select>
+            </label>
             <label>Sonarr URL
                 <input type="text" name="sonarr_url" value="{{ settings.sonarr_url }}" placeholder="http://sonarr:8989" />
             </label>
@@ -41,6 +55,13 @@
 
         <section class="card">
             <h2>Tautulli settings</h2>
+            <label>Tautulli mode
+                <select name="tautulli_mode">
+                    <option value="disabled" {% if settings.tautulli_mode == 'disabled' %}selected{% endif %}>Disabled</option>
+                    <option value="read" {% if settings.tautulli_mode == 'read' %}selected{% endif %}>Read only</option>
+                    <option value="enabled" {% if settings.tautulli_mode == 'enabled' %}selected{% endif %}>Enabled</option>
+                </select>
+            </label>
             <label>Tautulli URL
                 <input type="text" name="tautulli_url" value="{{ settings.tautulli_url }}" placeholder="http://tautulli:8181" />
             </label>
@@ -56,12 +77,6 @@
             <h2>Retention & sync</h2>
             <label>Sync interval seconds
                 <input type="number" name="run_interval_seconds" value="{{ settings.run_interval_seconds }}" />
-            </label>
-            <label>Delete old media
-                <select name="delete_old_media">
-                    <option value="false" {% if not settings.delete_old_media %}selected{% endif %}>False</option>
-                    <option value="true" {% if settings.delete_old_media %}selected{% endif %}>True</option>
-                </select>
             </label>
             <label>Movie retention days
                 <input type="number" name="movie_retention_days" value="{{ settings.movie_retention_days }}" />

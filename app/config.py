@@ -5,6 +5,9 @@ SETTINGS_PATH = Path(os.getenv("SETTINGS_PATH", "/config/settings.json"))
 CONFIG_PATH = SETTINGS_PATH
 
 DEFAULT_SETTINGS = {
+    "radarr_mode": "disabled",
+    "sonarr_mode": "disabled",
+    "tautulli_mode": "disabled",
     "radarr_url": "http://radarr:7878",
     "radarr_api_key": "",
     "sonarr_url": "http://sonarr:8989",
@@ -16,7 +19,6 @@ DEFAULT_SETTINGS = {
     "radarr_quality_profile_id": 1,
     "sonarr_quality_profile_id": 1,
     "run_interval_seconds": 86400,
-    "delete_old_media": False,
     "tautulli_lookback_days": 30,
     "movie_retention_days": 30,
     "series_retention_days": 30,
@@ -33,7 +35,6 @@ ENV_VAR_TO_SETTING = {
     "RADARR_QUALITY_PROFILE_ID": "radarr_quality_profile_id",
     "SONARR_QUALITY_PROFILE_ID": "sonarr_quality_profile_id",
     "RUN_INTERVAL_SECONDS": "run_interval_seconds",
-    "DELETE_OLD_MEDIA": "delete_old_media",
     "TAUTULLI_LOOKBACK_DAYS": "tautulli_lookback_days",
     "WEB_PORT": "web_port",
 }
