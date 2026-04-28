@@ -61,9 +61,19 @@ def create_app(
                 {"WWW-Authenticate": 'Basic realm="Netflix Sync"'},
             )
 
+    def _fmt_timestamp(ts: str) -> str:
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
+            try:
+                return datetime.datetime.strptime(ts, fmt).strftime("%H:%M %d/%m/%Y")
+            except ValueError:
+                pass
+        return ts
+
     @app.route("/")
     def index():
         last_sync = sync_log.get_last_sync()
+        if last_sync and "timestamp" in last_sync:
+            last_sync = {**last_sync, "timestamp": _fmt_timestamp(last_sync["timestamp"])}
         manual = manual_overrides.to_set()
         tautulli_protected = set(last_sync.get("protected", [])) if last_sync else set()
         all_protected = sorted(tautulli_protected | manual)

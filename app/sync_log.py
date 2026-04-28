@@ -51,7 +51,7 @@ class SyncLog:
     def set_last_sync(self, result: dict) -> None:
         with self._lock:
             self._data["last_sync"] = {
-                "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+                "timestamp": datetime.datetime.now().strftime("%H:%M %d/%m/%Y"),
                 **{k: list(v) if isinstance(v, (set, list)) else v for k, v in result.items()},
             }
             self._save()

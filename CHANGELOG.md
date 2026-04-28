@@ -4,6 +4,14 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-018 — 2026-04-28 — UK timestamp format on Last Sync
+
+### Changed
+- `SyncLog.set_last_sync()` now stores the timestamp using `strftime("%H:%M %d/%m/%Y")` instead of `.isoformat(timespec="seconds")`, producing e.g. `07:24 28/04/2026`. Timezone is the server's local time (`app/sync_log.py`)
+- `index()` route now reformats the `timestamp` field from the stored sync record before passing it to the template. `_fmt_timestamp()` parses ISO 8601 strings (`%Y-%m-%dT%H:%M:%S` and `%Y-%m-%dT%H:%M`) and converts them to `%H:%M %d/%m/%Y`; any already-formatted or unrecognised string is passed through unchanged. This means existing stored ISO timestamps display in UK format immediately without requiring a new sync (`app/web.py`)
+
+---
+
 ## CHG-017 — 2026-04-28 — Status & Actions card redesign and inline sync progress
 
 ### Changed
