@@ -4,6 +4,32 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-019 — 2026-04-28 — Centralised media state, bulk-fetch top10, and protection manager improvements
+
+### Added
+- **`app/media_state.py`** — new module with `MediaStateEntry` TypedDict (`title`, `type`, `radarr_id`, `sonarr_id`, `in_library`, `has_file`, `protected`, `protection_source`, `eligible_for_deletion`, `grace_started`, `grace_expires`, `days_until_deletion`, `in_grace`, `days_remaining`, `date_added`, `removal_date`, `status`, `reason`) and `build_media_state()` function. Accepts tagged movie/series records, sync log state, grace periods, protected sets, and retention settings; returns a `dict[str, MediaStateEntry]` keyed by lowercase title. All computation is in-memory — no API calls
+- `_fetch_media_state()` closure in `create_app()`: calls `get_tagged_movies("netflix-sync")` and `get_tagged_series("netflix-sync")`, reads sync log state, and delegates to `build_media_state()`. Shared by `/api/removal-schedule` and `/api/protection-state` (`app/web.py`)
+- Search input above the Protection Manager columns — live client-side filter on keyup, case-insensitive title match (`app/static/script.js`, `app/static/style.css`)
+- Select-all checkboxes in each column header; **Unprotect Selected** and **Protect Selected** batch buttons that POST to `/api/overrides` sequentially then refresh the panel. Tautulli-protected and "both"-protected items have their checkboxes disabled (`app/static/script.js`)
+- `.entry-reason` — small muted text line displayed below title in the Scheduled Removals table and in each Protection Manager entry (`app/static/style.css`)
+- `.prot-search`, `.prot-search-wrap`, `.prot-sel-all`, `.prot-entry-cb`, `.prot-batch-btn`, `.prot-batch-btn--protect` styles (`app/static/style.css`)
+- Per-phase `[timing]` log lines in `SyncService._run()` using `time.monotonic()`: `trakt_fetch`, `tautulli_fetch`, `radarr_bulk_fetch`, `radarr_add_loop`, `sonarr_bulk_fetch`, `sonarr_add_loop`. Deletion run logged as `[timing] deletion_run: Xs` in `run_once()` (`app/sync_service.py`)
+
+### Changed
+- `/api/removal-schedule` refactored to call `_fetch_media_state()` and return all entries sorted by `days_remaining`. Adds `reason` field to each entry (`app/web.py`)
+- `/api/protection-state` refactored to call `_fetch_media_state()` and split by `protected` flag. Adds `reason` to each entry; `protection_source` now correctly returns `"both"` when a title is protected by both Tautulli and a manual override (`app/web.py`)
+- `/api/top10-status` refactored: calls `get_all_movies()` and `get_all_series()` once per request and builds title→record maps, eliminating per-title `get_movie_by_id()` / `get_series_by_id()` / `lookup_movie()` / `lookup_series()` calls. `hasFile` and `episodeFileCount` are read directly from the library record, fixing the available/pending status bug. Poster extracted from the library record's `images` array; `"will_add"` titles return `poster: null` (`app/web.py`)
+- `renderSchedule()` updated to show `item.reason` as `.entry-reason` below the title (`app/static/script.js`)
+- `renderProtectionState()` rewritten: search input, select-all, batch actions, reason below title, "both" source badge (styled as Tautulli). Entry construction extracted to `_makeEntry()` helper (`app/static/script.js`)
+- `.prot-entry` changed to `align-items: flex-start` to accommodate multi-line meta content (`app/static/style.css`)
+- Tautulli fetch restructured from a ternary to an `if` block to allow timing instrumentation (`app/sync_service.py`)
+
+### Removed
+- `_resolve_date()` and `_grace_fields()` module-level helpers removed from `app/web.py` — logic now lives in `build_media_state()`
+- Per-title `get_movie_by_id()`, `get_series_by_id()`, `lookup_movie()`, `lookup_series()` calls removed from `/api/top10-status`
+
+---
+
 ## CHG-018 — 2026-04-28 — UK timestamp format on Last Sync
 
 ### Changed

@@ -847,7 +847,7 @@ body::before {
 
 .prot-entry {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
     padding: 7px 8px;
@@ -904,9 +904,53 @@ body::before {
     flex-shrink: 0;
 }
 
-.prot-action-btn { flex-shrink: 0; }
+.prot-action-btn { flex-shrink: 0; margin-top: 2px; }
 
 .prot-action-btn--protect {
     color: #2ecf7d;
     border-color: rgba(46, 207, 125, 0.25);
+}
+
+/* ── Protection manager search, select-all, batch ── */
+.prot-search-wrap { margin-bottom: 14px; }
+
+.prot-search {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.9rem;
+    box-sizing: border-box;
+}
+
+.prot-search:focus {
+    outline: none;
+    border-color: rgba(77, 140, 255, 0.5);
+}
+
+.prot-sel-all,
+.prot-entry-cb {
+    margin-top: 3px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.prot-batch-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.prot-batch-btn--protect {
+    color: #2ecf7d;
+    border-color: rgba(46, 207, 125, 0.25);
+}
+
+/* ── Entry reason line (schedule table + protection manager) ── */
+.entry-reason {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 3px;
 }

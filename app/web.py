@@ -5,6 +5,7 @@ from flask import Flask, Response, jsonify, render_template, request
 
 from app.config import LOG_PATH
 from app.manual_overrides import ManualOverrides
+from app.media_state import build_media_state
 from app.removal_history import RemovalHistory
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
@@ -60,6 +61,31 @@ def create_app(
                 401,
                 {"WWW-Authenticate": 'Basic realm="Netflix Sync"'},
             )
+
+    def _fetch_media_state() -> dict:
+        radarr_mode = settings.get("radarr_mode", "disabled")
+        sonarr_mode = settings.get("sonarr_mode", "disabled")
+        radarr_movies: list[dict] = []
+        sonarr_tagged: list[dict] = []
+        if radarr_mode != "disabled":
+            radarr_movies = sync_service.radarr.get_tagged_movies("netflix-sync")
+        if sonarr_mode != "disabled":
+            sonarr_tagged = sync_service.sonarr.get_tagged_series("netflix-sync")
+        last_sync = sync_log.get_last_sync() or {}
+        tautulli_prot = set(last_sync.get("protected", []))
+        manual_prot = manual_overrides.to_set()
+        return build_media_state(
+            radarr_movies=radarr_movies,
+            sonarr_series=sonarr_tagged,
+            sync_entries=sync_log.get_entries(),
+            grace_periods=sync_log.get_grace_periods(),
+            protected_set=tautulli_prot | manual_prot,
+            tautulli_protected=tautulli_prot,
+            manual_protected=manual_prot,
+            movie_retention_days=int(settings.get("movie_retention_days", 30)),
+            series_retention_days=int(settings.get("series_retention_days", 30)),
+            grace_period_days=int(settings.get("grace_period_days", 7)),
+        )
 
     def _fmt_timestamp(ts: str) -> str:
         for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
@@ -179,63 +205,8 @@ def create_app(
 
     @app.route("/api/removal-schedule")
     def removal_schedule():
-        radarr_mode = settings.get("radarr_mode", "disabled")
-        sonarr_mode = settings.get("sonarr_mode", "disabled")
-        movie_retention = int(settings.get("movie_retention_days", 30))
-        series_retention = int(settings.get("series_retention_days", 30))
-        grace_period_days = int(settings.get("grace_period_days", 7))
-
-        last_sync = sync_log.get_last_sync() or {}
-        tautulli_protected = set(last_sync.get("protected", []))
-        all_protected = tautulli_protected | manual_overrides.to_set()
-        grace_periods = sync_log.get_grace_periods()
-
-        today = datetime.date.today()
-        schedule = []
-
-        if radarr_mode != "disabled":
-            for movie in sync_service.radarr.get_tagged_movies("netflix-sync"):
-                title = movie.get("title", "")
-                date_added = _resolve_date(sync_log.get_date_added(title), movie.get("added"), today)
-                removal_date = date_added + datetime.timedelta(days=movie_retention)
-                grace_info = grace_periods.get(title, {})
-                in_grace, grace_expires_iso, days_until_deletion = _grace_fields(
-                    grace_info, removal_date, grace_period_days, today
-                )
-                schedule.append({
-                    "title": title,
-                    "type": "movie",
-                    "date_added": date_added.isoformat(),
-                    "removal_date": removal_date.isoformat(),
-                    "protected": title in all_protected,
-                    "days_remaining": (removal_date - today).days,
-                    "in_grace": in_grace,
-                    "grace_expires": grace_expires_iso,
-                    "days_until_deletion": days_until_deletion,
-                })
-
-        if sonarr_mode != "disabled":
-            for series in sync_service.sonarr.get_tagged_series("netflix-sync"):
-                title = series.get("title", "")
-                date_added = _resolve_date(sync_log.get_date_added(title), series.get("added"), today)
-                removal_date = date_added + datetime.timedelta(days=series_retention)
-                grace_info = grace_periods.get(title, {})
-                in_grace, grace_expires_iso, days_until_deletion = _grace_fields(
-                    grace_info, removal_date, grace_period_days, today
-                )
-                schedule.append({
-                    "title": title,
-                    "type": "series",
-                    "date_added": date_added.isoformat(),
-                    "removal_date": removal_date.isoformat(),
-                    "protected": title in all_protected,
-                    "days_remaining": (removal_date - today).days,
-                    "in_grace": in_grace,
-                    "grace_expires": grace_expires_iso,
-                    "days_until_deletion": days_until_deletion,
-                })
-
-        schedule.sort(key=lambda x: x["days_remaining"])
+        state = _fetch_media_state()
+        schedule = sorted(state.values(), key=lambda x: x["days_remaining"])
         return jsonify({"schedule": schedule})
 
     @app.route("/api/removal-history")
@@ -257,49 +228,25 @@ def create_app(
 
     @app.route("/api/protection-state")
     def protection_state():
-        radarr_mode = settings.get("radarr_mode", "disabled")
-        sonarr_mode = settings.get("sonarr_mode", "disabled")
-
-        last_sync = sync_log.get_last_sync() or {}
-        tautulli_protected = set(last_sync.get("protected", []))
-        manual_set = manual_overrides.to_set()
-
-        all_titles: list[dict] = []
-
-        if radarr_mode != "disabled":
-            try:
-                for movie in sync_service.radarr.get_tagged_movies("netflix-sync"):
-                    title = movie.get("title", "")
-                    if title:
-                        all_titles.append({"title": title, "type": "movie"})
-            except Exception:
-                pass
-
-        if sonarr_mode != "disabled":
-            try:
-                for series in sync_service.sonarr.get_tagged_series("netflix-sync"):
-                    title = series.get("title", "")
-                    if title:
-                        all_titles.append({"title": title, "type": "series"})
-            except Exception:
-                pass
-
+        state = _fetch_media_state()
         protected: list[dict] = []
         unprotected: list[dict] = []
-
-        for item in all_titles:
-            title = item["title"]
-            in_tautulli = title in tautulli_protected
-            in_manual = title in manual_set
-            if in_tautulli or in_manual:
-                source = "tautulli" if in_tautulli else "manual"
-                protected.append({"title": title, "type": item["type"], "source": source})
+        for entry in state.values():
+            if entry["protected"]:
+                protected.append({
+                    "title": entry["title"],
+                    "type": entry["type"],
+                    "source": entry["protection_source"],
+                    "reason": entry["reason"],
+                })
             else:
-                unprotected.append({"title": title, "type": item["type"]})
-
+                unprotected.append({
+                    "title": entry["title"],
+                    "type": entry["type"],
+                    "reason": entry["reason"],
+                })
         protected.sort(key=lambda x: x["title"].lower())
         unprotected.sort(key=lambda x: x["title"].lower())
-
         return jsonify({"protected": protected, "unprotected": unprotected})
 
     @app.route("/api/top10-status")
@@ -311,41 +258,57 @@ def create_app(
         radarr_mode = settings.get("radarr_mode", "disabled")
         sonarr_mode = settings.get("sonarr_mode", "disabled")
 
-        movie_statuses: dict[str, dict] = {}
-        series_statuses: dict[str, dict] = {}
+        movie_lib: dict[str, dict] = {}
+        series_lib: dict[str, dict] = {}
 
+        if radarr_mode != "disabled" and top_movies:
+            try:
+                movie_lib = {
+                    m["title"].lower(): m
+                    for m in sync_service.radarr.get_all_movies()
+                    if m.get("title")
+                }
+            except Exception:
+                pass
+
+        if sonarr_mode != "disabled" and top_series:
+            try:
+                series_lib = {
+                    s["title"].lower(): s
+                    for s in sync_service.sonarr.get_all_series()
+                    if s.get("title")
+                }
+            except Exception:
+                pass
+
+        movie_statuses: dict[str, dict] = {}
         for title in top_movies:
             if radarr_mode == "disabled":
                 movie_statuses[title] = {"status": "disabled", "poster": None}
                 continue
-            try:
-                stub = sync_service.radarr.lookup_movie(title)
-                poster = _extract_poster((stub or {}).get("images", []))
-                if stub and stub.get("id"):
-                    record = sync_service.radarr.get_movie_by_id(stub["id"])
-                    status = "available" if (record or {}).get("hasFile") else "pending"
-                else:
-                    status = "will_add"
-                movie_statuses[title] = {"status": status, "poster": poster}
-            except Exception:
-                pass
+            rec = movie_lib.get(title.lower())
+            if rec and rec.get("id"):
+                status = "available" if rec.get("hasFile") else "pending"
+                poster = _extract_poster(rec.get("images", []))
+            else:
+                status = "will_add"
+                poster = None
+            movie_statuses[title] = {"status": status, "poster": poster}
 
+        series_statuses: dict[str, dict] = {}
         for title in top_series:
             if sonarr_mode == "disabled":
                 series_statuses[title] = {"status": "disabled", "poster": None}
                 continue
-            try:
-                stub = sync_service.sonarr.lookup_series(title)
-                poster = _extract_poster((stub or {}).get("images", []))
-                if stub and stub.get("id"):
-                    record = sync_service.sonarr.get_series_by_id(stub["id"])
-                    ep_count = ((record or {}).get("statistics") or {}).get("episodeFileCount", 0)
-                    status = "available" if ep_count > 0 else "pending"
-                else:
-                    status = "will_add"
-                series_statuses[title] = {"status": status, "poster": poster}
-            except Exception:
-                pass
+            rec = series_lib.get(title.lower())
+            if rec and rec.get("id"):
+                ep_count = (rec.get("statistics") or {}).get("episodeFileCount", 0)
+                status = "available" if ep_count > 0 else "pending"
+                poster = _extract_poster(rec.get("images", []))
+            else:
+                status = "will_add"
+                poster = None
+            series_statuses[title] = {"status": status, "poster": poster}
 
         return jsonify({"movies": movie_statuses, "series": series_statuses})
 
@@ -485,26 +448,6 @@ def _tail_file(path, n: int = 100) -> list[str]:
         return []
 
 
-def _resolve_date(
-    log_date: str | None,
-    api_added: str | None,
-    fallback: datetime.date,
-) -> datetime.date:
-    if log_date:
-        try:
-            return datetime.date.fromisoformat(log_date)
-        except ValueError:
-            pass
-    if api_added:
-        try:
-            return datetime.datetime.fromisoformat(
-                api_added.replace("Z", "+00:00")
-            ).date()
-        except ValueError:
-            pass
-    return fallback
-
-
 def _extract_poster(images: list) -> str | None:
     for img in images:
         if img.get("coverType") == "poster":
@@ -512,19 +455,3 @@ def _extract_poster(images: list) -> str | None:
     return None
 
 
-def _grace_fields(
-    grace_info: dict,
-    removal_date: datetime.date,
-    grace_period_days: int,
-    today: datetime.date,
-) -> tuple[bool, str | None, int | None]:
-    started = grace_info.get("started")
-    if not started:
-        return False, None, None
-    try:
-        grace_start = datetime.date.fromisoformat(started)
-    except ValueError:
-        return False, None, None
-    grace_expires = grace_start + datetime.timedelta(days=grace_period_days)
-    days_until_deletion = (grace_expires - today).days
-    return True, grace_expires.isoformat(), days_until_deletion

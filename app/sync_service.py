@@ -68,7 +68,9 @@ class SyncService:
                 raise
             result["duration_seconds"] = int(time.monotonic() - _start)
             self.sync_log.set_last_sync(result)
+            _t = time.monotonic()
             self.run_deletions()
+            logger.info("[timing] deletion_run: %.1fs", time.monotonic() - _t)
             return result
 
     def _run(self) -> dict:
@@ -77,17 +79,21 @@ class SyncService:
             countries = [countries.strip().lower()]
 
         logger.info("Fetching top titles via Trakt (countries: %s)", countries or ["global"])
+        _t = time.monotonic()
         netflix_movies, netflix_series = fetch_netflix_top_10_for_countries(
             countries, self.settings.get("trakt_client_id", "")
         )
+        logger.info("[timing] trakt_fetch: %.1fs", time.monotonic() - _t)
 
         logger.info("Top movies: %s", netflix_movies)
         logger.info("Top series: %s", netflix_series)
 
         tautulli_mode = self.settings.get("tautulli_mode", "disabled")
-        protected_titles: list[str] = (
-            list(self.tautulli.fetch_protected_titles()) if tautulli_mode in ("read", "enabled") else []
-        )
+        protected_titles: list[str] = []
+        if tautulli_mode in ("read", "enabled"):
+            _t = time.monotonic()
+            protected_titles = list(self.tautulli.fetch_protected_titles())
+            logger.info("[timing] tautulli_fetch: %.1fs", time.monotonic() - _t)
 
         added_movies: list[str] = []
         would_add_movies: list[str] = []
@@ -95,15 +101,17 @@ class SyncService:
         radarr_mode = self.settings.get("radarr_mode", "disabled")
         radarr_cache: dict = {}
         if radarr_mode != "disabled":
-            # Fetch the full library once so per-title existence checks need no network calls.
+            _t = time.monotonic()
             radarr_cache = {m["title"].lower(): m for m in self.radarr.get_all_movies()}
-            logger.info("Radarr library cache: %d records", len(radarr_cache))
+            logger.info("[timing] radarr_bulk_fetch: %.1fs (%d records)", time.monotonic() - _t, len(radarr_cache))
 
         if radarr_mode == "enabled":
+            _t = time.monotonic()
             for title in netflix_movies:
                 if self.radarr.add_movie(title, library_cache=radarr_cache):
                     added_movies.append(title)
                     self.sync_log.log_add(title, "movie")
+            logger.info("[timing] radarr_add_loop: %.1fs", time.monotonic() - _t)
         elif radarr_mode == "read":
             for title in netflix_movies:
                 cached = radarr_cache.get(title.lower())
@@ -121,15 +129,17 @@ class SyncService:
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
         sonarr_cache: dict = {}
         if sonarr_mode != "disabled":
-            # Fetch the full library once so per-title existence checks need no network calls.
+            _t = time.monotonic()
             sonarr_cache = {s["title"].lower(): s for s in self.sonarr.get_all_series()}
-            logger.info("Sonarr library cache: %d records", len(sonarr_cache))
+            logger.info("[timing] sonarr_bulk_fetch: %.1fs (%d records)", time.monotonic() - _t, len(sonarr_cache))
 
         if sonarr_mode == "enabled":
+            _t = time.monotonic()
             for title in netflix_series:
                 if self.sonarr.add_series(title, library_cache=sonarr_cache):
                     added_series.append(title)
                     self.sync_log.log_add(title, "series")
+            logger.info("[timing] sonarr_add_loop: %.1fs", time.monotonic() - _t)
         elif sonarr_mode == "read":
             for title in netflix_series:
                 cached = sonarr_cache.get(title.lower())

@@ -415,8 +415,11 @@ function renderSchedule(tbody, schedule) {
       const dl = item.days_until_deletion <= 0 ? "Due" : `${item.days_until_deletion}d`;
       deleteCell = `<span class="${dc}">${dl}</span>`;
     }
+    const reasonHtml = item.reason
+      ? `<div class="entry-reason">${escHtml(item.reason)}</div>`
+      : "";
     return `<tr>
-      <td>${escHtml(item.title)}</td>
+      <td>${escHtml(item.title)}${reasonHtml}</td>
       <td style="text-transform:capitalize">${escHtml(item.type)}</td>
       <td>${item.date_added}</td>
       <td>${item.removal_date}</td>
@@ -463,66 +466,94 @@ function renderProtectionState(container, data) {
   }
 
   container.innerHTML = `
+    <div class="prot-search-wrap">
+      <input type="text" id="protSearchInput" class="prot-search" placeholder="Search titles…">
+    </div>
     <div class="protection-manager">
       <div class="protection-column">
         <div class="prot-col-header">
+          <input type="checkbox" class="prot-sel-all" id="protSelAllProtected">
           <h3 class="prot-col-title">Protected</h3>
           <span class="prot-count prot-count--protected">${protectedItems.length}</span>
+          <button class="button button-secondary button-sm prot-batch-btn" id="protUnprotectSelected">Unprotect Selected</button>
         </div>
         <ul class="prot-list" id="protMgrProtectedList"></ul>
       </div>
       <div class="protection-column">
         <div class="prot-col-header">
+          <input type="checkbox" class="prot-sel-all" id="protSelAllUnprotected">
           <h3 class="prot-col-title">Not Protected</h3>
           <span class="prot-count prot-count--unprotected">${unprotectedItems.length}</span>
+          <button class="button button-secondary button-sm prot-batch-btn prot-batch-btn--protect" id="protProtectSelected">Protect Selected</button>
         </div>
         <ul class="prot-list" id="protMgrUnprotectedList"></ul>
       </div>
     </div>`;
 
-  const protList = document.getElementById("protMgrProtectedList");
-  protectedItems.forEach((item) => {
-    const isTautulli = item.source === "tautulli";
-    const li = document.createElement("li");
-    li.className = "prot-entry";
-
-    const meta = document.createElement("div");
-    meta.className = "prot-entry-meta";
-
-    const titleEl = document.createElement("span");
-    titleEl.className = "prot-entry-title";
-    titleEl.textContent = item.title;
-
-    const typeBadge = document.createElement("span");
-    typeBadge.className = "prot-entry-type";
-    typeBadge.textContent = item.type;
-
-    const sourceBadge = document.createElement("span");
-    sourceBadge.className = `prot-source-badge prot-source-badge--${item.source}`;
-    sourceBadge.textContent = isTautulli ? "Tautulli" : "Manual";
-
-    meta.append(titleEl, typeBadge, sourceBadge);
-    li.appendChild(meta);
-
-    if (isTautulli) {
-      const lock = document.createElement("span");
-      lock.className = "prot-lock-label";
-      lock.textContent = "Tautulli protected";
-      li.appendChild(lock);
-    } else {
-      const btn = document.createElement("button");
-      btn.className = "button button-secondary button-sm prot-action-btn";
-      btn.textContent = "Unprotect";
-      btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, false, container));
-      li.appendChild(btn);
-    }
-    protList.appendChild(li);
+  // Search
+  document.getElementById("protSearchInput").addEventListener("keyup", (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    container.querySelectorAll(".prot-entry").forEach((li) => {
+      const t = li.querySelector(".prot-entry-title")?.textContent.toLowerCase() || "";
+      li.style.display = !q || t.includes(q) ? "" : "none";
+    });
   });
 
-  const unprotList = document.getElementById("protMgrUnprotectedList");
-  unprotectedItems.forEach((item) => {
+  // Select-all: protected (only non-disabled checkboxes)
+  document.getElementById("protSelAllProtected").addEventListener("change", (e) => {
+    document.querySelectorAll("#protMgrProtectedList .prot-entry-cb:not(:disabled)").forEach((cb) => {
+      cb.checked = e.target.checked;
+    });
+  });
+
+  // Select-all: unprotected
+  document.getElementById("protSelAllUnprotected").addEventListener("change", (e) => {
+    document.querySelectorAll("#protMgrUnprotectedList .prot-entry-cb").forEach((cb) => {
+      cb.checked = e.target.checked;
+    });
+  });
+
+  // Batch unprotect
+  document.getElementById("protUnprotectSelected").addEventListener("click", async () => {
+    const checked = [...document.querySelectorAll("#protMgrProtectedList .prot-entry-cb:checked:not(:disabled)")];
+    if (!checked.length) return;
+    for (const cb of checked) {
+      await fetch("/api/overrides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: cb.value, protected: false }),
+      });
+    }
+    await loadProtectionState(container);
+  });
+
+  // Batch protect
+  document.getElementById("protProtectSelected").addEventListener("click", async () => {
+    const checked = [...document.querySelectorAll("#protMgrUnprotectedList .prot-entry-cb:checked")];
+    if (!checked.length) return;
+    for (const cb of checked) {
+      await fetch("/api/overrides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: cb.value, protected: true }),
+      });
+    }
+    await loadProtectionState(container);
+  });
+
+  const _SRC_LABELS = { tautulli: "Tautulli", manual: "Manual", both: "Both" };
+
+  function _makeEntry(item, isProtected) {
+    const isTautulli = item.source === "tautulli" || item.source === "both";
     const li = document.createElement("li");
     li.className = "prot-entry";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.className = "prot-entry-cb";
+    cb.value = item.title;
+    if (isProtected) cb.disabled = isTautulli;
+    li.appendChild(cb);
 
     const meta = document.createElement("div");
     meta.className = "prot-entry-meta";
@@ -536,15 +567,53 @@ function renderProtectionState(container, data) {
     typeBadge.textContent = item.type;
 
     meta.append(titleEl, typeBadge);
+
+    if (isProtected && item.source) {
+      const srcClass = item.source === "both" ? "tautulli" : item.source;
+      const sourceBadge = document.createElement("span");
+      sourceBadge.className = `prot-source-badge prot-source-badge--${srcClass}`;
+      sourceBadge.textContent = _SRC_LABELS[item.source] || item.source;
+      meta.appendChild(sourceBadge);
+    }
+
+    if (item.reason) {
+      const reasonEl = document.createElement("span");
+      reasonEl.className = "entry-reason";
+      reasonEl.textContent = item.reason;
+      meta.appendChild(reasonEl);
+    }
+
     li.appendChild(meta);
 
-    const btn = document.createElement("button");
-    btn.className = "button button-secondary button-sm prot-action-btn prot-action-btn--protect";
-    btn.textContent = "Protect";
-    btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, true, container));
-    li.appendChild(btn);
-    unprotList.appendChild(li);
-  });
+    if (isProtected) {
+      if (isTautulli) {
+        const lock = document.createElement("span");
+        lock.className = "prot-lock-label";
+        lock.textContent = "Tautulli protected";
+        li.appendChild(lock);
+      } else {
+        const btn = document.createElement("button");
+        btn.className = "button button-secondary button-sm prot-action-btn";
+        btn.textContent = "Unprotect";
+        btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, false, container));
+        li.appendChild(btn);
+      }
+    } else {
+      const btn = document.createElement("button");
+      btn.className = "button button-secondary button-sm prot-action-btn prot-action-btn--protect";
+      btn.textContent = "Protect";
+      btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, true, container));
+      li.appendChild(btn);
+    }
+
+    return li;
+  }
+
+  const protList = document.getElementById("protMgrProtectedList");
+  protectedItems.forEach((item) => protList.appendChild(_makeEntry(item, true)));
+
+  const unprotList = document.getElementById("protMgrUnprotectedList");
+  unprotectedItems.forEach((item) => unprotList.appendChild(_makeEntry(item, false)));
 }
 
 async function handleProtectionToggle(btn, title, protect, container) {
