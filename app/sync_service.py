@@ -1,6 +1,7 @@
 import datetime
 import logging
 import threading
+import time
 
 from app.manual_overrides import ManualOverrides
 from app.netflix_fetcher import fetch_netflix_top_10_for_countries
@@ -55,6 +56,7 @@ class SyncService:
 
     def run_once(self) -> dict:
         with self._lock:
+            _start = time.monotonic()
             try:
                 result = self._run()
             except Exception as exc:
@@ -64,6 +66,8 @@ class SyncService:
                     priority=1,
                 )
                 raise
+            result["duration_seconds"] = int(time.monotonic() - _start)
+            self.sync_log.set_last_sync(result)
             self.run_deletions()
             return result
 
@@ -153,8 +157,6 @@ class SyncService:
             "top_movies": netflix_movies,
             "top_series": netflix_series,
         }
-        self.sync_log.set_last_sync(result)
-
         if added_movies or added_series:
             lines = [f"🎬 {t}" for t in added_movies] + [f"📺 {t}" for t in added_series]
             self.pushover.send("Netflix Sync — Added", "\n".join(lines))

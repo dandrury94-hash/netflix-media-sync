@@ -14,7 +14,6 @@ const STATUS_LABELS = {
 
 document.addEventListener("DOMContentLoaded", () => {
   const syncButton = document.getElementById("syncButton");
-  const syncResult = document.getElementById("syncResult");
   const settingsForm = document.getElementById("settingsForm");
   const saveResult = document.getElementById("saveResult");
 
@@ -46,19 +45,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Sync button ──
   if (syncButton) {
+    let syncEstimatedSeconds = parseInt(syncButton.dataset.estimated || "60", 10) || 60;
+    const syncButtonLabel = syncButton.querySelector("span");
+
     syncButton.addEventListener("click", async () => {
+      syncButton.classList.remove("sync-error");
       syncButton.disabled = true;
-      setStatus(syncResult, "Running sync…");
+      syncButton.classList.add("syncing");
+      syncButton.style.setProperty("--sync-pct", "0%");
+      if (syncButtonLabel) syncButtonLabel.textContent = "Syncing…";
+
+      const steps = Math.max(1, (syncEstimatedSeconds * 1000) / 500);
+      const widthPerStep = 90 / steps;
+      let currentWidth = 0;
+      const timer = setInterval(() => {
+        currentWidth = Math.min(90, currentWidth + widthPerStep);
+        syncButton.style.setProperty("--sync-pct", `${currentWidth}%`);
+        if (currentWidth >= 90) clearInterval(timer);
+      }, 500);
+
       try {
         const response = await fetch("/api/sync", { method: "POST" });
+        clearInterval(timer);
         const data = await response.json();
-        const r = data.result || {};
-        const added = (r.added_movies || []).length + (r.added_series || []).length;
-        setStatus(syncResult, `Sync complete — ${added} title(s) added. Refreshing…`, "success");
-        setTimeout(() => window.location.reload(), 1500);
-      } catch (error) {
-        setStatus(syncResult, `Sync failed: ${error.message}`, "error");
+        if (data.estimated_seconds) syncEstimatedSeconds = data.estimated_seconds;
+        syncButton.style.setProperty("--sync-pct", "100%");
+        await new Promise((r) => setTimeout(r, 600));
+        syncButton.classList.remove("syncing");
+        syncButton.style.removeProperty("--sync-pct");
+        if (syncButtonLabel) syncButtonLabel.textContent = "Trigger sync now";
         syncButton.disabled = false;
+        window.location.reload();
+      } catch {
+        clearInterval(timer);
+        syncButton.classList.remove("syncing");
+        syncButton.style.removeProperty("--sync-pct");
+        syncButton.classList.add("sync-error");
+        if (syncButtonLabel) syncButtonLabel.textContent = "Trigger sync now";
+        syncButton.disabled = false;
+        setTimeout(() => syncButton.classList.remove("sync-error"), 3000);
       }
     });
   }
@@ -204,6 +229,12 @@ document.addEventListener("DOMContentLoaded", () => {
     loadRemovalHistory(historyBody);
   }
 
+  // ── Addition history ──
+  const additionBody = document.getElementById("additionHistoryBody");
+  if (additionBody) {
+    loadAdditionHistory(additionBody);
+  }
+
   // ── Protection manager ──
   const protectionPanel = document.getElementById("protectionPanel");
   if (protectionPanel) {
@@ -298,13 +329,20 @@ async function loadTop10Status() {
     const all = { ...data.movies, ...data.series };
     document.querySelectorAll(".top10-item[data-title]").forEach((li) => {
       const title = li.dataset.title;
-      const status = all[title];
-      if (!status || !STATUS_ICONS[status]) return;
+      const item = all[title];
+      if (!item) return;
+      const status = item.status;
+      const poster = item.poster;
+      if (!STATUS_ICONS[status]) return;
       const span = document.createElement("span");
       span.className = "top10-status";
       span.title = STATUS_LABELS[status] || "";
       span.textContent = STATUS_ICONS[status];
       li.appendChild(span);
+      if (poster) {
+        li.style.setProperty("--poster-url", `url(${poster})`);
+        li.classList.add("top10-item--has-poster");
+      }
     });
   } catch { /* ignore */ }
 }
@@ -317,6 +355,29 @@ async function loadRemovalSchedule(tbody) {
   } catch {
     tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Failed to load removal schedule.</td></tr>';
   }
+}
+
+async function loadAdditionHistory(tbody) {
+  try {
+    const resp = await fetch("/api/addition-history");
+    const data = await resp.json();
+    renderAdditionHistory(tbody, data.additions || []);
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="4" class="table-empty">Failed to load addition history.</td></tr>';
+  }
+}
+
+function renderAdditionHistory(tbody, additions) {
+  if (!additions.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No titles added in the last 7 days.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = additions.map((item) => `<tr>
+    <td>${escHtml(item.title)}</td>
+    <td style="text-transform:capitalize">${escHtml(item.type)}</td>
+    <td>${escHtml(item.date_added)}</td>
+    <td>${escHtml(item.source || "trakt")}</td>
+  </tr>`).join("");
 }
 
 async function loadRemovalHistory(tbody) {
