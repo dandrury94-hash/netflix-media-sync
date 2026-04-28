@@ -12,7 +12,7 @@ All changes to this project are recorded here with a unique reference, date, and
 - Search input above the Protection Manager columns — live client-side filter on keyup, case-insensitive title match (`app/static/script.js`, `app/static/style.css`)
 - Select-all checkboxes in each column header; **Unprotect Selected** and **Protect Selected** batch buttons that POST to `/api/overrides` sequentially then refresh the panel. Tautulli-protected and "both"-protected items have their checkboxes disabled (`app/static/script.js`)
 - `.entry-reason` — small muted text line displayed below title in the Scheduled Removals table and in each Protection Manager entry (`app/static/style.css`)
-- `.prot-search`, `.prot-search-wrap`, `.prot-sel-all`, `.prot-entry-cb`, `.prot-batch-btn`, `.prot-batch-btn--protect` styles (`app/static/style.css`)
+- `.prot-search`, `.prot-search-wrap`, `.prot-sel-all`, `.prot-entry-cb`, `.prot-batch-btn`, `.prot-batch-btn--protect`, `.prot-count`, `.prot-count--protected`, `.prot-count--unprotected`, `.prot-action-btn--protect` styles (`app/static/style.css`)
 - Per-phase `[timing]` log lines in `SyncService._run()` using `time.monotonic()`: `trakt_fetch`, `tautulli_fetch`, `radarr_bulk_fetch`, `radarr_add_loop`, `sonarr_bulk_fetch`, `sonarr_add_loop`. Deletion run logged as `[timing] deletion_run: Xs` in `run_once()` (`app/sync_service.py`)
 
 ### Changed
@@ -251,6 +251,7 @@ All changes to this project are recorded here with a unique reference, date, and
   - Auto-scroll behavior (`app/templates/index.html`, `app/static/script.js`, `app/static/style.css`)
 - Log controls:
   - Pause/Resume with status badge
+  - Copy to clipboard
   - Download logs as `.log`
   - Clear logs (`app/static/script.js`)
 - Monospace, selectable, wrapped log output (`app/static/style.css`)
