@@ -17,6 +17,7 @@ Built as a Dockerized background worker with a web interface, the system support
 - Live log feed with pause, copy, download, and clear controls
 - Test connection buttons for each integration with live validation
 - Status icons on Top 10 lists showing per-title Radarr/Sonarr state
+- Poster art thumbnails on Top 10 panels sourced from Radarr/Sonarr image metadata — no extra API calls
 - Optional HTTP Basic Auth
 - All config and runtime data persisted in `/config`
 - Docker-first deployment with a single bind mount
@@ -43,9 +44,16 @@ A title is protected if either condition is true:
 
 Protected titles are never removed from the removal schedule and are surfaced prominently on the dashboard.
 
+### How It Works
+
+- On each sync, Trakt trending data is fetched by country (or globally if no countries are selected) and compared against the Radarr and Sonarr libraries
+- New titles are added (or logged in read mode) and tagged `netflix-sync` for retention tracking
+- After every sync, titles past their retention date enter a grace period before automatic deletion (when enabled)
+- Poster art is fetched from Radarr and Sonarr's image metadata (`remoteUrl` on `coverType: "poster"`) and displayed on the dashboard Top 10 panels. No additional API calls are made — posters are extracted from the same lookup response used for status checks
+
 ### Top 10 Status Icons
 
-The dashboard Top 10 panels display a live status icon per title (loaded asynchronously):
+The dashboard Top 10 panels display a live status icon and poster thumbnail per title (loaded asynchronously):
 
 | Icon | Meaning |
 |------|---------|
@@ -112,12 +120,12 @@ All settings are stored in `/config/settings.json` and can be overridden by envi
 | `radarr_api_key` | `RADARR_API_KEY` | — | Radarr API key |
 | `radarr_mode` | `RADARR_MODE` | `disabled` | `disabled` / `read` / `enabled` |
 | `radarr_quality_profile_id` | `RADARR_QUALITY_PROFILE_ID` | `1` | Radarr quality profile ID |
-| `root_folder_movies` | `ROOT_FOLDER_MOVIES` | — | Radarr root folder path (e.g. `/movies`) |
+| `root_folder_movies` | `ROOT_FOLDER_MOVIES` | — | Radarr root folder path (e.g. `/movies`). Poster images are sourced from Radarr's image metadata automatically — no extra configuration required. |
 | `sonarr_url` | `SONARR_URL` | — | Sonarr base URL (e.g. `http://sonarr:8989`) |
 | `sonarr_api_key` | `SONARR_API_KEY` | — | Sonarr API key |
 | `sonarr_mode` | `SONARR_MODE` | `disabled` | `disabled` / `read` / `enabled` |
 | `sonarr_quality_profile_id` | `SONARR_QUALITY_PROFILE_ID` | `1` | Sonarr quality profile ID |
-| `root_folder_series` | `ROOT_FOLDER_SERIES` | — | Sonarr root folder path (e.g. `/tv`) |
+| `root_folder_series` | `ROOT_FOLDER_SERIES` | — | Sonarr root folder path (e.g. `/tv`). Poster images are sourced from Sonarr's image metadata automatically — no extra configuration required. |
 | `tautulli_url` | `TAUTULLI_URL` | — | Tautulli base URL (e.g. `http://tautulli:8181`) |
 | `tautulli_api_key` | `TAUTULLI_API_KEY` | — | Tautulli API key |
 | `tautulli_mode` | `TAUTULLI_MODE` | `disabled` | `disabled` / `read` / `enabled` |

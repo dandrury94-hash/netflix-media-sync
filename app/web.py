@@ -152,8 +152,10 @@ def create_app(
 
     @app.route("/api/sync", methods=["POST"])
     def trigger_sync():
+        last = sync_log.get_last_sync() or {}
+        estimated_seconds = int(last.get("duration_seconds") or 60)
         result = sync_service.run_once()
-        return jsonify({"status": "ok", "result": result})
+        return jsonify({"status": "ok", "result": result, "estimated_seconds": estimated_seconds})
 
     @app.route("/api/overrides", methods=["POST"])
     def post_overrides():
@@ -230,6 +232,19 @@ def create_app(
     def get_removal_history():
         return jsonify({"history": removal_history.get_recent()})
 
+    @app.route("/api/addition-history")
+    def addition_history():
+        entries = sync_log.get_entries()
+        cutoff = (datetime.date.today() - datetime.timedelta(days=7)).isoformat()
+        seen: set[str] = set()
+        recent: list[dict] = []
+        for e in sorted(entries, key=lambda x: x.get("date_added", ""), reverse=True):
+            title = e.get("title", "")
+            if e.get("date_added", "") >= cutoff and title and title not in seen:
+                seen.add(title)
+                recent.append(e)
+        return jsonify({"additions": recent})
+
     @app.route("/api/protection-state")
     def protection_state():
         radarr_mode = settings.get("radarr_mode", "disabled")
@@ -286,35 +301,39 @@ def create_app(
         radarr_mode = settings.get("radarr_mode", "disabled")
         sonarr_mode = settings.get("sonarr_mode", "disabled")
 
-        movie_statuses: dict[str, str] = {}
-        series_statuses: dict[str, str] = {}
+        movie_statuses: dict[str, dict] = {}
+        series_statuses: dict[str, dict] = {}
 
         for title in top_movies:
             if radarr_mode == "disabled":
-                movie_statuses[title] = "disabled"
+                movie_statuses[title] = {"status": "disabled", "poster": None}
                 continue
             try:
                 stub = sync_service.radarr.lookup_movie(title)
+                poster = _extract_poster((stub or {}).get("images", []))
                 if stub and stub.get("id"):
                     record = sync_service.radarr.get_movie_by_id(stub["id"])
-                    movie_statuses[title] = "available" if (record or {}).get("hasFile") else "pending"
+                    status = "available" if (record or {}).get("hasFile") else "pending"
                 else:
-                    movie_statuses[title] = "will_add"
+                    status = "will_add"
+                movie_statuses[title] = {"status": status, "poster": poster}
             except Exception:
                 pass
 
         for title in top_series:
             if sonarr_mode == "disabled":
-                series_statuses[title] = "disabled"
+                series_statuses[title] = {"status": "disabled", "poster": None}
                 continue
             try:
                 stub = sync_service.sonarr.lookup_series(title)
+                poster = _extract_poster((stub or {}).get("images", []))
                 if stub and stub.get("id"):
                     record = sync_service.sonarr.get_series_by_id(stub["id"])
                     ep_count = ((record or {}).get("statistics") or {}).get("episodeFileCount", 0)
-                    series_statuses[title] = "available" if ep_count > 0 else "pending"
+                    status = "available" if ep_count > 0 else "pending"
                 else:
-                    series_statuses[title] = "will_add"
+                    status = "will_add"
+                series_statuses[title] = {"status": status, "poster": poster}
             except Exception:
                 pass
 
@@ -474,6 +493,13 @@ def _resolve_date(
         except ValueError:
             pass
     return fallback
+
+
+def _extract_poster(images: list) -> str | None:
+    for img in images:
+        if img.get("coverType") == "poster":
+            return img.get("remoteUrl") or None
+    return None
 
 
 def _grace_fields(

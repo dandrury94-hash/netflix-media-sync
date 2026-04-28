@@ -295,19 +295,48 @@ body::before {
     font-size: 0.93rem;
 }
 
+/* ── Status & actions card ── */
+.status-actions-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.13);
+    margin: 14px 0;
+}
+
+.sac-section-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 8px;
+}
+
 /* ── Integration status ── */
 .integration-list {
     list-style: none;
     padding: 0;
     margin: 0;
     display: grid;
-    gap: 14px;
+    gap: 0;
 }
 
 .integration-item {
     display: flex;
     align-items: center;
     gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.integration-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
 }
 
 .integration-label {
@@ -345,7 +374,7 @@ body::before {
 .sync-timestamp {
     font-size: 0.85rem;
     color: var(--muted);
-    margin: -6px 0 14px;
+    margin: 0;
 }
 
 .sync-stat {
@@ -648,6 +677,40 @@ body::before {
     cursor: default;
 }
 
+/* ── Top 10 poster thumbnails ── */
+.top10-item--has-poster {
+    position: relative;
+    overflow: hidden;
+    padding-left: 44px;
+}
+
+.top10-item--has-poster::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 54px;
+    background-image: var(--poster-url);
+    background-size: cover;
+    background-position: center top;
+    border-radius: 4px;
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.top10-item--has-poster::after {
+    content: "";
+    position: absolute;
+    left: 36px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.07);
+    pointer-events: none;
+}
+
 /* ── Log output — full height variant ── */
 .log-output--full {
     height: calc(100vh - 370px);
@@ -694,6 +757,49 @@ body::before {
     height: 1px;
     background: rgba(255, 255, 255, 0.07);
     margin: 18px 0;
+}
+
+/* ── Sync button (inline progress) ── */
+#syncButton {
+    width: 100%;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+}
+
+#syncButton > span {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+}
+
+#syncButton.syncing {
+    color: #fff;
+    background: rgba(77, 140, 255, 0.22);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+#syncButton.syncing::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--sync-pct, 0%);
+    background: linear-gradient(135deg, #4d8cff, #63e6ff);
+    transition: width 0.5s linear;
+    z-index: 0;
+}
+
+#syncButton.sync-error::after {
+    content: "⚠";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    color: #e05252;
+    font-size: 1rem;
+    line-height: 1;
 }
 
 /* ── Protection manager ── */

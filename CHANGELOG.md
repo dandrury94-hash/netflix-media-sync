@@ -4,6 +4,71 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-017 — 2026-04-28 — Status & Actions card redesign and inline sync progress
+
+### Changed
+- **Status & Actions card** restructured with a four-section flex layout (`display:flex; flex-direction:column; justify-content:space-between`) so the card fills the same height as the adjacent Top 10 cards. Bold dividers (`.card-divider`, `rgba(255,255,255,0.13)`) separate each section; integration items and sync-stat rows use lighter CSS `border-bottom` rules (`rgba(255,255,255,0.06)` / existing `rgba(255,255,255,0.05)`) (`app/templates/index.html`, `app/static/style.css`)
+- "Integration status" rendered as a small-caps section label (`.sac-section-label`) above the integration list. "Last Sync" row is a flex row with the timestamp right-aligned (`app/templates/index.html`, `app/static/style.css`)
+- Sync progress bar replaced with an **inline button fill**: the button spans the full card width with left-aligned text. During sync, `--sync-pct` CSS custom property drives a `::before` fill that sweeps left-to-right from 0 → 90% (animated) then jumps to 100% on success. `.syncing` class changes button background to `rgba(77,140,255,0.22)` while the `::before` gradient overlays the filled portion. On failure, `.sync-error` adds a `⚠` via `::after` on the right edge, auto-cleared after 3 s (`app/static/script.js`, `app/static/style.css`)
+- Separate `#syncProgress` / `#syncProgressBar` divs removed; `.sync-progress*` CSS classes removed (`app/templates/index.html`, `app/static/style.css`)
+
+---
+
+## CHG-016 — 2026-04-28 — Sync progress bar with duration estimate
+
+### Changed
+- `SyncService.run_once()` now records wall time around `_run()` using `time.monotonic()` and adds `duration_seconds` (int) to the result dict. `set_last_sync()` is now called in `run_once()` (after duration is known) rather than inside `_run()` (`app/sync_service.py`)
+- `POST /api/sync` reads `duration_seconds` from the previous sync via `sync_log.get_last_sync()` before running, and returns `estimated_seconds` (defaulting to 60 if no history exists) alongside the sync result (`app/web.py`)
+- Sync button handler rewritten — removes `syncResult` text box entirely. On click: disables button, sets text to "Syncing…", shows progress bar and animates 0 → 90% over `syncEstimatedSeconds` via `setInterval` every 500 ms. On success: jumps to 100%, waits 600 ms, hides bar, restores button, reloads page. On failure: sets error colour for 1500 ms then resets button. `syncEstimatedSeconds` is seeded from `data-estimated` on the button element and updated from each response (`app/static/script.js`)
+- `const syncResult` variable removed from `DOMContentLoaded` scope (`app/static/script.js`)
+
+### Added
+- `<div id="syncProgress">` / `<div id="syncProgressBar">` injected below the sync button. `data-estimated` attribute on the button seeds the initial animation duration from the last sync's recorded time (`app/templates/index.html`)
+- "Runs immediately alongside the scheduled interval." field-help paragraph above the sync button (`app/templates/index.html`)
+- `.sync-progress` — 4 px tall, full-width, `rgba(255,255,255,0.08)` track, `overflow: hidden` (`app/static/style.css`)
+- `.sync-progress-bar` — gradient fill matching the primary button, `transition: width 0.5s linear` (`app/static/style.css`)
+- `.sync-progress-bar--error` — solid `#e05252` fill for failure state (`app/static/style.css`)
+
+### Removed
+- `<div id="syncResult">` text status box removed from the Actions card (`app/templates/index.html`)
+
+---
+
+## CHG-015 — 2026-04-28 — Addition history in History tab
+
+### Added
+- `GET /api/addition-history` endpoint: reads `SyncLog.get_entries()`, filters to entries with `date_added` within the last 7 days, deduplicates by title (most recent entry kept), and returns `{"additions": [...]}` sorted newest-first. Uses the existing sync log — no new storage or dependencies (`app/web.py`)
+- **Recently Added** table at the top of the History tab, showing title, type, date added, and source for each unique title added in the last 7 days. Loaded asynchronously on tab reveal (`app/templates/index.html`, `app/static/script.js`)
+- `loadAdditionHistory(tbody)` and `renderAdditionHistory(tbody, additions)` JS functions (`app/static/script.js`)
+
+---
+
+## CHG-014 — 2026-04-28 — Dashboard layout compaction
+
+### Changed
+- Integration Status, Last Sync Summary, and Actions cards merged into a single **Status & actions** card, reducing the grid from three narrow cards to one. Content is separated by `.setting-divider` rules (`app/templates/index.html`)
+- Dashboard page subtitle updated to reflect the removed Protected Titles section
+
+### Removed
+- **Protected Titles** card removed from the Dashboard tab. Full protection management is available via the dedicated Protection tab (`app/templates/index.html`)
+
+---
+
+## CHG-013 — 2026-04-28 — Poster art on Top 10 panels
+
+### Changed
+- `GET /api/top10-status` response shape updated: each title value is now an object `{"status": "...", "poster": "<url>|null"}` instead of a plain status string. The `poster` field contains the `remoteUrl` of the first image with `coverType == "poster"` from the Radarr/Sonarr lookup stub, or `null` if none is found. No new API calls are introduced — the poster URL is extracted from the same lookup response already used for status determination (`app/web.py`)
+- `loadTop10Status()` updated to read the new object shape: reads `item.status` for icon rendering (behaviour unchanged) and `item.poster` for the new thumbnail. When a poster URL is present, sets `--poster-url` as a CSS custom property on the `<li>` element and adds the class `top10-item--has-poster` (`app/static/script.js`)
+- Poster thumbnail repositioned to the **left** of the title; a 1 px faint vertical divider (`::after` pseudo-element, `rgba(255,255,255,0.07)`) separates it from the title and status icon. `padding-left: 44px` ensures text does not overlap (`app/static/style.css`)
+
+### Added
+- `.top10-item--has-poster` CSS rule: `position: relative`, `overflow: hidden`, `padding-left: 44px`. `::before` poster thumbnail at left edge, 36×54 px, `opacity: 0.55`. `::after` 1 px divider at `left: 36px`, full height. Missing or broken images fail silently (`app/static/style.css`)
+- `_extract_poster(images)` helper function returns the `remoteUrl` of the first poster-type image or `None` (`app/web.py`)
+- "How It Works" section added to README covering sync, grace period, and poster art sourcing
+- Poster art bullet added to Features list; poster sourcing note added to Radarr and Sonarr rows in the configuration table (`README.md`)
+
+---
+
 ## CHG-012 — 2026-04-27 — Protection manager
 
 ### Added

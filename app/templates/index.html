@@ -2,71 +2,77 @@
 {% block content %}
 <div class="page-title">
     <h1>Dashboard</h1>
-    <p>Integration status, last sync results, and protected title management.</p>
+    <p>Integration status, sync activity, and scheduled removals.</p>
 </div>
 
 {# ── Dashboard tab ── #}
 <div id="tab-dashboard" class="tab-panel active">
 <div class="grid">
 
-    {# ── Integration status ── #}
-    <section class="card">
-        <h2>Integration status</h2>
-        <ul class="integration-list">
-            {% for label, mode_key in [('Radarr', 'radarr_mode'), ('Sonarr', 'sonarr_mode'), ('Tautulli', 'tautulli_mode')] %}
-            {% set mode = settings[mode_key] %}
-            <li class="integration-item">
-                <span class="dot dot--{{ mode }}"></span>
-                <span class="integration-label">{{ label }}</span>
-                <span class="mode-badge mode-badge--{{ mode }}">{{ mode | title }}</span>
-            </li>
-            {% endfor %}
-        </ul>
-    </section>
-
-    {# ── Last sync summary ── #}
-    <section class="card">
-        <h2>Last sync</h2>
-        {% if last_sync %}
-        <p class="sync-timestamp">{{ last_sync.timestamp }}</p>
-        {% set radarr_mode = settings.radarr_mode %}
-        {% set sonarr_mode = settings.sonarr_mode %}
-        {% if radarr_mode == 'enabled' %}
-        <div class="sync-stat">
-            <span>Movies added</span>
-            <span class="sync-count">{{ (last_sync.get('added_movies') or []) | length }}</span>
+    {# ── Status & Actions ── #}
+    <section class="card status-actions-card">
+        <div>
+            <h2>Status &amp; Actions</h2>
+            <div class="card-divider"></div>
+            <p class="sac-section-label">Integration status</p>
+            <ul class="integration-list">
+                {% for label, mode_key in [('Radarr', 'radarr_mode'), ('Sonarr', 'sonarr_mode'), ('Tautulli', 'tautulli_mode')] %}
+                {% set mode = settings[mode_key] %}
+                <li class="integration-item">
+                    <span class="dot dot--{{ mode }}"></span>
+                    <span class="integration-label">{{ label }}</span>
+                    <span class="mode-badge mode-badge--{{ mode }}">{{ mode | title }}</span>
+                </li>
+                {% endfor %}
+            </ul>
         </div>
-        {% elif radarr_mode == 'read' %}
-        <div class="sync-stat">
-            <span>Movies to add</span>
-            <span class="sync-count">{{ (last_sync.get('would_add_movies') or []) | length }}</span>
+        <div>
+            <div class="card-divider"></div>
+            <div class="sync-stat">
+                <span>Last Sync</span>
+                {% if last_sync %}
+                <span class="sync-timestamp">{{ last_sync.timestamp }}</span>
+                {% else %}
+                <span style="color:var(--muted)">—</span>
+                {% endif %}
+            </div>
         </div>
-        {% endif %}
-        {% if sonarr_mode == 'enabled' %}
-        <div class="sync-stat">
-            <span>Series added</span>
-            <span class="sync-count">{{ (last_sync.get('added_series') or []) | length }}</span>
+        <div>
+            {% set radarr_mode = settings.radarr_mode %}
+            {% set sonarr_mode = settings.sonarr_mode %}
+            <div class="card-divider"></div>
+            {% if radarr_mode == 'enabled' %}
+            <div class="sync-stat">
+                <span>Movies Added</span>
+                <span class="sync-count">{{ (last_sync.get('added_movies') or []) | length if last_sync else 0 }}</span>
+            </div>
+            {% elif radarr_mode == 'read' %}
+            <div class="sync-stat">
+                <span>Movies to add</span>
+                <span class="sync-count">{{ (last_sync.get('would_add_movies') or []) | length if last_sync else 0 }}</span>
+            </div>
+            {% endif %}
+            {% if sonarr_mode == 'enabled' %}
+            <div class="sync-stat">
+                <span>Series Added</span>
+                <span class="sync-count">{{ (last_sync.get('added_series') or []) | length if last_sync else 0 }}</span>
+            </div>
+            {% elif sonarr_mode == 'read' %}
+            <div class="sync-stat">
+                <span>Series to add</span>
+                <span class="sync-count">{{ (last_sync.get('would_add_series') or []) | length if last_sync else 0 }}</span>
+            </div>
+            {% endif %}
+            <div class="sync-stat">
+                <span>Protected Titles</span>
+                <span class="sync-count">{{ (last_sync.get('protected') or []) | length if last_sync else 0 }}</span>
+            </div>
         </div>
-        {% elif sonarr_mode == 'read' %}
-        <div class="sync-stat">
-            <span>Series to add</span>
-            <span class="sync-count">{{ (last_sync.get('would_add_series') or []) | length }}</span>
+        <div>
+            <div class="card-divider"></div>
+            <p class="field-help" style="margin-bottom:12px">Runs immediately alongside the scheduled interval.</p>
+            <button id="syncButton" class="button button-primary" data-estimated="{{ (last_sync.get('duration_seconds') or 60) if last_sync else 60 }}"><span>Trigger sync now</span></button>
         </div>
-        {% endif %}
-        <div class="sync-stat">
-            <span>Protected titles</span>
-            <span class="sync-count">{{ (last_sync.get('protected') or []) | length }}</span>
-        </div>
-        {% else %}
-        <p style="color: var(--muted); font-size: 0.93rem">No sync has run yet.</p>
-        {% endif %}
-    </section>
-
-    {# ── Actions ── #}
-    <section class="card">
-        <h2>Actions</h2>
-        <button id="syncButton" class="button button-primary">Trigger sync now</button>
-        <div id="syncResult" class="status-box" style="margin-top: 16px"></div>
     </section>
 
     {# ── Trakt Top 10 — Movies ── #}
@@ -108,7 +114,7 @@
     {% set sonarr_mode = settings.sonarr_mode %}
     {% if last_sync and (radarr_mode != 'disabled' or sonarr_mode != 'disabled') %}
     <section class="card wide-card">
-        <h2>Import preview</h2>
+        <h2>Import Preview</h2>
         <div class="import-columns">
 
             {% if radarr_mode != 'disabled' %}
@@ -193,35 +199,9 @@
     </section>
     {% endif %}
 
-    {# ── Protected titles ── #}
-    <section class="card">
-        <h2>Protected titles</h2>
-        <p class="field-help">Titles flagged by Tautulli or manually overridden. Check a title to pin it permanently regardless of watch history.</p>
-        {% if protected_titles %}
-        <ul class="protection-list">
-            {% for title in protected_titles %}
-            <li class="protection-item">
-                <input type="checkbox" class="override-checkbox"
-                    data-title="{{ title | e }}"
-                    {% if title in manual_protected %}checked{% endif %} />
-                <span class="title-text">{{ title }}</span>
-                {% if title in tautulli_protected %}
-                <span class="protect-badge protect-badge--tautulli">Tautulli</span>
-                {% endif %}
-                {% if title in manual_protected %}
-                <span class="protect-badge protect-badge--manual">Override</span>
-                {% endif %}
-            </li>
-            {% endfor %}
-        </ul>
-        {% else %}
-        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 12px">No protected titles detected. Run a sync with Tautulli enabled to populate.</p>
-        {% endif %}
-    </section>
-
     {# ── Scheduled removals ── #}
     <section class="card wide-card">
-        <h2>Scheduled removals</h2>
+        <h2>Scheduled Removals</h2>
         <p class="field-help">Titles tagged <code>netflix-sync</code> in Radarr / Sonarr, ordered by days remaining until scheduled removal.</p>
         <table class="removal-table">
             <thead>
@@ -248,6 +228,23 @@
 {# ── History tab ── #}
 <div id="tab-history" class="tab-panel">
     <section class="card wide-card">
+        <h2>Recently added <span class="sync-timestamp" style="display:inline;margin-left:10px">last 7 days</span></h2>
+        <p class="field-help">Titles added to Radarr / Sonarr by this sync service in the last 7 days. Deduplicates by title, most recent entry shown.</p>
+        <table class="removal-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Date added</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody id="additionHistoryBody">
+                <tr><td colspan="4" class="table-empty">Loading…</td></tr>
+            </tbody>
+        </table>
+    </section>
+    <section class="card wide-card" style="margin-top:22px">
         <h2>Removal history</h2>
         <p class="field-help">Titles automatically deleted from Radarr / Sonarr. Records are kept for 180 days.</p>
         <table class="removal-table">
