@@ -4,7 +4,7 @@ import threading
 import time
 
 from app.manual_overrides import ManualOverrides
-from app.netflix_fetcher import fetch_netflix_top_10_for_countries
+from app.netflix_fetcher import fetch_from_sources
 from app.pushover_client import PushoverClient
 from app.radarr_client import RadarrClient
 from app.removal_history import RemovalHistory
@@ -78,12 +78,17 @@ class SyncService:
         if isinstance(countries, str):
             countries = [countries.strip().lower()]
 
-        logger.info("Fetching top titles via Trakt (countries: %s)", countries or ["global"])
+        sources = self.settings.get("sources", ["trakt"])
+        if isinstance(sources, str):
+            sources = [sources]
+
+        logger.info("Fetching top titles from sources: %s (countries: %s)", sources, countries or ["global"])
         _t = time.monotonic()
-        netflix_movies, netflix_series = fetch_netflix_top_10_for_countries(
-            countries, self.settings.get("trakt_client_id", "")
-        )
-        logger.info("[timing] trakt_fetch: %.1fs", time.monotonic() - _t)
+        trending = fetch_from_sources(sources, countries, self.settings.get("trakt_client_id", ""))
+        logger.info("[timing] source_fetch: %.1fs", time.monotonic() - _t)
+
+        netflix_movies = [i["title"] for i in trending if i["type"] == "movie"]
+        netflix_series = [i["title"] for i in trending if i["type"] == "series"]
 
         logger.info("Top movies: %s", netflix_movies)
         logger.info("Top series: %s", netflix_series)

@@ -4,6 +4,21 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-020 — 2026-04-28 — Multi-source trending fetch
+
+### Added
+- `fetch_from_sources(sources, country_codes, client_id)` in `app/netflix_fetcher.py` — iterates a list of enabled source names, delegates to the appropriate fetcher, and deduplicates results by `(title.lower(), type)`. Returns a list of dicts: `{"title": str, "type": "movie"|"series", "source": str}`
+- `_fetch_trakt_items(country_codes, client_id)` private helper — wraps the existing `fetch_netflix_top_10_for_countries()` call and converts its `(movies, series)` tuple into the unified dict format with `source: "trakt"`
+- `"sources": ["trakt"]` added to `DEFAULT_SETTINGS` (`app/config.py`); persisted to `settings.json`
+- **Enabled sources** checkbox group in the Trakt settings card — currently exposes Trakt only; Netflix is handled in the backend but not surfaced in the UI until implemented (`app/templates/settings.html`)
+
+### Changed
+- `SyncService._run()` now reads `sources` from settings and calls `fetch_from_sources()` instead of `fetch_netflix_top_10_for_countries()` directly. `netflix_movies` and `netflix_series` lists are extracted from the merged result. Timing log line renamed from `trakt_fetch` to `source_fetch` (`app/sync_service.py`)
+- `POST /api/settings` handles `sources` as a multi-value list (same pattern as `netflix_top_countries`): values are whitelisted to `["trakt", "netflix"]` (`app/web.py`)
+- Settings form JS handler collects `sources` with `formData.getAll("sources")` and skips the key in the scalar loop, matching the existing `netflix_top_countries` pattern (`app/static/script.js`)
+
+---
+
 ## CHG-019 — 2026-04-28 — Centralised media state, bulk-fetch top10, and protection manager improvements
 
 ### Added

@@ -130,8 +130,9 @@ def create_app(
             payload = request.json or {}
         else:
             payload = {
-                **{k: v for k, v in request.form.items() if k != "netflix_top_countries"},
+                **{k: v for k, v in request.form.items() if k not in ("netflix_top_countries", "sources")},
                 "netflix_top_countries": request.form.getlist("netflix_top_countries"),
+                "sources": request.form.getlist("sources"),
             }
 
         def safe_int(value, default):
@@ -155,6 +156,15 @@ def create_app(
         else:
             countries = []
 
+        sources_raw = payload.get("sources")
+        if isinstance(sources_raw, str):
+            sources_raw = [sources_raw.strip()] if sources_raw.strip() else []
+        elif isinstance(sources_raw, list):
+            sources_raw = [s.strip() for s in sources_raw if isinstance(s, str) and s.strip()]
+        else:
+            sources_raw = []
+        sources = [s for s in sources_raw if s in ("trakt", "netflix")]
+
         normalized = {
             "radarr_url": payload.get("radarr_url", "").strip(),
             "radarr_api_key": sensitive("radarr_api_key"),
@@ -177,6 +187,7 @@ def create_app(
             "web_port": safe_int(payload.get("web_port"), 8080),
             "web_password": sensitive("web_password"),
             "netflix_top_countries": countries,
+            "sources": sources,
             "pushover_enabled": to_bool(payload.get("pushover_enabled")),
             "pushover_user_key": sensitive("pushover_user_key"),
             "pushover_api_token": sensitive("pushover_api_token"),

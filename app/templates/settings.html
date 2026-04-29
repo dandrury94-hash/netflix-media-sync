@@ -109,6 +109,11 @@
                     value="{{ '__REDACTED__' if settings.trakt_client_id else '' }}"
                     placeholder="{{ 'Paste to replace' if settings.trakt_client_id else 'Paste Client ID' }}" />
             </label>
+            <label>Enabled sources</label>
+            <label class="setting-checkbox">
+                <input type="checkbox" name="sources" value="trakt" {% if 'trakt' in (settings.sources or []) %}checked{% endif %} />
+                Trakt (trending)
+            </label>
         </section>
 
         <section class="card">

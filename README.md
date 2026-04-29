@@ -196,10 +196,38 @@ Log format: `YYYY-MM-DD HH:MM:SS [LEVEL] module: message`
 
 ## Limitations
 
-- Uses Trakt trending data, not real Netflix charts
+- Uses Trakt trending data, not real Netflix charts (see Planned below)
 - Title matching against Radarr/Sonarr is approximate (search-based)
-- Retention days are used for display only — no automatic deletion of media
 - Designed for single-instance deployment
+
+---
+
+## Planned
+
+### Multi-source trending input
+
+The source fetch layer (CHG-020) is already in place. `fetch_from_sources()` accepts a list of named sources, deduplicates by title + type, and feeds the merged result into the normal sync flow. Adding a new source means implementing one function and enabling it in settings — the rest of the pipeline is unchanged.
+
+#### Netflix Top 10 (scraper)
+
+The primary planned source. Netflix publishes its weekly Top 10 rankings at `top10.netflix.com` as both a browsable page and a downloadable CSV. The plan is to scrape or download that data and map it into the existing `{"title", "type", "source"}` format.
+
+Considerations:
+- The CSV at `top10.netflix.com/data/all-weeks-global.tsv` is publicly accessible with no auth
+- Rows include `show_title`, `category` (Films / TV), `weekly_rank`, and `week` — enough to build a top 10 list per region and week
+- Title matching against Radarr/Sonarr will remain search-based, consistent with Trakt behaviour
+- A `netflix_scraper.py` module will be added alongside `netflix_fetcher.py`; no new pip dependencies are expected
+
+#### Other potential sources
+
+| Source | Notes |
+|--------|-------|
+| IMDb charts | IMDb publishes popularity charts (Top 250, Most Popular) with no official API; scraping is feasible |
+| Letterboxd | Weekly popular films — no public API but the page is scrapable |
+| TMDB trending | Official REST API, free tier, returns trending movies/TV by day or week — low friction to add |
+| Plex Discover | Trending on Plex — relevant for self-hosters already using Plex/Tautulli |
+
+Each source would follow the same pattern: a module that returns `list[{"title", "type", "source"}]`, registered in `fetch_from_sources()`, and exposed via a checkbox in Settings once it is working.
 
 ---
 

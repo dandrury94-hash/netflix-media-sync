@@ -35,6 +35,7 @@ DEFAULT_SETTINGS = {
     "pushover_api_token": "",
     "deletion_enabled": False,
     "grace_period_days": 7,
+    "sources": ["trakt"],
 }
 
 ENV_VAR_TO_SETTING = {

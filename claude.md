@@ -4,6 +4,14 @@ A Flask-based media lifecycle system. Syncs trending content via Trakt into Rada
 
 This is NOT a sync script. It is a state-driven media lifecycle system.
 
+## Core Rules
+
+- Admin-only tool — prioritise simplicity over scalability
+- Avoid over-engineering
+- Keep changes minimal and localised
+- Do not refactor working systems without explicit instruction
+- When in doubt, do less
+
 ## Core Principles
 
 - Deterministic behaviour — same input always produces same output across dashboard, protection, top 10, and deletion
