@@ -954,3 +954,84 @@ body::before {
     color: var(--muted);
     margin-top: 3px;
 }
+
+/* ── FlixPatrol service selector ── */
+.fp-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.fp-service-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.fp-service-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.fp-service-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.13);
+}
+
+.fp-service-item:has(.fp-service-cb:checked) {
+    background: rgba(60, 171, 255, 0.08);
+    border-color: rgba(60, 171, 255, 0.28);
+}
+
+.fp-service-cb {
+    width: 15px;
+    height: 15px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.fp-service-meta {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+}
+
+.fp-service-name {
+    font-size: 0.9rem;
+    color: #c5d2eb;
+    font-weight: 500;
+}
+
+.fp-service-counts {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.fp-count-badge {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.fp-count-badge--movie  { background: rgba(77, 140, 255, 0.14); color: #88c4f8; }
+.fp-count-badge--series { background: rgba(46, 207, 125, 0.14); color: #2ecf7d; }
+
+.fp-toggle-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}

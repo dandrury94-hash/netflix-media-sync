@@ -90,7 +90,11 @@ class RadarrClient:
             return None
 
     def lookup_movie(self, title: str) -> dict | None:
-        results = self._get("/api/v3/movie/lookup", {"term": title})
+        try:
+            results = self._get("/api/v3/movie/lookup", {"term": title})
+        except Exception as exc:
+            logger.warning("Radarr lookup failed for movie: %s (%s)", title, exc)
+            return None
         if isinstance(results, list) and results:
             return results[0]
         return None

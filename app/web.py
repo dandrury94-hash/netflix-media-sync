@@ -7,7 +7,9 @@ from app.config import LOG_PATH
 from app.manual_overrides import ManualOverrides
 from app.media_state import build_media_state
 from app.removal_history import RemovalHistory
+from app.scraper.core.aggregator import aggregate, group_by_source_and_type
 from app.scraper.sources.streaming import COUNTRIES as FLIXPATROL_COUNTRIES
+from app.scraper.sources.streaming import fetch as flixpatrol_fetch
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
 from app.sync_service import SyncService
@@ -183,8 +185,6 @@ def create_app(
             fp_services_raw = [s.strip() for s in fp_services_raw if isinstance(s, str) and s.strip()]
         else:
             fp_services_raw = []
-        # No whitelist applied here — service keys come from the scraper's own
-        # SERVICE_ALIASES values; Phase 3 will constrain this via the UI
         fp_services = fp_services_raw
 
         normalized = {
@@ -415,6 +415,33 @@ def create_app(
             return jsonify({"status": "error", "message": errors})
         except Exception as exc:
             return jsonify({"status": "error", "message": _exc_msg(exc)})
+
+    @app.route("/api/flixpatrol/preview")
+    def flixpatrol_preview():
+        country = request.args.get("country", "").strip()
+        if not country or country not in FLIXPATROL_COUNTRIES:
+            country = settings.get("flixpatrol_country", "United Kingdom")
+        raw = flixpatrol_fetch(country)
+        if not raw:
+            return jsonify({
+                "error": "FlixPatrol returned no data. The page structure may have changed or the request was blocked.",
+                "country": country,
+                "services": [],
+            })
+        grouped = group_by_source_and_type(aggregate([raw]))
+        services = []
+        for service_key, types in sorted(grouped.items()):
+            movies = types.get("movie", [])
+            series = types.get("series", [])
+            services.append({
+                "key": service_key,
+                "label": service_key.replace("_", " ").title(),
+                "movie_count": len(movies),
+                "series_count": len(series),
+                "sample_movies": [m.title for m in movies[:3]],
+                "sample_series": [s.title for s in series[:3]],
+            })
+        return jsonify({"country": country, "services": services})
 
     @app.route("/api/logs")
     def get_logs():

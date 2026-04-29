@@ -122,6 +122,44 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ── FlixPatrol service preview ──
+  const fpLoadBtn = document.getElementById("fpLoadBtn");
+  if (fpLoadBtn) {
+    // Render any already-saved services on page load
+    const savedServices = Array.from(
+      document.querySelectorAll('input[name="flixpatrol_services"]')
+    ).map((el) => el.value);
+    if (savedServices.length) {
+      renderFlixPatrolServices([], savedServices);
+    }
+
+    fpLoadBtn.addEventListener("click", async () => {
+      const country = document.getElementById("flixpatrolCountry")?.value || "";
+      const statusEl = document.getElementById("fpLoadStatus");
+      const savedChecked = Array.from(
+        document.querySelectorAll('input[name="flixpatrol_services"]:checked')
+      ).map((el) => el.value);
+
+      setTestResult(statusEl, "Loading…", "");
+      fpLoadBtn.disabled = true;
+
+      try {
+        const resp = await fetch(`/api/flixpatrol/preview?country=${encodeURIComponent(country)}`);
+        const data = await resp.json();
+        if (data.error) {
+          setTestResult(statusEl, `❌ ${data.error}`, "error");
+        } else {
+          setTestResult(statusEl, `✅ ${data.services.length} services found`, "success");
+          renderFlixPatrolServices(data.services, savedChecked);
+        }
+      } catch (err) {
+        setTestResult(statusEl, `❌ ${err.message}`, "error");
+      } finally {
+        fpLoadBtn.disabled = false;
+      }
+    });
+  }
+
   // ── Manual override checkboxes ──
   document.querySelectorAll(".override-checkbox").forEach((cb) => {
     cb.addEventListener("change", async () => {
@@ -684,4 +722,111 @@ function renderLogs(container, lines) {
     .map((l) => `<div class="log-line ${logLineClass(l)}">${escHtml(l)}</div>`)
     .join("");
   if (atBottom) container.scrollTop = container.scrollHeight;
+}
+
+function renderFlixPatrolServices(services, checkedKeys = []) {
+  const container = document.getElementById("fpServiceList");
+  if (!container) return;
+
+  // Remove any previously rendered service checkboxes
+  container.innerHTML = "";
+
+  if (!services.length && !checkedKeys.length) return;
+
+  const divider = document.createElement("div");
+  divider.className = "setting-divider";
+  container.appendChild(divider);
+
+  const heading = document.createElement("p");
+  heading.className = "field-help";
+  heading.style.marginBottom = "10px";
+  heading.textContent = "Select which services to import from:";
+  container.appendChild(heading);
+
+  // If we have no live services data (page load with saved prefs),
+  // render minimal checkboxes from saved keys only
+  const rows = services.length
+    ? services
+    : checkedKeys.map((k) => ({
+        key: k,
+        label: k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        movie_count: null,
+        series_count: null,
+        sample_movies: [],
+        sample_series: [],
+      }));
+
+  const grid = document.createElement("div");
+  grid.className = "fp-service-grid";
+
+  rows.forEach((svc) => {
+    const isChecked = checkedKeys.includes(svc.key);
+
+    const item = document.createElement("label");
+    item.className = "fp-service-item";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.name = "flixpatrol_services";
+    cb.value = svc.key;
+    cb.checked = isChecked;
+    cb.className = "fp-service-cb";
+
+    const meta = document.createElement("div");
+    meta.className = "fp-service-meta";
+
+    const nameRow = document.createElement("div");
+    nameRow.className = "fp-service-name";
+    nameRow.textContent = svc.label;
+
+    meta.appendChild(nameRow);
+
+    if (svc.movie_count !== null) {
+      const counts = document.createElement("div");
+      counts.className = "fp-service-counts";
+      if (svc.movie_count > 0) {
+        const mc = document.createElement("span");
+        mc.className = "fp-count-badge fp-count-badge--movie";
+        mc.textContent = `${svc.movie_count} movies`;
+        counts.appendChild(mc);
+      }
+      if (svc.series_count > 0) {
+        const sc = document.createElement("span");
+        sc.className = "fp-count-badge fp-count-badge--series";
+        sc.textContent = `${svc.series_count} series`;
+        counts.appendChild(sc);
+      }
+      meta.appendChild(counts);
+    }
+
+    item.appendChild(cb);
+    item.appendChild(meta);
+    grid.appendChild(item);
+  });
+
+  container.appendChild(grid);
+
+  // Select all / none toggle
+  const toggleRow = document.createElement("div");
+  toggleRow.className = "fp-toggle-row";
+
+  const selAll = document.createElement("button");
+  selAll.type = "button";
+  selAll.className = "button button-secondary button-sm";
+  selAll.textContent = "Select all";
+  selAll.addEventListener("click", () => {
+    container.querySelectorAll(".fp-service-cb").forEach((cb) => { cb.checked = true; });
+  });
+
+  const selNone = document.createElement("button");
+  selNone.type = "button";
+  selNone.className = "button button-secondary button-sm";
+  selNone.textContent = "Select none";
+  selNone.addEventListener("click", () => {
+    container.querySelectorAll(".fp-service-cb").forEach((cb) => { cb.checked = false; });
+  });
+
+  toggleRow.appendChild(selAll);
+  toggleRow.appendChild(selNone);
+  container.appendChild(toggleRow);
 }

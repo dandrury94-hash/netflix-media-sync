@@ -3,6 +3,29 @@
 All changes to this project are recorded here with a unique reference, date, and description.
 
 ---
+
+
+## CHG-024 — 2026-04-29 — Phase 3: FlixPatrol service selector with live preview
+
+### Additions
+- **`GET /api/flixpatrol/preview`** endpoint in `app/web.py` — accepts an optional `?country=` query param (falls back to `flixpatrol_country` setting). Calls `flixpatrol_fetch()`, groups results via `group_by_source_and_type()`, and returns a JSON array of service objects: `key`, `label`, `movie_count`, `series_count`, `sample_movies` (top 3), `sample_series` (top 3). No Radarr/Sonarr interaction
+- **FlixPatrol settings card** in `app/templates/settings.html` — replaces the static Phase 2 placeholder. Contains: enable checkbox, country dropdown, "Load services" button, dynamic service grid rendered by JS, and select-all/none toggles. Service checkboxes use `name="flixpatrol_services"` and are persisted via the existing settings save flow
+- **`renderFlixPatrolServices(services, checkedKeys)`** in `app/static/script.js` — renders the service grid from preview API response. On page load, previously saved service keys are rendered as minimal checkboxes (no counts) so selections survive a page reload without requiring a re-fetch. On "Load services" click, live data replaces them with movie/series counts
+- **FlixPatrol service selector CSS** in `app/static/style.css` — `.fp-preview-row`, `.fp-service-grid`, `.fp-service-item`, `.fp-service-cb`, `.fp-service-meta`, `.fp-service-name`, `.fp-service-counts`, `.fp-count-badge--movie`, `.fp-count-badge--series`, `.fp-toggle-row`
+
+### Changes
+- `settings_page()` in `app/web.py` now passes `flixpatrol_countries=sorted(FLIXPATROL_COUNTRIES.keys())` to the template (imported from `app/scraper/sources/streaming`)
+- `post_settings()` in `app/web.py`: `"flixpatrol"` added to sources whitelist (replacing `"netflix"` stub); `flixpatrol_country` and `flixpatrol_services` normalised and persisted; `flixpatrol_services` excluded from scalar form loop
+- Form submit handler in `app/static/script.js`: `flixpatrol_services` collected with `getAll()` and skipped in scalar loop
+
+
+## CHG-023 — 2026-04-29 — Fix: lookup failures no longer crash the sync run
+
+### Fixes
+- `lookup_movie()` in `app/radarr_client.py` — wrapped the `_get()` call in a try/except. A transient Radarr error (e.g. 503 Service Unavailable) now logs a warning and returns `None`, which `add_movie()` already handles by skipping that title. Previously the exception propagated up through `SyncService._run()` and aborted the entire sync mid-run, leaving the remaining titles unprocessed
+- `lookup_series()` in `app/sonarr_client.py` — identical fix applied for consistency. Same failure mode, same fix
+
+
 ## CHG-022 — 2026-04-29 — Phase 2: FlixPatrol settings wiring and UI card
 
 ### Additions
@@ -19,7 +42,6 @@ All changes to this project are recorded here with a unique reference, date, and
 - Form submit handler in `app/static/script.js`:
   - `payload.flixpatrol_services = formData.getAll("flixpatrol_services")` added alongside the existing `sources` and `netflix_top_countries` multi-value collection
   - `flixpatrol_services` skipped in the scalar `formData.entries()` loop to prevent double-submission
-
 
 
 ## CHG-021 — 2026-04-29 — Phase 1: FlixPatrol scraper integration (streaming-scraper vendored)

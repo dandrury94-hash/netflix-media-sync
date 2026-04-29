@@ -90,7 +90,11 @@ class SonarrClient:
             return None
 
     def lookup_series(self, title: str) -> dict | None:
-        results = self._get("/api/v3/series/lookup", {"term": title})
+        try:
+            results = self._get("/api/v3/series/lookup", {"term": title})
+        except Exception as exc:
+            logger.warning("Sonarr lookup failed for series: %s (%s)", title, exc)
+            return None
         if isinstance(results, list) and results:
             return results[0]
         return None
