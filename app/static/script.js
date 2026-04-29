@@ -104,6 +104,20 @@ document.addEventListener("DOMContentLoaded", () => {
         if (key === "flixpatrol_services") continue;
         payload[key] = value;
       }
+      const fpTypeContainer = document.getElementById("fpServiceList");
+      const fpServiceTypes = {};
+      if (fpTypeContainer) {
+        fpTypeContainer.querySelectorAll(".fp-type-cb[data-type='movie']").forEach((movieCb) => {
+          const key = movieCb.dataset.service;
+          const row = movieCb.closest(".fp-service-row");
+          const seriesCb = row && row.querySelector(".fp-type-cb[data-type='series']");
+          const types = [];
+          if (movieCb.checked) types.push("movie");
+          if (seriesCb && seriesCb.checked) types.push("series");
+          fpServiceTypes[key] = types;
+        });
+      }
+      payload.flixpatrol_service_types = fpServiceTypes;
       try {
         const response = await fetch("/api/settings", {
           method: "POST",
@@ -124,21 +138,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── FlixPatrol service preview ──
   const fpLoadBtn = document.getElementById("fpLoadBtn");
+  const fpListEl = document.getElementById("fpServiceList");
   if (fpLoadBtn) {
-    // Render any already-saved services on page load
-    const savedServices = Array.from(
-      document.querySelectorAll('input[name="flixpatrol_services"]')
-    ).map((el) => el.value);
+    // Restore saved services on page load from data attributes embedded by Jinja
+    const savedServices = JSON.parse(fpListEl?.dataset.savedServices || "[]");
+    const savedServiceTypes = JSON.parse(fpListEl?.dataset.savedServiceTypes || "{}");
     if (savedServices.length) {
-      renderFlixPatrolServices([], savedServices);
+      renderFlixPatrolServices([], savedServices, savedServiceTypes);
     }
 
     fpLoadBtn.addEventListener("click", async () => {
       const country = document.getElementById("flixpatrolCountry")?.value || "";
       const statusEl = document.getElementById("fpLoadStatus");
+
+      // Preserve current UI state before re-rendering
       const savedChecked = Array.from(
         document.querySelectorAll('input[name="flixpatrol_services"]:checked')
       ).map((el) => el.value);
+      const currentTypes = {};
+      if (fpListEl) {
+        fpListEl.querySelectorAll(".fp-type-cb[data-type='movie']").forEach((movieCb) => {
+          const key = movieCb.dataset.service;
+          const row = movieCb.closest(".fp-service-row");
+          const seriesCb = row && row.querySelector(".fp-type-cb[data-type='series']");
+          const types = [];
+          if (movieCb.checked) types.push("movie");
+          if (seriesCb && seriesCb.checked) types.push("series");
+          currentTypes[key] = types;
+        });
+      }
+      // Merge: persisted base, overridden by current UI selections
+      const mergedTypes = { ...savedServiceTypes, ...currentTypes };
 
       setTestResult(statusEl, "Loading…", "");
       fpLoadBtn.disabled = true;
@@ -150,12 +180,41 @@ document.addEventListener("DOMContentLoaded", () => {
           setTestResult(statusEl, `❌ ${data.error}`, "error");
         } else {
           setTestResult(statusEl, `✅ ${data.services.length} services found`, "success");
-          renderFlixPatrolServices(data.services, savedChecked);
+          if (data.cache) updateFpCacheStatus(data.cache);
+          renderFlixPatrolServices(data.services, savedChecked, mergedTypes);
         }
       } catch (err) {
         setTestResult(statusEl, `❌ ${err.message}`, "error");
       } finally {
         fpLoadBtn.disabled = false;
+      }
+    });
+  }
+
+  // ── FlixPatrol refresh button ──
+  const fpRefreshBtn = document.getElementById("fpRefreshBtn");
+  if (fpRefreshBtn) {
+    fpRefreshBtn.addEventListener("click", async () => {
+      const statusEl = document.getElementById("fpLoadStatus");
+      setTestResult(statusEl, "Refreshing…", "");
+      fpRefreshBtn.disabled = true;
+      if (fpLoadBtn) fpLoadBtn.disabled = true;
+      try {
+        const resp = await fetch("/api/flixpatrol/refresh", { method: "POST" });
+        const data = await resp.json();
+        if (data.cache) updateFpCacheStatus(data.cache);
+        if (data.status === "ok") {
+          setTestResult(statusEl, `✅ Refreshed — ${data.services.length} service(s) found`, "success");
+        } else if (data.status === "stale") {
+          setTestResult(statusEl, `⚠ Using stale data — ${data.error}`, "error");
+        } else {
+          setTestResult(statusEl, `❌ ${data.error || "Refresh failed"}`, "error");
+        }
+      } catch (err) {
+        setTestResult(statusEl, `❌ ${err.message}`, "error");
+      } finally {
+        fpRefreshBtn.disabled = false;
+        if (fpLoadBtn) fpLoadBtn.disabled = false;
       }
     });
   }
@@ -724,11 +783,28 @@ function renderLogs(container, lines) {
   if (atBottom) container.scrollTop = container.scrollHeight;
 }
 
-function renderFlixPatrolServices(services, checkedKeys = []) {
+function updateFpCacheStatus(cache) {
+  const el = document.getElementById("fpCacheStatus");
+  if (!el || !cache) return;
+  let html = "";
+  if (cache.cached_at) {
+    const ts = new Date(cache.cached_at * 1000);
+    const timePart = ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const datePart = ts.toLocaleDateString([], { day: "2-digit", month: "2-digit", year: "numeric" });
+    html += `<p class="field-help">Last fetched: ${escHtml(timePart + " " + datePart)}`;
+    if (cache.is_stale) html += ' <span class="fp-stale-badge">Stale</span>';
+    html += "</p>";
+  }
+  if (cache.error) {
+    html += `<p class="field-help fp-stale-msg">⚠ ${escHtml(cache.error)}</p>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderFlixPatrolServices(services, checkedKeys = [], serviceTypes = {}) {
   const container = document.getElementById("fpServiceList");
   if (!container) return;
 
-  // Remove any previously rendered service checkboxes
   container.innerHTML = "";
 
   if (!services.length && !checkedKeys.length) return;
@@ -761,7 +837,14 @@ function renderFlixPatrolServices(services, checkedKeys = []) {
 
   rows.forEach((svc) => {
     const isChecked = checkedKeys.includes(svc.key);
+    const savedTypes = serviceTypes[svc.key];
+    const movieChecked = !savedTypes || savedTypes.includes("movie");
+    const seriesChecked = !savedTypes || savedTypes.includes("series");
 
+    const row = document.createElement("div");
+    row.className = "fp-service-row";
+
+    // Service enable label
     const item = document.createElement("label");
     item.className = "fp-service-item";
 
@@ -778,7 +861,6 @@ function renderFlixPatrolServices(services, checkedKeys = []) {
     const nameRow = document.createElement("div");
     nameRow.className = "fp-service-name";
     nameRow.textContent = svc.label;
-
     meta.appendChild(nameRow);
 
     if (svc.movie_count !== null) {
@@ -801,7 +883,30 @@ function renderFlixPatrolServices(services, checkedKeys = []) {
 
     item.appendChild(cb);
     item.appendChild(meta);
-    grid.appendChild(item);
+    row.appendChild(item);
+
+    // Per-service type toggles
+    const typeToggles = document.createElement("div");
+    typeToggles.className = "fp-type-toggles";
+
+    [["movie", "Movies"], ["series", "TV"]].forEach(([type, label]) => {
+      const typeLabel = document.createElement("label");
+      typeLabel.className = "fp-type-label";
+
+      const typeCb = document.createElement("input");
+      typeCb.type = "checkbox";
+      typeCb.className = "fp-type-cb";
+      typeCb.dataset.service = svc.key;
+      typeCb.dataset.type = type;
+      typeCb.checked = type === "movie" ? movieChecked : seriesChecked;
+
+      typeLabel.appendChild(typeCb);
+      typeLabel.appendChild(document.createTextNode(" " + label));
+      typeToggles.appendChild(typeLabel);
+    });
+
+    row.appendChild(typeToggles);
+    grid.appendChild(row);
   });
 
   container.appendChild(grid);

@@ -38,6 +38,8 @@ DEFAULT_SETTINGS = {
     "sources": ["trakt"],
     "flixpatrol_country": "United Kingdom",
     "flixpatrol_services": [],
+    "flixpatrol_service_types": {},
+    "flixpatrol_cache_hours": 6,
 }
 
 ENV_VAR_TO_SETTING = {

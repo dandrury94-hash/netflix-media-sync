@@ -8,7 +8,7 @@ Built as a Dockerized background worker with a web interface, the system support
 
 ## Features
 
-- Sync trending movies and series from Trakt by country
+- Sync trending content from **Trakt** (by country) and **FlixPatrol** streaming Top 10 (per service)
 - Add content to Radarr (movies) and Sonarr (series) automatically
 - Protect recently watched media using Tautulli watch history
 - Manual protection overrides, persisted across restarts
@@ -46,10 +46,34 @@ Protected titles are never removed from the removal schedule and are surfaced pr
 
 ### How It Works
 
-- On each sync, Trakt trending data is fetched by country (or globally if no countries are selected) and compared against the Radarr and Sonarr libraries
+- On each sync, enabled sources are fetched, deduplicated by title + type, and the merged list is compared against the Radarr and Sonarr libraries
 - New titles are added (or logged in read mode) and tagged `netflix-sync` for retention tracking
 - After every sync, titles past their retention date enter a grace period before automatic deletion (when enabled)
 - Poster art is fetched from Radarr and Sonarr's image metadata (`remoteUrl` on `coverType: "poster"`) and displayed on the dashboard Top 10 panels. No additional API calls are made — posters are extracted from the same lookup response used for status checks
+
+### Top 10 Sources
+
+Two sources are available and can be enabled independently in Settings:
+
+| Source | Description |
+|--------|-------------|
+| **Trakt** | Trending movies and series from [Trakt](https://trakt.tv), optionally filtered by country code. Falls back to global trending when no countries are selected. |
+| **FlixPatrol** | Streaming Top 10 lists scraped from [FlixPatrol](https://flixpatrol.com) via the vendored [streaming-scraper](https://github.com/dandrurymobile/streaming-scraper) library. Returns Top 10 Movies and TV Shows per streaming service (Netflix, Disney+, Apple TV+, etc.) for a chosen country. |
+
+Both sources are deduplicated before sync — a title appearing in Trakt and FlixPatrol is only added once.
+
+#### Configuring FlixPatrol
+
+1. Tick **FlixPatrol (streaming Top 10)** in Settings → FlixPatrol
+2. Select a **Country** (e.g. United Kingdom)
+3. Click **Load services** to fetch the available streaming services for that country, then tick the ones you want
+4. Optionally restrict each service to **Movies** only or **TV** only using the per-service type toggles
+5. Set **Cache duration hours** — FlixPatrol updates daily, so 6–12 h is recommended
+6. Save settings
+
+#### If FlixPatrol scraping breaks
+
+FlixPatrol page structure can change without notice. If the scraper stops returning results, the settings page will show a **Stale** badge and the error message *"FlixPatrol data unavailable — check streaming-scraper repo for updates"*. Check the [streaming-scraper](https://github.com/dandrurymobile/streaming-scraper) repository for selector updates, then rebuild the image.
 
 ### Top 10 Status Icons
 
@@ -81,7 +105,7 @@ Available at `http://<host>:8080` (port configurable).
 - **Integration status** — mode and health indicator for each integration
 - **Last sync summary** — timestamp and per-mode counts
 - **Actions** — manual sync trigger
-- **Trakt Top 10 Movies / Series** — last sync results with live status icons
+- **Top 10 Movies / Series** — last sync results from all enabled sources with live status icons
 - **Import preview** — titles added or would-be-added this sync
 - **Protected titles** — Tautulli and manually overridden titles with override toggles
 - **Scheduled removals** — all `netflix-sync` tagged titles with removal timeline
@@ -97,8 +121,9 @@ Available at `http://<host>:8080` (port configurable).
 
 - Per-integration configuration (URL, API key, mode, quality profile, root folder)
 - **Test Connection** button on each card — validates live connectivity and populates quality profile and root folder dropdowns from the live API
-- Trakt Client ID, sync interval, retention days, web port, and Basic Auth password
-- Netflix Top 10 country selection (multi-select)
+- Trakt Client ID and FlixPatrol source configuration (country, service selector, type toggles, cache duration)
+- Sync interval, retention days, web port, and Basic Auth password
+- Netflix Top 10 country selection (multi-select, used by Trakt source)
 
 ---
 
@@ -132,6 +157,11 @@ All settings are stored in `/config/settings.json` and can be overridden by envi
 | `tautulli_lookback_days` | `TAUTULLI_LOOKBACK_DAYS` | `30` | Days of watch history to consider for protection |
 | `trakt_client_id` | `TRAKT_CLIENT_ID` | — | Trakt API client ID — obtain from trakt.tv/oauth/applications |
 | `netflix_top_countries` | `NETFLIX_TOP_COUNTRIES` | `[]` | List of country codes for Trakt Top 10 (e.g. `["us","gb"]`). Falls back to global trending if empty. |
+| `sources` | — | `[]` | Active trending sources — `"trakt"` and/or `"flixpatrol"` |
+| `flixpatrol_country` | — | `"United Kingdom"` | Country name for FlixPatrol Top 10 (must match a supported country) |
+| `flixpatrol_services` | — | `[]` | FlixPatrol streaming services to include (e.g. `["netflix","disney_plus"]`). Empty = all services |
+| `flixpatrol_service_types` | — | `{}` | Per-service type filter — e.g. `{"netflix":["movie"]}`. Missing key means both types included |
+| `flixpatrol_cache_hours` | — | `6` | Hours to cache FlixPatrol results before re-fetching. FlixPatrol updates daily; 6–12 h recommended |
 | `run_interval_seconds` | `RUN_INTERVAL_SECONDS` | `86400` | Seconds between automatic sync runs |
 | `movie_retention_days` | `MOVIE_RETENTION_DAYS` | `30` | Retention window used to calculate removal dates for movies |
 | `series_retention_days` | `SERIES_RETENTION_DAYS` | `30` | Retention window used to calculate removal dates for series |
@@ -196,7 +226,8 @@ Log format: `YYYY-MM-DD HH:MM:SS [LEVEL] module: message`
 
 ## Limitations
 
-- Uses Trakt trending data, not real Netflix charts (see Planned below)
+- Trakt source uses trending data, not real Netflix charts
+- FlixPatrol source scrapes a third-party aggregator — if FlixPatrol changes its page structure the scraper will return no results until [streaming-scraper](https://github.com/dandrurymobile/streaming-scraper) is updated and the image rebuilt
 - Title matching against Radarr/Sonarr is approximate (search-based)
 - Designed for single-instance deployment
 
@@ -204,21 +235,9 @@ Log format: `YYYY-MM-DD HH:MM:SS [LEVEL] module: message`
 
 ## Planned
 
-### Multi-source trending input
+### Additional trending sources
 
-The source fetch layer (CHG-020) is already in place. `fetch_from_sources()` accepts a list of named sources, deduplicates by title + type, and feeds the merged result into the normal sync flow. Adding a new source means implementing one function and enabling it in settings — the rest of the pipeline is unchanged.
-
-#### Netflix Top 10 (scraper)
-
-The primary planned source. Netflix publishes its weekly Top 10 rankings at `top10.netflix.com` as both a browsable page and a downloadable CSV. The plan is to scrape or download that data and map it into the existing `{"title", "type", "source"}` format.
-
-Considerations:
-- The CSV at `top10.netflix.com/data/all-weeks-global.tsv` is publicly accessible with no auth
-- Rows include `show_title`, `category` (Films / TV), `weekly_rank`, and `week` — enough to build a top 10 list per region and week
-- Title matching against Radarr/Sonarr will remain search-based, consistent with Trakt behaviour
-- A `netflix_scraper.py` module will be added alongside `netflix_fetcher.py`; no new pip dependencies are expected
-
-#### Other potential sources
+The source fetch layer is already in place. `fetch_from_sources()` accepts a list of named sources, deduplicates by title + type, and feeds the merged result into the normal sync flow. Adding a new source means implementing one function and enabling it in settings — the rest of the pipeline is unchanged.
 
 | Source | Notes |
 |--------|-------|
@@ -242,10 +261,13 @@ app/
 ├── manual_overrides.py   # Thread-safe manual protection persistence
 ├── settings.py           # Thread-safe settings store
 ├── config.py             # Constants and path definitions
-├── netflix_fetcher.py    # Trakt API integration
+├── netflix_fetcher.py    # Multi-source fetch orchestration (Trakt + FlixPatrol)
 ├── radarr_client.py      # Radarr API client
 ├── sonarr_client.py      # Sonarr API client
 ├── tautulli_client.py    # Tautulli API client
+├── scraper/              # Vendored streaming-scraper library
+│   ├── core/             # Aggregator and data models
+│   └── sources/          # Per-service scrapers (FlixPatrol)
 ├── templates/
 │   ├── base.html         # Shared layout, topbar, nav
 │   ├── index.html        # Dashboard (Dashboard / Logs tabs)

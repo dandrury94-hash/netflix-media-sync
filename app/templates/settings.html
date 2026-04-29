@@ -131,11 +131,27 @@
                     {% endfor %}
                 </select>
             </label>
+            <label>Cache duration hours
+                <input type="number" name="flixpatrol_cache_hours" value="{{ settings.flixpatrol_cache_hours }}" min="1" max="48" />
+                <p class="field-help">How long to cache FlixPatrol data before re-fetching. FlixPatrol updates daily, so 6–12 h is recommended.</p>
+            </label>
+            <div id="fpCacheStatus" class="fp-cache-status"
+                 data-cached-at="{{ flixpatrol_cache.cached_at or '' }}">
+                {% if flixpatrol_cache.cached_at_fmt %}
+                <p class="field-help">Last fetched: {{ flixpatrol_cache.cached_at_fmt }}{% if flixpatrol_cache.is_stale %} <span class="fp-stale-badge">Stale</span>{% endif %}</p>
+                {% endif %}
+                {% if flixpatrol_cache.error %}
+                <p class="field-help fp-stale-msg">⚠ {{ flixpatrol_cache.error }}</p>
+                {% endif %}
+            </div>
             <div class="fp-preview-row">
                 <button type="button" class="button button-secondary button-sm" id="fpLoadBtn">Load services</button>
+                <button type="button" class="button button-secondary button-sm" id="fpRefreshBtn">Refresh now</button>
                 <span id="fpLoadStatus" class="test-conn-result"></span>
             </div>
-            <div id="fpServiceList"></div>
+            <div id="fpServiceList"
+                 data-saved-services='{{ settings.flixpatrol_services | tojson }}'
+                 data-saved-service-types='{{ (settings.flixpatrol_service_types or {}) | tojson }}'></div>
         </section>
 
         <section class="card">

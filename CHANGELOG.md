@@ -5,6 +5,71 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-027 — 2026-04-29 — Phase 7: Docs and cleanup after FlixPatrol integration
+
+### Additions
+- **FlixPatrol section in `README.md`** — documents FlixPatrol as a Top 10 source, explains configuration (country, service selector, per-service movie/TV toggles, cache duration), links to the upstream [streaming-scraper](https://github.com/dandrurymobile/streaming-scraper) repo, and notes what to do if scraping breaks
+
+### Changes
+- **`requirements.txt`** — pinned `beautifulsoup4` from `>=4.12.2` to `==4.14.3` (the version vendored into the scraper and confirmed working)
+- **`README.md`** — updated Features list, How It Works, settings reference table, Settings page description, Project Structure, and Limitations to reflect FlixPatrol as a live source alongside Trakt; removed the "Netflix Top 10 (scraper)" planned entry as it is now implemented
+
+---
+
+
+## CHG-026 — 2026-04-29 — Phase 6: FlixPatrol caching, refresh button, and resilient error handling
+
+### Additions
+- **In-memory FlixPatrol cache** in `app/netflix_fetcher.py` — module-level `_fp_cache` dict keyed by country name. Each entry stores `attempt_ts` (monotonic time of last fetch attempt), `fetch_ts` (monotonic time of last *successful* fetch), `fetched_at` (wall-clock time for display), `grouped` (aggregated service data), and `error` (error string or `None`). Cache is process-scoped and survives across sync cycles
+- **`bust_flixpatrol_cache()`** in `app/netflix_fetcher.py` — clears the entire cache; called by the refresh endpoint before re-fetching
+- **`get_flixpatrol_cache_info(country, cache_hours)`** in `app/netflix_fetcher.py` — returns `{cached_at, age_seconds, is_stale, error}` for the given country. `is_stale` is `True` when `error` is set or data age exceeds `cache_hours`
+- **`fetch_flixpatrol_fresh(country)`** in `app/netflix_fetcher.py` — always hits the network, updates the cache, and returns `(grouped, error_or_None)`. On failure, returns last known stale grouped data with an error string; error message: *"FlixPatrol data unavailable — check streaming-scraper repo for updates"*
+- **`flixpatrol_cache_hours`** setting added to `DEFAULT_SETTINGS` in `app/config.py` — integer, default `6`
+- **`POST /api/flixpatrol/refresh`** endpoint in `app/web.py` — busts the cache, re-fetches using the configured country, and returns `{status, error, country, services, cache}`. Status is `"ok"`, `"stale"` (fetch failed but stale data returned), or `"error"` (no data at all)
+- **"Refresh now" button** (`#fpRefreshBtn`) in the FlixPatrol settings card (`app/templates/settings.html`) — sits alongside the existing "Load services" button
+- **Cache status area** (`#fpCacheStatus`) in `app/templates/settings.html` — shows last fetched time (server-rendered at page load) and a yellow "Stale" badge when `is_stale` is true. Error message shown below in amber when last fetch failed
+- **`flixpatrol_cache_hours` number input** in `app/templates/settings.html` — configures the cache duration (1–48 h)
+- **`updateFpCacheStatus(cache)`** function in `app/static/script.js` — re-renders `#fpCacheStatus` from a cache info dict returned by any API response. Formats wall-clock timestamp using `Date.toLocaleTimeString/toLocaleDateString`
+- **`.fp-stale-badge`**, **`.fp-stale-msg`**, **`.fp-cache-status`** CSS classes in `app/static/style.css` — amber badge for stale indicator; amber text for error message
+
+### Changes
+- **`_fetch_flixpatrol_items()`** in `app/netflix_fetcher.py` — now accepts `cache_hours: int = 6` parameter. Checks `attempt_ts` against `cache_hours * 3600` before deciding to use cache or call `fetch_flixpatrol_fresh()`. Logs cache hit with data age; logs stale-cache usage on error
+- **`fetch_from_sources()`** in `app/netflix_fetcher.py` — new `flixpatrol_cache_hours: int = 6` keyword argument passed through to `_fetch_flixpatrol_items()`
+- **`SyncService._run()`** in `app/sync_service.py` — reads `flixpatrol_cache_hours` from settings (defaults to `6`), passes to `fetch_from_sources()`
+- **`flixpatrol_preview` endpoint** in `app/web.py` — now calls `fetch_flixpatrol_fresh()` (always fresh, updates cache) instead of calling the scraper directly. Response includes a `"cache"` key with `{cached_at, age_seconds, is_stale, error}`
+- **`settings_page()` route** in `app/web.py` — calls `get_flixpatrol_cache_info()` and formats `cached_at` as `%H:%M %d/%m/%Y`; passes `flixpatrol_cache` dict to template
+- **`post_settings()` in `app/web.py`** — `flixpatrol_cache_hours` added to `normalized` dict and persisted
+- **`fpLoadBtn` click handler** in `app/static/script.js` — calls `updateFpCacheStatus(data.cache)` after a successful load to reflect fresh cache state in the UI
+- **Refresh button handler** in `app/static/script.js` — disables both Load and Refresh buttons during the request; updates cache status and shows success / stale / error feedback via `setTestResult`
+
+---
+
+
+## CHG-025 — 2026-04-29 — Phase 5: Per-service movie/TV type toggles
+
+### Additions
+- **`flixpatrol_service_types`** setting added to `DEFAULT_SETTINGS` in `app/config.py` — dict mapping service key to allowed types list (e.g. `{"netflix": ["movie"], "disney_plus": ["movie", "series"]}`). Default `{}` means both types for all services
+- **Per-service Movies / TV checkboxes** in the FlixPatrol service grid — each service row now shows two type checkboxes beneath the service enable label. Unchecked services dim the type toggles (CSS `:has()` rule). Rendered by the updated `renderFlixPatrolServices()` in `app/static/script.js`
+- **`.fp-service-row`**, **`.fp-type-toggles`**, **`.fp-type-label`** CSS classes in `app/static/style.css` — wrap each grid item in a column-flex container; type toggles sit below the service label with `padding-left` aligned to the service name; disabled-service opacity via `:not(:has(.fp-service-cb:checked)) .fp-type-toggles { opacity: 0.45 }`
+
+### Changes
+- **`_fetch_flixpatrol_items()`** in `app/netflix_fetcher.py` — accepts new `service_types: dict` parameter. For each service, checks `service_types.get(key)`: `None` → both types; list → only listed types included. Log line extended with type-filter info
+- **`fetch_from_sources()`** in `app/netflix_fetcher.py` — new `flixpatrol_service_types: dict | None = None` keyword argument passed through to `_fetch_flixpatrol_items()`
+- **`SyncService._run()`** in `app/sync_service.py` — reads `flixpatrol_service_types` from settings (validates it is a dict, falls back to `{}`), passes to `fetch_from_sources()`
+- **`post_settings()`** in `app/web.py` — parses `flixpatrol_service_types` from JSON payload: validates it is a dict, whitelists type values to `"movie"` / `"series"`, preserves stored value if payload key is absent
+- **`renderFlixPatrolServices(services, checkedKeys, serviceTypes)`** in `app/static/script.js` — third parameter `serviceTypes = {}`. Wraps each service in a `.fp-service-row` div; appends a `.fp-type-toggles` div with two `.fp-type-label` / `.fp-type-cb` checkboxes (`data-service`, `data-type` attributes). Default checked state: both types unless `serviceTypes[key]` specifies a subset
+- **Form submit handler** in `app/static/script.js` — collects `flixpatrol_service_types` dict from `.fp-type-cb` checkboxes (scoped to `.fp-service-row` for reliable sibling lookup) and adds to payload
+- **Page-load restoration** in `app/static/script.js` — replaces DOM-query approach; reads `data-saved-services` and `data-saved-service-types` JSON attributes from `#fpServiceList` (embedded by Jinja) and passes `savedServiceTypes` as third arg to `renderFlixPatrolServices()`
+- **"Load services" click handler** in `app/static/script.js` — captures current type selections before re-render, merges with persisted base (persisted → overridden by current UI), passes merged dict to `renderFlixPatrolServices()`
+- **`#fpServiceList` div** in `app/templates/settings.html` — gains `data-saved-services` and `data-saved-service-types` attributes rendered by Jinja (`| tojson`)
+- **`.fp-service-grid`** min column width bumped from `180px` to `200px` in `app/static/style.css` to accommodate type toggles
+
+## Phase 4 — Country selector (shipped within Phase 2 / CHG-022 and Phase 3 / CHG-024)
+
+The `flixpatrol_country` setting, `FLIXPATROL_COUNTRIES` import, country dropdown, and country validation in `post_settings()` were all delivered as part of Phase 2 and Phase 3. No separate CHG entry.
+
+---
+
 ## CHG-024 — 2026-04-29 — Phase 3: FlixPatrol service selector with live preview
 
 ### Additions

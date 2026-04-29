@@ -86,6 +86,10 @@ class SyncService:
         flixpatrol_services = self.settings.get("flixpatrol_services", [])
         if isinstance(flixpatrol_services, str):
             flixpatrol_services = [s.strip() for s in flixpatrol_services.split(",") if s.strip()]
+        flixpatrol_service_types = self.settings.get("flixpatrol_service_types", {})
+        if not isinstance(flixpatrol_service_types, dict):
+            flixpatrol_service_types = {}
+        flixpatrol_cache_hours = int(self.settings.get("flixpatrol_cache_hours", 6))
 
         logger.info("Fetching top titles from sources: %s (countries: %s)", sources, countries or ["global"])
         _t = time.monotonic()
@@ -95,6 +99,8 @@ class SyncService:
             self.settings.get("trakt_client_id", ""),
             flixpatrol_country=flixpatrol_country,
             flixpatrol_services=flixpatrol_services,
+            flixpatrol_service_types=flixpatrol_service_types,
+            flixpatrol_cache_hours=flixpatrol_cache_hours,
         )
         logger.info("[timing] source_fetch: %.1fs", time.monotonic() - _t)
 

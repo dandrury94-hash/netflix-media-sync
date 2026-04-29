@@ -6,10 +6,9 @@ from flask import Flask, Response, jsonify, render_template, request
 from app.config import LOG_PATH
 from app.manual_overrides import ManualOverrides
 from app.media_state import build_media_state
+from app.netflix_fetcher import bust_flixpatrol_cache, fetch_flixpatrol_fresh, get_flixpatrol_cache_info
 from app.removal_history import RemovalHistory
-from app.scraper.core.aggregator import aggregate, group_by_source_and_type
 from app.scraper.sources.streaming import COUNTRIES as FLIXPATROL_COUNTRIES
-from app.scraper.sources.streaming import fetch as flixpatrol_fetch
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
 from app.sync_service import SyncService
@@ -117,11 +116,21 @@ def create_app(
 
     @app.route("/settings")
     def settings_page():
+        fp_country = settings.get("flixpatrol_country", "United Kingdom")
+        fp_cache_hours = int(settings.get("flixpatrol_cache_hours", 6))
+        fp_cache = get_flixpatrol_cache_info(fp_country, fp_cache_hours)
+        if fp_cache.get("cached_at"):
+            fp_cache["cached_at_fmt"] = datetime.datetime.fromtimestamp(
+                fp_cache["cached_at"]
+            ).strftime("%H:%M %d/%m/%Y")
+        else:
+            fp_cache["cached_at_fmt"] = None
         return render_template(
             "settings.html",
             settings=settings.to_dict(),
             country_options=COUNTRY_OPTIONS,
             flixpatrol_countries=sorted(FLIXPATROL_COUNTRIES.keys()),
+            flixpatrol_cache=fp_cache,
         )
 
     @app.route("/api/settings", methods=["GET"])
@@ -187,6 +196,16 @@ def create_app(
             fp_services_raw = []
         fp_services = fp_services_raw
 
+        fp_service_types_raw = payload.get("flixpatrol_service_types")
+        if isinstance(fp_service_types_raw, dict):
+            fp_service_types = {
+                k: [t for t in v if t in ("movie", "series")]
+                for k, v in fp_service_types_raw.items()
+                if isinstance(k, str) and isinstance(v, list)
+            }
+        else:
+            fp_service_types = settings.get("flixpatrol_service_types", {})
+
         normalized = {
             "radarr_url": payload.get("radarr_url", "").strip(),
             "radarr_api_key": sensitive("radarr_api_key"),
@@ -217,6 +236,8 @@ def create_app(
             "grace_period_days": safe_int(payload.get("grace_period_days"), 7),
             "flixpatrol_country": fp_country,
             "flixpatrol_services": fp_services,
+            "flixpatrol_service_types": fp_service_types,
+            "flixpatrol_cache_hours": safe_int(payload.get("flixpatrol_cache_hours"), 6),
         }
         settings.update(normalized)
         return jsonify({"status": "saved"})
@@ -421,14 +442,16 @@ def create_app(
         country = request.args.get("country", "").strip()
         if not country or country not in FLIXPATROL_COUNTRIES:
             country = settings.get("flixpatrol_country", "United Kingdom")
-        raw = flixpatrol_fetch(country)
-        if not raw:
+        cache_hours = int(settings.get("flixpatrol_cache_hours", 6))
+        grouped, error = fetch_flixpatrol_fresh(country)
+        cache_info = get_flixpatrol_cache_info(country, cache_hours)
+        if error and not grouped:
             return jsonify({
-                "error": "FlixPatrol returned no data. The page structure may have changed or the request was blocked.",
+                "error": "FlixPatrol data unavailable — check streaming-scraper repo for updates",
                 "country": country,
                 "services": [],
+                "cache": cache_info,
             })
-        grouped = group_by_source_and_type(aggregate([raw]))
         services = []
         for service_key, types in sorted(grouped.items()):
             movies = types.get("movie", [])
@@ -441,7 +464,36 @@ def create_app(
                 "sample_movies": [m.title for m in movies[:3]],
                 "sample_series": [s.title for s in series[:3]],
             })
-        return jsonify({"country": country, "services": services})
+        return jsonify({"country": country, "services": services, "cache": cache_info})
+
+    @app.route("/api/flixpatrol/refresh", methods=["POST"])
+    def flixpatrol_refresh():
+        country = settings.get("flixpatrol_country", "United Kingdom")
+        cache_hours = int(settings.get("flixpatrol_cache_hours", 6))
+        bust_flixpatrol_cache()
+        grouped, error = fetch_flixpatrol_fresh(country)
+        cache_info = get_flixpatrol_cache_info(country, cache_hours)
+        services = []
+        for service_key, types in sorted(grouped.items()):
+            services.append({
+                "key": service_key,
+                "label": service_key.replace("_", " ").title(),
+                "movie_count": len(types.get("movie", [])),
+                "series_count": len(types.get("series", [])),
+            })
+        if error and not grouped:
+            status = "error"
+        elif error:
+            status = "stale"
+        else:
+            status = "ok"
+        return jsonify({
+            "status": status,
+            "error": error,
+            "country": country,
+            "services": services,
+            "cache": cache_info,
+        })
 
     @app.route("/api/logs")
     def get_logs():
