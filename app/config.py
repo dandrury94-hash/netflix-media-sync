@@ -36,6 +36,8 @@ DEFAULT_SETTINGS = {
     "deletion_enabled": False,
     "grace_period_days": 7,
     "sources": ["trakt"],
+    "flixpatrol_country": "United Kingdom",
+    "flixpatrol_services": [],
 }
 
 ENV_VAR_TO_SETTING = {

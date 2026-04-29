@@ -82,9 +82,20 @@ class SyncService:
         if isinstance(sources, str):
             sources = [sources]
 
+        flixpatrol_country = self.settings.get("flixpatrol_country", "United Kingdom")
+        flixpatrol_services = self.settings.get("flixpatrol_services", [])
+        if isinstance(flixpatrol_services, str):
+            flixpatrol_services = [s.strip() for s in flixpatrol_services.split(",") if s.strip()]
+
         logger.info("Fetching top titles from sources: %s (countries: %s)", sources, countries or ["global"])
         _t = time.monotonic()
-        trending = fetch_from_sources(sources, countries, self.settings.get("trakt_client_id", ""))
+        trending = fetch_from_sources(
+            sources,
+            countries,
+            self.settings.get("trakt_client_id", ""),
+            flixpatrol_country=flixpatrol_country,
+            flixpatrol_services=flixpatrol_services,
+        )
         logger.info("[timing] source_fetch: %.1fs", time.monotonic() - _t)
 
         netflix_movies = [i["title"] for i in trending if i["type"] == "movie"]

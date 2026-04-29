@@ -3,6 +3,28 @@
 All changes to this project are recorded here with a unique reference, date, and description.
 
 ---
+## CHG-021 — 2026-04-29 — Phase 1: FlixPatrol scraper integration (streaming-scraper vendored)
+
+### Additions
+- **`app/scraper/`** — new package vendored from https://github.com/dandrury94-hash/streaming-scraper (Option A: files copied directly, no submodule or pip install dependency)
+  - `app/scraper/core/models.py` — `MediaItem` dataclass (`title`, `type`, `source`, `rank`)
+  - `app/scraper/core/aggregator.py` — `aggregate(sources)` and `group_by_source_and_type(items)` utilities
+  - `app/scraper/sources/streaming.py` — `fetch(country)` scraper and `COUNTRIES` dict (57 countries + Worldwide). Fetches `https://flixpatrol.com/top10/streaming/{country}/`, parses service blocks via BeautifulSoup, deduplicates within each `(source, type)` group, caps to top 10, and re-ranks from 1. Uses `urllib.request` — no new dependencies beyond `beautifulsoup4` which was already present
+  - `app/scraper/__init__.py`, `app/scraper/core/__init__.py`, `app/scraper/sources/__init__.py` — package markers
+- **`_fetch_flixpatrol_items(country, services)`** private helper in `app/netflix_fetcher.py` — calls `flixpatrol_fetch()`, runs result through `aggregate()` and `group_by_source_and_type()`, applies optional service key whitelist, and converts `MediaItem` objects to the existing `{"title", "type", "source"}` dict format consumed by `SyncService._run()`
+- **`"flixpatrol"` source** added as a valid option in `fetch_from_sources()` (`app/netflix_fetcher.py`). Trakt path is entirely unchanged
+- **`flixpatrol_country`** setting added to `DEFAULT_SETTINGS` in `app/config.py` — string, default `"United Kingdom"`. Full country name matching the `COUNTRIES` dict in `app/scraper/sources/streaming.py`
+- **`flixpatrol_services`** setting added to `DEFAULT_SETTINGS` in `app/config.py` — list of service keys (e.g. `["netflix", "disney_plus"]`). Empty list (default) means all available services are included
+
+### Changes
+- `fetch_from_sources()` signature extended with two new keyword arguments: `flixpatrol_country` (default `"United Kingdom"`) and `flixpatrol_services` (default `[]`). Existing call sites with positional args are unaffected (`app/netflix_fetcher.py`)
+- `SyncService._run()` now reads `flixpatrol_country` and `flixpatrol_services` from settings and passes them to `fetch_from_sources()`. No other sync logic changed (`app/sync_service.py`)
+- Import paths in vendored scraper files changed from `core.models` / `core.aggregator` to `app.scraper.core.models` / `app.scraper.core.aggregator` to resolve correctly within the NMS package structure
+
+### Infrastructure
+- `beautifulsoup4>=4.12.2` already present in `requirements.txt` — no new dependencies added
+- FlixPatrol source is opt-in: it activates only when `"flixpatrol"` is added to the `sources` list in settings. Default remains `["trakt"]`, so existing deployments are unaffected until explicitly configured
+
 
 ## CHG-020 — 2026-04-28 — Multi-source trending fetch
 
