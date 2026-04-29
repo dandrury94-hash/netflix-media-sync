@@ -7,6 +7,7 @@ from app.config import LOG_PATH
 from app.manual_overrides import ManualOverrides
 from app.media_state import build_media_state
 from app.removal_history import RemovalHistory
+from app.scraper.sources.streaming import COUNTRIES as FLIXPATROL_COUNTRIES
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
 from app.sync_service import SyncService
@@ -114,7 +115,12 @@ def create_app(
 
     @app.route("/settings")
     def settings_page():
-        return render_template("settings.html", settings=settings.to_dict(), country_options=COUNTRY_OPTIONS)
+        return render_template(
+            "settings.html",
+            settings=settings.to_dict(),
+            country_options=COUNTRY_OPTIONS,
+            flixpatrol_countries=sorted(FLIXPATROL_COUNTRIES.keys()),
+        )
 
     @app.route("/api/settings", methods=["GET"])
     def get_settings():
@@ -130,9 +136,10 @@ def create_app(
             payload = request.json or {}
         else:
             payload = {
-                **{k: v for k, v in request.form.items() if k not in ("netflix_top_countries", "sources")},
+                **{k: v for k, v in request.form.items() if k not in ("netflix_top_countries", "sources", "flixpatrol_services")},
                 "netflix_top_countries": request.form.getlist("netflix_top_countries"),
                 "sources": request.form.getlist("sources"),
+                "flixpatrol_services": request.form.getlist("flixpatrol_services"),
             }
 
         def safe_int(value, default):
@@ -163,7 +170,22 @@ def create_app(
             sources_raw = [s.strip() for s in sources_raw if isinstance(s, str) and s.strip()]
         else:
             sources_raw = []
-        sources = [s for s in sources_raw if s in ("trakt", "netflix")]
+        sources = [s for s in sources_raw if s in ("trakt", "flixpatrol")]
+
+        fp_country = payload.get("flixpatrol_country", "").strip()
+        if fp_country not in FLIXPATROL_COUNTRIES:
+            fp_country = settings.get("flixpatrol_country", "United Kingdom")
+
+        fp_services_raw = payload.get("flixpatrol_services")
+        if isinstance(fp_services_raw, str):
+            fp_services_raw = [fp_services_raw.strip()] if fp_services_raw.strip() else []
+        elif isinstance(fp_services_raw, list):
+            fp_services_raw = [s.strip() for s in fp_services_raw if isinstance(s, str) and s.strip()]
+        else:
+            fp_services_raw = []
+        # No whitelist applied here — service keys come from the scraper's own
+        # SERVICE_ALIASES values; Phase 3 will constrain this via the UI
+        fp_services = fp_services_raw
 
         normalized = {
             "radarr_url": payload.get("radarr_url", "").strip(),
@@ -193,6 +215,8 @@ def create_app(
             "pushover_api_token": sensitive("pushover_api_token"),
             "deletion_enabled": to_bool(payload.get("deletion_enabled")),
             "grace_period_days": safe_int(payload.get("grace_period_days"), 7),
+            "flixpatrol_country": fp_country,
+            "flixpatrol_services": fp_services,
         }
         settings.update(normalized)
         return jsonify({"status": "saved"})
@@ -464,5 +488,3 @@ def _extract_poster(images: list) -> str | None:
         if img.get("coverType") == "poster":
             return img.get("remoteUrl") or None
     return None
-
-

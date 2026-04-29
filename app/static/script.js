@@ -97,9 +97,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = {};
       payload.netflix_top_countries = formData.getAll("netflix_top_countries");
       payload.sources = formData.getAll("sources");
+      payload.flixpatrol_services = formData.getAll("flixpatrol_services");
       for (const [key, value] of formData.entries()) {
         if (key === "netflix_top_countries") continue;
         if (key === "sources") continue;
+        if (key === "flixpatrol_services") continue;
         payload[key] = value;
       }
       try {

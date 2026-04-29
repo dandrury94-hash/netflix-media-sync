@@ -117,6 +117,24 @@
         </section>
 
         <section class="card">
+            <h2>FlixPatrol settings</h2>
+            <label class="setting-checkbox">
+                <input type="checkbox" name="sources" value="flixpatrol" {% if 'flixpatrol' in (settings.sources or []) %}checked{% endif %} />
+                FlixPatrol (streaming Top 10)
+            </label>
+            <p class="field-help">Fetches Top 10 Movies and TV Shows from FlixPatrol for the selected country. No API key required.</p>
+            <div class="setting-divider"></div>
+            <label>Country
+                <select name="flixpatrol_country">
+                    {% for country in flixpatrol_countries %}
+                    <option value="{{ country }}" {% if settings.flixpatrol_country == country %}selected{% endif %}>{{ country }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <p class="field-help">All streaming services available for the selected country will be imported. Per-service filtering will be available in a future update.</p>
+        </section>
+
+        <section class="card">
             <h2>Pushover notifications</h2>
             <label class="setting-checkbox">
                 <input type="checkbox" name="pushover_enabled" {% if settings.pushover_enabled %}checked{% endif %} />

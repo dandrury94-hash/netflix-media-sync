@@ -3,6 +3,25 @@
 All changes to this project are recorded here with a unique reference, date, and description.
 
 ---
+## CHG-022 — 2026-04-29 — Phase 2: FlixPatrol settings wiring and UI card
+
+### Additions
+- **FlixPatrol settings card** in `app/templates/settings.html` — contains: source enable checkbox (`sources = flixpatrol`), country dropdown populated from `FLIXPATROL_COUNTRIES` (57 countries + Worldwide, sorted alphabetically), and a field-help note that per-service filtering is coming in Phase 3
+- **`flixpatrol_countries`** template variable passed from `settings_page()` in `app/web.py` — `sorted(FLIXPATROL_COUNTRIES.keys())` from `app/scraper/sources/streaming.py`
+
+### Changes
+- `settings_page()` in `app/web.py` now imports `COUNTRIES as FLIXPATROL_COUNTRIES` from `app/scraper/sources/streaming` and passes `flixpatrol_countries` to the template (`app/web.py`)
+- `post_settings()` in `app/web.py`:
+  - `"flixpatrol"` added to the sources whitelist (previously only `"trakt"` was accepted; `"netflix"` stub removed)
+  - `flixpatrol_country` normalised as a scalar string; validated against `FLIXPATROL_COUNTRIES` keys — falls back to the stored value if an unknown country is submitted
+  - `flixpatrol_services` handled as a multi-value list (same pattern as `sources` and `netflix_top_countries`); excluded from the scalar `formData.entries()` loop
+  - Both new keys written to `normalized` dict and persisted via `settings.update()`
+- Form submit handler in `app/static/script.js`:
+  - `payload.flixpatrol_services = formData.getAll("flixpatrol_services")` added alongside the existing `sources` and `netflix_top_countries` multi-value collection
+  - `flixpatrol_services` skipped in the scalar `formData.entries()` loop to prevent double-submission
+
+
+
 ## CHG-021 — 2026-04-29 — Phase 1: FlixPatrol scraper integration (streaming-scraper vendored)
 
 ### Additions
