@@ -73,25 +73,6 @@ class RadarrClient:
                 logger.warning("Could not create '%s' tag for: %s", name, title)
         return ids
 
-    def _ensure_movie_tagged(self, movie: dict, tag_names: list[str], title: str) -> bool:
-        """Ensure an existing Radarr movie carries the streamarr root tag.
-
-        If already tagged, skips silently. If untagged, applies all tag_names via PUT.
-        Always returns False — the item was not newly added.
-        """
-        try:
-            root_id = self.ensure_tag(_tags.TAG_ROOT)
-            if root_id in movie.get("tags", []):
-                logger.info("Movie already in Radarr and tagged streamarr: %s", title)
-                return False
-            tag_ids = self._resolve_tag_ids(tag_names, title)
-            merged = list(set(movie.get("tags", [])) | set(tag_ids))
-            self._put(f"/api/v3/movie/{movie['id']}", {**movie, "tags": merged})
-            logger.info("Applied streamarr tags to existing Radarr movie: %s", title)
-        except Exception as exc:
-            logger.warning("Failed to ensure tags on Radarr movie: %s (%s)", title, exc)
-        return False
-
     def ensure_tag(self, name: str) -> int:
         """Return the ID of an existing tag, creating it first if needed."""
         tags = self._get("/api/v3/tag")
@@ -159,7 +140,7 @@ class RadarrClient:
         if library_cache is not None:
             cached = library_cache.get(title.lower())
             if cached and cached.get("id"):
-                return self._ensure_movie_tagged(cached, tag_names, title)
+                return False
 
         details = self.lookup_movie(title)
         if not details:
@@ -167,7 +148,7 @@ class RadarrClient:
             return False
 
         if details.get("id"):
-            return self._ensure_movie_tagged(details, tag_names, title)
+            return False
 
         tmdb_id = details.get("tmdbId")
         if not tmdb_id:

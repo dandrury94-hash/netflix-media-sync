@@ -73,25 +73,6 @@ class SonarrClient:
                 logger.warning("Could not create '%s' tag for: %s", name, title)
         return ids
 
-    def _ensure_series_tagged(self, series: dict, tag_names: list[str], title: str) -> bool:
-        """Ensure an existing Sonarr series carries the streamarr root tag.
-
-        If already tagged, skips silently. If untagged, applies all tag_names via PUT.
-        Always returns False — the item was not newly added.
-        """
-        try:
-            root_id = self.ensure_tag(_tags.TAG_ROOT)
-            if root_id in series.get("tags", []):
-                logger.info("Series already in Sonarr and tagged streamarr: %s", title)
-                return False
-            tag_ids = self._resolve_tag_ids(tag_names, title)
-            merged = list(set(series.get("tags", [])) | set(tag_ids))
-            self._put(f"/api/v3/series/{series['id']}", {**series, "tags": merged})
-            logger.info("Applied streamarr tags to existing Sonarr series: %s", title)
-        except Exception as exc:
-            logger.warning("Failed to ensure tags on Sonarr series: %s (%s)", title, exc)
-        return False
-
     def ensure_tag(self, name: str) -> int:
         """Return the ID of an existing tag, creating it first if needed."""
         tags = self._get("/api/v3/tag")
@@ -159,7 +140,7 @@ class SonarrClient:
         if library_cache is not None:
             cached = library_cache.get(title.lower())
             if cached and cached.get("id"):
-                return self._ensure_series_tagged(cached, tag_names, title)
+                return False
 
         details = self.lookup_series(title)
         if not details:
@@ -167,7 +148,7 @@ class SonarrClient:
             return False
 
         if details.get("id"):
-            return self._ensure_series_tagged(details, tag_names, title)
+            return False
 
         tvdb_id = details.get("tvdbId")
         if not tvdb_id:

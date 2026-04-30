@@ -99,7 +99,8 @@ def fetch_from_sources(
         flixpatrol_cache_hours:    How many hours to cache FlixPatrol results before re-fetching.
     """
     items: list[dict] = []
-    seen: dict[tuple[str, str], int] = {}  # key → index in items
+    seen: dict[tuple[str, str], int] = {}          # (title_lower, type) → index in items
+    sources_seen: dict[tuple[str, str], dict] = {}  # (title_lower, type) → {source: None} ordered set
     for source in sources:
         if source == "trakt":
             raw = _fetch_trakt_items(country_codes, client_id)
@@ -119,10 +120,11 @@ def fetch_from_sources(
                 continue
             key = (item["title"].lower(), item["type"])
             if key in seen:
-                # Title already seen — merge this source into the existing entry
-                items[seen[key]]["sources"].append(item["source"])
+                sources_seen[key][item["source"]] = None  # idempotent; preserves insertion order
+                items[seen[key]]["sources"] = list(sources_seen[key].keys())
             else:
                 seen[key] = len(items)
+                sources_seen[key] = {item["source"]: None}
                 items.append({**item, "sources": [item["source"]]})
     return items
 
