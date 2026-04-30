@@ -1,4 +1,4 @@
-# Netflix Media Sync
+# Streamarr
 
 A **policy-driven media sync service** that automatically adds trending content to Radarr and Sonarr, while protecting watched media using Tautulli.
 
@@ -47,7 +47,7 @@ Protected titles are never removed from the removal schedule and are surfaced pr
 ### How It Works
 
 - On each sync, enabled sources are fetched, deduplicated by title + type, and the merged list is compared against the Radarr and Sonarr libraries
-- New titles are added (or logged in read mode) and tagged `netflix-sync` for retention tracking
+- New titles are added (or logged in read mode) and tagged `streamarr`, `streamarr-src-{source}`, and `streamarr-cat-movie` / `streamarr-cat-tv` for retention tracking and source attribution
 - After every sync, titles past their retention date enter a grace period before automatic deletion (when enabled)
 - Poster art is fetched from Radarr and Sonarr's image metadata (`remoteUrl` on `coverType: "poster"`) and displayed on the dashboard Top 10 panels. No additional API calls are made — posters are extracted from the same lookup response used for status checks. Results are cached in `localStorage` so posters render immediately on page reload without waiting for the API
 
@@ -88,7 +88,7 @@ The dashboard Top 10 panels display a live status icon and poster thumbnail per 
 
 ### Removal Schedule
 
-All `netflix-sync` tagged titles in Radarr and Sonarr appear in the removal schedule table, showing:
+All `streamarr` tagged titles in Radarr and Sonarr appear in the removal schedule table, showing:
 - Date added (from sync log, falling back to Radarr/Sonarr metadata)
 - Calculated removal date based on retention settings
 - Protection status
@@ -108,7 +108,7 @@ Available at `http://<host>:8080` (port configurable).
 - **Top 10 Movies / Series** — last sync results from all enabled sources with live status icons
 - **Import preview** — titles added or would-be-added this sync
 - **Protected titles** — Tautulli and manually overridden titles with override toggles
-- **Scheduled removals** — all `netflix-sync` tagged titles with removal timeline
+- **Scheduled removals** — all `streamarr` tagged titles with removal timeline
 
 ### Logs tab
 
@@ -182,18 +182,18 @@ All settings are stored in `/config/settings.json` and can be overridden by envi
 
 ```bash
 docker run -d \
-  --name netflix-media-sync \
+  --name streamarr \
   -p 8080:8080 \
   -v "$(pwd)/config:/config" \
-  netflix-media-sync
+  streamarr
 ```
 
 ### docker-compose
 
 ```yaml
 services:
-  netflix-media-sync:
-    image: netflix-media-sync
+  streamarr:
+    image: streamarr
     ports:
       - "8080:8080"
     volumes:

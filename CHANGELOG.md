@@ -5,6 +5,42 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-030 — 2026-04-30 — Tag namespace: netflix-sync → streamarr
+
+### Additions
+- **`app/tags.py`** — new module defining the Streamarr tag namespace: constants `TAG_ROOT = "streamarr"`, `TAG_SRC_PREFIX = "streamarr-src-"`, `TAG_CAT_MOVIE = "streamarr-cat-movie"`, `TAG_CAT_TV = "streamarr-cat-tv"`, and four helpers: `tag_root()`, `tag_source(source)` (e.g. `"netflix"` → `"streamarr-src-netflix"`), `tag_category(media_type)` (`"movie"` → `TAG_CAT_MOVIE`, anything else → `TAG_CAT_TV`), and `all_tags_for(source, media_type)` returning all three tags for an item
+
+### Changes
+- **`app/radarr_client.py`** — removed `_TAG_NAME = "netflix-sync"` constant; added `from app import tags as _tags`; `get_tagged_movies()` parameter removed — now looks up `_tags.TAG_ROOT` internally; `add_movie()` gains `tags: list[str] | None = None` parameter and calls `self.ensure_tag()` once per name in the list (falls back to `[TAG_ROOT]` if omitted)
+- **`app/sonarr_client.py`** — same changes as `radarr_client.py`: removed `_TAG_NAME`; added `_tags` import; `get_tagged_series()` parameter removed; `add_series()` gains `tags: list[str] | None = None` and calls `ensure_tag()` per name
+- **`app/sync_service.py`** — added `from app import tags as _tags`; `_run()` now builds `movie_items` / `series_items` lists (full dicts, not just titles) so the source key is available at add time; `add_movie()` and `add_series()` calls now pass `tags=_tags.all_tags_for(item["source"], "movie"|"series")`; `run_deletions()` calls `get_tagged_movies()` and `get_tagged_series()` without arguments (tag resolved inside the clients)
+- **`app/main.py`** — weekly preview loop: `get_tagged_movies("netflix-sync")` and `get_tagged_series("netflix-sync")` → `get_tagged_movies()` / `get_tagged_series()`
+- **`app/web.py`** — `_fetch_media_state()`: same two call-site updates as `main.py`
+- **`app/media_state.py`** — docstring updated: "netflix-sync tagged" → "streamarr tagged"
+- **`app/CLAUDE.md`** — deletion safety rule updated: "Only netflix-sync tagged items may be deleted" → "Only streamarr tagged items may be deleted"
+- **`README.md`** — three tag references updated from `netflix-sync` to the new `streamarr` / `streamarr-src-{source}` / `streamarr-cat-*` vocabulary
+
+### Removed
+- `_TAG_NAME = "netflix-sync"` constant removed from `app/radarr_client.py` and `app/sonarr_client.py`
+- `tag_name: str` parameter removed from `get_tagged_movies()` and `get_tagged_series()` — tag is now resolved inside the clients from `tags.TAG_ROOT`
+
+---
+
+
+## CHG-029 — 2026-04-30 — Rebrand: Netflix Sync → Streamarr
+
+### Changes
+- **`CLAUDE.md`** — heading changed from "Netflix Media Sync" to "Streamarr"
+- **`README.md`** — top-level heading changed to "Streamarr"; `docker run` example: `--name` flag and image name changed to `streamarr`; `docker-compose` example: service key and image name changed to `streamarr`
+- **`docker-compose.yml`** — service key renamed from `netflix-sync` to `streamarr`
+- **`app/templates/base.html`** — `<title>` fallback changed from `'Netflix Sync'` to `'Streamarr'`; brand `<strong>` label changed from `Netflix Sync` to `Streamarr`
+- **`app/web.py`** — HTTP Basic Auth realm changed from `"Netflix Sync"` to `"Streamarr"`; Pushover test notification title changed from `"Netflix Sync — Test"` to `"Streamarr — Test"`; test notification message changed from `"Test notification from Netflix Media Sync"` to `"Test notification from Streamarr"`
+- **`app/sync_service.py`** — Pushover notification titles changed: `"Netflix Sync — Error"` → `"Streamarr — Error"`, `"Netflix Sync — Added"` → `"Streamarr — Added"`, `"Netflix Sync — Deleted"` (×2) → `"Streamarr — Deleted"`
+- **`app/main.py`** — startup log message changed from `"Starting Netflix Sync service"` to `"Starting Streamarr service"`; weekly preview Pushover title changed from `"Netflix Sync — Weekly Preview"` to `"Streamarr — Weekly Preview"`
+
+---
+
+
 ## CHG-028 — 2026-04-30 — Dashboard UI: scheduled removals table and poster caching
 
 ### Additions

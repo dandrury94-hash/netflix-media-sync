@@ -85,7 +85,7 @@ def run_weekly_preview(
 
         radarr_mode = settings.get("radarr_mode", "disabled")
         if radarr_mode != "disabled":
-            for movie in sync_service.radarr.get_tagged_movies("netflix-sync"):
+            for movie in sync_service.radarr.get_tagged_movies():
                 title = movie.get("title", "")
                 if not title or title in all_protected:
                     continue
@@ -102,7 +102,7 @@ def run_weekly_preview(
 
         sonarr_mode = settings.get("sonarr_mode", "disabled")
         if sonarr_mode != "disabled":
-            for series in sync_service.sonarr.get_tagged_series("netflix-sync"):
+            for series in sync_service.sonarr.get_tagged_series():
                 title = series.get("title", "")
                 if not title or title in all_protected:
                     continue
@@ -119,13 +119,13 @@ def run_weekly_preview(
 
         if upcoming:
             sync_service.pushover.send(
-                "Netflix Sync — Weekly Preview",
+                "Streamarr — Weekly Preview",
                 "Titles due for removal in the next 7 days:\n" + "\n".join(upcoming),
             )
 
 
 def main() -> None:
-    logger.info("Starting Netflix Sync service")
+    logger.info("Starting Streamarr service")
 
     settings = SettingsStore()
     sync_log = SyncLog()

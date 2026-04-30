@@ -413,7 +413,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `netflix-sync-${new Date().toISOString().slice(0, 10)}.log`;
+        a.download = `streamarr-${new Date().toISOString().slice(0, 10)}.log`;
         a.click();
         URL.revokeObjectURL(url);
       });
@@ -514,7 +514,7 @@ async function loadRemovalHistory(tbody) {
 
 function renderSchedule(tbody, schedule) {
   if (!schedule.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No <code>netflix-sync</code> tagged titles found in Radarr / Sonarr.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No <code>streamarr</code> tagged titles found in Radarr / Sonarr.</td></tr>';
     return;
   }
   tbody.innerHTML = schedule.map((item) => {
@@ -612,7 +612,7 @@ function renderProtectionState(container, data) {
   const unprotectedItems = data.unprotected || [];
 
   if (!protectedItems.length && !unprotectedItems.length) {
-    container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">No <code>netflix-sync</code> tagged titles found. Run a sync to populate.</p>';
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">No <code>streamarr</code> tagged titles found. Run a sync to populate.</p>';
     return;
   }
 

@@ -36,7 +36,7 @@ def build_media_state(
     grace_period_days: int,
 ) -> dict[str, MediaStateEntry]:
     """
-    Build an in-memory state map for all netflix-sync tagged titles.
+    Build an in-memory state map for all streamarr tagged titles.
     Keyed by lowercase title. No API calls are made here.
     """
     today = datetime.date.today()

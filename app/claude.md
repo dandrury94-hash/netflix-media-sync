@@ -22,7 +22,7 @@
 ## Deletion Safety
 
 - Deletion must only ever be triggered from sync_service.run_deletions() — never from an endpoint directly
-- Only netflix-sync tagged items may be deleted
+- Only streamarr tagged items may be deleted
 - Protected items are never deleted
 
 ## Protection

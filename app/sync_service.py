@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 
+from app import tags as _tags
 from app.manual_overrides import ManualOverrides
 from app.netflix_fetcher import fetch_from_sources
 from app.pushover_client import PushoverClient
@@ -61,7 +62,7 @@ class SyncService:
                 result = self._run()
             except Exception as exc:
                 self.pushover.send(
-                    "Netflix Sync — Error",
+                    "Streamarr — Error",
                     f"Sync failed: {exc}",
                     priority=1,
                 )
@@ -104,8 +105,10 @@ class SyncService:
         )
         logger.info("[timing] source_fetch: %.1fs", time.monotonic() - _t)
 
-        netflix_movies = [i["title"] for i in trending if i["type"] == "movie"]
-        netflix_series = [i["title"] for i in trending if i["type"] == "series"]
+        movie_items = [i for i in trending if i["type"] == "movie"]
+        series_items = [i for i in trending if i["type"] == "series"]
+        netflix_movies = [i["title"] for i in movie_items]
+        netflix_series = [i["title"] for i in series_items]
 
         top_by_source: dict[str, dict] = {}
         for item in trending:
@@ -136,10 +139,10 @@ class SyncService:
 
         if radarr_mode == "enabled":
             _t = time.monotonic()
-            for title in netflix_movies:
-                if self.radarr.add_movie(title, library_cache=radarr_cache):
-                    added_movies.append(title)
-                    self.sync_log.log_add(title, "movie")
+            for item in movie_items:
+                if self.radarr.add_movie(item["title"], library_cache=radarr_cache, tags=_tags.all_tags_for(item["source"], "movie")):
+                    added_movies.append(item["title"])
+                    self.sync_log.log_add(item["title"], "movie")
             logger.info("[timing] radarr_add_loop: %.1fs", time.monotonic() - _t)
         elif radarr_mode == "read":
             for title in netflix_movies:
@@ -164,10 +167,10 @@ class SyncService:
 
         if sonarr_mode == "enabled":
             _t = time.monotonic()
-            for title in netflix_series:
-                if self.sonarr.add_series(title, library_cache=sonarr_cache):
-                    added_series.append(title)
-                    self.sync_log.log_add(title, "series")
+            for item in series_items:
+                if self.sonarr.add_series(item["title"], library_cache=sonarr_cache, tags=_tags.all_tags_for(item["source"], "series")):
+                    added_series.append(item["title"])
+                    self.sync_log.log_add(item["title"], "series")
             logger.info("[timing] sonarr_add_loop: %.1fs", time.monotonic() - _t)
         elif sonarr_mode == "read":
             for title in netflix_series:
@@ -199,7 +202,7 @@ class SyncService:
         }
         if added_movies or added_series:
             lines = [f"🎬 {t}" for t in added_movies] + [f"📺 {t}" for t in added_series]
-            self.pushover.send("Netflix Sync — Added", "\n".join(lines))
+            self.pushover.send("Streamarr — Added", "\n".join(lines))
 
         return result
 
@@ -222,7 +225,7 @@ class SyncService:
 
         radarr_mode = self.settings.get("radarr_mode", "disabled")
         if radarr_mode != "disabled":
-            for movie in self.radarr.get_tagged_movies("netflix-sync"):
+            for movie in self.radarr.get_tagged_movies():
                 title = movie.get("title", "")
                 movie_id = movie.get("id")
                 if not title or not movie_id or title in all_protected:
@@ -253,11 +256,11 @@ class SyncService:
                     deleted_movies.append(title)
                     self.removal_history.log_removal(title, "movie", reason="retention", was_watched=was_watched)
                     self.sync_log.clear_grace_period(title)
-                    self.pushover.send("Netflix Sync — Deleted", f"🎬 {title}")
+                    self.pushover.send("Streamarr — Deleted", f"🎬 {title}")
 
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
         if sonarr_mode != "disabled":
-            for series in self.sonarr.get_tagged_series("netflix-sync"):
+            for series in self.sonarr.get_tagged_series():
                 title = series.get("title", "")
                 series_id = series.get("id")
                 if not title or not series_id or title in all_protected:
@@ -288,7 +291,7 @@ class SyncService:
                     deleted_series.append(title)
                     self.removal_history.log_removal(title, "series", reason="retention", was_watched=was_watched)
                     self.sync_log.clear_grace_period(title)
-                    self.pushover.send("Netflix Sync — Deleted", f"📺 {title}")
+                    self.pushover.send("Streamarr — Deleted", f"📺 {title}")
 
         if deleted_movies or deleted_series:
             logger.info(

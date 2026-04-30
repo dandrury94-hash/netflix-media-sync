@@ -1,11 +1,10 @@
 import logging
 
 import requests
+from app import tags as _tags
 from app.settings import SettingsStore
 
 logger = logging.getLogger(__name__)
-
-_TAG_NAME = "netflix-sync"
 
 
 class RadarrClient:
@@ -62,11 +61,11 @@ class RadarrClient:
         result = self._post("/api/v3/tag", {"label": name})
         return result["id"]
 
-    def get_tagged_movies(self, tag_name: str) -> list[dict]:
-        """Return all Radarr movies carrying the named tag."""
+    def get_tagged_movies(self) -> list[dict]:
+        """Return all Radarr movies carrying the streamarr root tag."""
         try:
-            tags = self._get("/api/v3/tag")
-            tag_id = next((t["id"] for t in tags if t.get("label") == tag_name), None)
+            tag_list = self._get("/api/v3/tag")
+            tag_id = next((t["id"] for t in tag_list if t.get("label") == _tags.TAG_ROOT), None)
             if tag_id is None:
                 return []
             movies = self._get("/api/v3/movie")
@@ -114,7 +113,7 @@ class RadarrClient:
             logger.error("Failed to delete Radarr movie id=%d: %s", movie_id, exc)
             return False
 
-    def add_movie(self, title: str, library_cache: dict | None = None) -> bool:
+    def add_movie(self, title: str, library_cache: dict | None = None, tags: list[str] | None = None) -> bool:
         if library_cache is not None:
             cached = library_cache.get(title.lower())
             if cached and cached.get("id"):
@@ -135,12 +134,13 @@ class RadarrClient:
             logger.warning("Unable to add movie without TMDb ID: %s", title)
             return False
 
-        try:
-            tag_id = self.ensure_tag(_TAG_NAME)
-            tags = [tag_id]
-        except Exception:
-            logger.warning("Could not create '%s' tag, adding movie without tag: %s", _TAG_NAME, title)
-            tags = []
+        tag_names = tags if tags is not None else [_tags.TAG_ROOT]
+        tag_ids = []
+        for name in tag_names:
+            try:
+                tag_ids.append(self.ensure_tag(name))
+            except Exception:
+                logger.warning("Could not create '%s' tag for movie: %s", name, title)
 
         self._post("/api/v3/movie", {
             "tmdbId": tmdb_id,
@@ -148,7 +148,7 @@ class RadarrClient:
             "rootFolderPath": self.root_folder,
             "monitored": True,
             "addOptions": {"searchForMovie": True},
-            "tags": tags,
+            "tags": tag_ids,
         })
         logger.info("Added movie to Radarr: %s", title)
         return True

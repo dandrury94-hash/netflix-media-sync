@@ -61,7 +61,7 @@ def create_app(
             return Response(
                 "Authentication required",
                 401,
-                {"WWW-Authenticate": 'Basic realm="Netflix Sync"'},
+                {"WWW-Authenticate": 'Basic realm="Streamarr"'},
             )
 
     def _fetch_media_state() -> dict:
@@ -70,9 +70,9 @@ def create_app(
         radarr_movies: list[dict] = []
         sonarr_tagged: list[dict] = []
         if radarr_mode != "disabled":
-            radarr_movies = sync_service.radarr.get_tagged_movies("netflix-sync")
+            radarr_movies = sync_service.radarr.get_tagged_movies()
         if sonarr_mode != "disabled":
-            sonarr_tagged = sync_service.sonarr.get_tagged_series("netflix-sync")
+            sonarr_tagged = sync_service.sonarr.get_tagged_series()
         last_sync = sync_log.get_last_sync() or {}
         tautulli_prot = set(last_sync.get("protected", []))
         manual_prot = manual_overrides.to_set()
@@ -422,8 +422,8 @@ def create_app(
                 data={
                     "token": api_token,
                     "user": user_key,
-                    "title": "Netflix Sync — Test",
-                    "message": "Test notification from Netflix Media Sync",
+                    "title": "Streamarr — Test",
+                    "message": "Test notification from Streamarr",
                     "priority": 0,
                 },
                 timeout=10,

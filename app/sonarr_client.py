@@ -1,11 +1,10 @@
 import logging
 
 import requests
+from app import tags as _tags
 from app.settings import SettingsStore
 
 logger = logging.getLogger(__name__)
-
-_TAG_NAME = "netflix-sync"
 
 
 class SonarrClient:
@@ -62,11 +61,11 @@ class SonarrClient:
         result = self._post("/api/v3/tag", {"label": name})
         return result["id"]
 
-    def get_tagged_series(self, tag_name: str) -> list[dict]:
-        """Return all Sonarr series carrying the named tag."""
+    def get_tagged_series(self) -> list[dict]:
+        """Return all Sonarr series carrying the streamarr root tag."""
         try:
-            tags = self._get("/api/v3/tag")
-            tag_id = next((t["id"] for t in tags if t.get("label") == tag_name), None)
+            tag_list = self._get("/api/v3/tag")
+            tag_id = next((t["id"] for t in tag_list if t.get("label") == _tags.TAG_ROOT), None)
             if tag_id is None:
                 return []
             series = self._get("/api/v3/series")
@@ -114,7 +113,7 @@ class SonarrClient:
             logger.error("Failed to delete Sonarr series id=%d: %s", series_id, exc)
             return False
 
-    def add_series(self, title: str, library_cache: dict | None = None) -> bool:
+    def add_series(self, title: str, library_cache: dict | None = None, tags: list[str] | None = None) -> bool:
         if library_cache is not None:
             cached = library_cache.get(title.lower())
             if cached and cached.get("id"):
@@ -135,12 +134,13 @@ class SonarrClient:
             logger.warning("Unable to add series without TVDB ID: %s", title)
             return False
 
-        try:
-            tag_id = self.ensure_tag(_TAG_NAME)
-            tags = [tag_id]
-        except Exception:
-            logger.warning("Could not create '%s' tag, adding series without tag: %s", _TAG_NAME, title)
-            tags = []
+        tag_names = tags if tags is not None else [_tags.TAG_ROOT]
+        tag_ids = []
+        for name in tag_names:
+            try:
+                tag_ids.append(self.ensure_tag(name))
+            except Exception:
+                logger.warning("Could not create '%s' tag for series: %s", name, title)
 
         self._post("/api/v3/series", {
             "title": details.get("title"),
@@ -150,7 +150,7 @@ class SonarrClient:
             "seasonFolder": True,
             "monitored": True,
             "addOptions": {"searchForMissingEpisodes": True},
-            "tags": tags,
+            "tags": tag_ids,
         })
         logger.info("Added series to Sonarr: %s", title)
         return True

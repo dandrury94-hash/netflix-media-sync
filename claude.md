@@ -1,4 +1,4 @@
-# Netflix Media Sync
+# Streamarr
 
 A Flask-based media lifecycle system. Syncs trending content via Trakt into Radarr and Sonarr. Tracks protection, deletion, and history.
 
