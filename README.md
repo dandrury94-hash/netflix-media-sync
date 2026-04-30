@@ -17,7 +17,7 @@ Built as a Dockerized background worker with a web interface, the system support
 - Live log feed with pause, copy, download, and clear controls
 - Test connection buttons for each integration with live validation
 - Status icons on Top 10 lists showing per-title Radarr/Sonarr state
-- Poster art thumbnails on Top 10 panels sourced from Radarr/Sonarr image metadata — no extra API calls
+- Poster art thumbnails on Top 10 panels sourced from Radarr/Sonarr image metadata — cached in `localStorage` so they appear instantly on page reload
 - Optional HTTP Basic Auth
 - All config and runtime data persisted in `/config`
 - Docker-first deployment with a single bind mount
@@ -49,7 +49,7 @@ Protected titles are never removed from the removal schedule and are surfaced pr
 - On each sync, enabled sources are fetched, deduplicated by title + type, and the merged list is compared against the Radarr and Sonarr libraries
 - New titles are added (or logged in read mode) and tagged `netflix-sync` for retention tracking
 - After every sync, titles past their retention date enter a grace period before automatic deletion (when enabled)
-- Poster art is fetched from Radarr and Sonarr's image metadata (`remoteUrl` on `coverType: "poster"`) and displayed on the dashboard Top 10 panels. No additional API calls are made — posters are extracted from the same lookup response used for status checks
+- Poster art is fetched from Radarr and Sonarr's image metadata (`remoteUrl` on `coverType: "poster"`) and displayed on the dashboard Top 10 panels. No additional API calls are made — posters are extracted from the same lookup response used for status checks. Results are cached in `localStorage` so posters render immediately on page reload without waiting for the API
 
 ### Top 10 Sources
 

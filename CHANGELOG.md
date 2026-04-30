@@ -5,6 +5,20 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-028 — 2026-04-30 — Dashboard UI: scheduled removals table and poster caching
+
+### Additions
+- **Scrollable Scheduled Removals table** — wrapped in `.removal-scroll` container (`max-height: 440px`, `overflow-y: auto`); thead is sticky so headers stay visible while scrolling
+- **Actions column** in Scheduled Removals — each row now has a Protect / Unprotect button (green accent for Protect). Tautulli-protected items show a read-only "Tautulli" label instead. Clicking immediately shows "Saving…" feedback, then reloads both the schedule table and the Protection Manager panel on success
+- **Top 10 poster caching** — poster URLs and status icons are now saved to `localStorage` after the first API call and applied synchronously on every subsequent page load, eliminating the delay before posters appear
+
+### Changes
+- **Removed entry-reason sub-row** from the Scheduled Removals title cell — the removal date was already shown in its own column, causing it to appear twice per row
+- **Protection panel refresh on toggle** — toggling protect/unprotect from the Scheduled Removals table now also refreshes the Protection Manager panel so switching tabs immediately reflects the change
+
+---
+
+
 ## CHG-027 — 2026-04-29 — Phase 7: Docs and cleanup after FlixPatrol integration
 
 ### Additions

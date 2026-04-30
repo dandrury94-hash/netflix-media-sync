@@ -28,6 +28,7 @@ This is NOT a sync script. It is a state-driven media lifecycle system.
 
 - Similar logic across endpoints must behave consistently
 - If logic becomes complex or duplicated, extract a shared helper rather than copying it
+- Changelog.md and Readme.md should always be updated for any change made to the code. Details are key, decision points and mitigations
 
 ## Non-Goals
 

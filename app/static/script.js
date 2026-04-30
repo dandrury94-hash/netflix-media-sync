@@ -45,11 +45,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Sync button ──
   if (syncButton) {
+    const syncErrorBox = document.getElementById("syncErrorBox");
+    const syncErrorText = document.getElementById("syncErrorText");
+    const syncErrorClear = document.getElementById("syncErrorClear");
+
+    if (syncErrorClear && syncErrorBox) {
+      syncErrorClear.addEventListener("click", () => { syncErrorBox.hidden = true; });
+    }
+
     let syncEstimatedSeconds = parseInt(syncButton.dataset.estimated || "60", 10) || 60;
     const syncButtonLabel = syncButton.querySelector("span");
 
     syncButton.addEventListener("click", async () => {
-      syncButton.classList.remove("sync-error");
+      if (syncErrorBox) syncErrorBox.hidden = true;
       syncButton.disabled = true;
       syncButton.classList.add("syncing");
       syncButton.style.setProperty("--sync-pct", "0%");
@@ -67,6 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const response = await fetch("/api/sync", { method: "POST" });
         clearInterval(timer);
+        if (!response.ok) throw new Error(`Sync failed (HTTP ${response.status}) — check logs for details`);
         const data = await response.json();
         if (data.estimated_seconds) syncEstimatedSeconds = data.estimated_seconds;
         syncButton.style.setProperty("--sync-pct", "100%");
@@ -76,14 +85,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (syncButtonLabel) syncButtonLabel.textContent = "Trigger sync now";
         syncButton.disabled = false;
         window.location.reload();
-      } catch {
+      } catch (err) {
         clearInterval(timer);
         syncButton.classList.remove("syncing");
         syncButton.style.removeProperty("--sync-pct");
-        syncButton.classList.add("sync-error");
         if (syncButtonLabel) syncButtonLabel.textContent = "Trigger sync now";
         syncButton.disabled = false;
-        setTimeout(() => syncButton.classList.remove("sync-error"), 3000);
+        if (syncErrorBox) {
+          syncErrorBox.hidden = false;
+          if (syncErrorText) syncErrorText.textContent = err.message || "Sync failed — check logs for details";
+        }
       }
     });
   }
@@ -345,6 +356,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Top 10 status icons ──
   const top10Items = document.querySelectorAll(".top10-item[data-title]");
   if (top10Items.length) {
+    try {
+      const cached = localStorage.getItem("top10-status-cache");
+      if (cached) _applyTop10Data(JSON.parse(cached));
+    } catch { /* ignore */ }
     loadTop10Status();
   }
 
@@ -423,28 +438,34 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+function _applyTop10Data(all) {
+  document.querySelectorAll(".top10-item[data-title]").forEach((li) => {
+    const title = li.dataset.title;
+    const item = all[title];
+    if (!item) return;
+    const status = item.status;
+    const poster = item.poster;
+    li.querySelectorAll(".top10-status").forEach((s) => s.remove());
+    if (!STATUS_ICONS[status]) return;
+    const span = document.createElement("span");
+    span.className = "top10-status";
+    span.title = STATUS_LABELS[status] || "";
+    span.textContent = STATUS_ICONS[status];
+    li.appendChild(span);
+    if (poster) {
+      li.style.setProperty("--poster-url", `url(${poster})`);
+      li.classList.add("top10-item--has-poster");
+    }
+  });
+}
+
 async function loadTop10Status() {
   try {
     const resp = await fetch("/api/top10-status");
     const data = await resp.json();
     const all = { ...data.movies, ...data.series };
-    document.querySelectorAll(".top10-item[data-title]").forEach((li) => {
-      const title = li.dataset.title;
-      const item = all[title];
-      if (!item) return;
-      const status = item.status;
-      const poster = item.poster;
-      if (!STATUS_ICONS[status]) return;
-      const span = document.createElement("span");
-      span.className = "top10-status";
-      span.title = STATUS_LABELS[status] || "";
-      span.textContent = STATUS_ICONS[status];
-      li.appendChild(span);
-      if (poster) {
-        li.style.setProperty("--poster-url", `url(${poster})`);
-        li.classList.add("top10-item--has-poster");
-      }
-    });
+    try { localStorage.setItem("top10-status-cache", JSON.stringify(all)); } catch { /* ignore */ }
+    _applyTop10Data(all);
   } catch { /* ignore */ }
 }
 
@@ -454,7 +475,7 @@ async function loadRemovalSchedule(tbody) {
     const data = await resp.json();
     renderSchedule(tbody, data.schedule || []);
   } catch {
-    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Failed to load removal schedule.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="table-empty">Failed to load removal schedule.</td></tr>';
   }
 }
 
@@ -493,7 +514,7 @@ async function loadRemovalHistory(tbody) {
 
 function renderSchedule(tbody, schedule) {
   if (!schedule.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No <code>netflix-sync</code> tagged titles found in Radarr / Sonarr.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No <code>netflix-sync</code> tagged titles found in Radarr / Sonarr.</td></tr>';
     return;
   }
   tbody.innerHTML = schedule.map((item) => {
@@ -516,11 +537,17 @@ function renderSchedule(tbody, schedule) {
       const dl = item.days_until_deletion <= 0 ? "Due" : `${item.days_until_deletion}d`;
       deleteCell = `<span class="${dc}">${dl}</span>`;
     }
-    const reasonHtml = item.reason
-      ? `<div class="entry-reason">${escHtml(item.reason)}</div>`
-      : "";
+    let actionCell;
+    const src = item.protection_source;
+    if (src === "tautulli" || src === "both") {
+      actionCell = '<span class="prot-lock-label">Tautulli</span>';
+    } else if (item.protected) {
+      actionCell = `<button class="button button-secondary button-sm sched-prot-btn" data-title="${escHtml(item.title)}" data-protect="false">Unprotect</button>`;
+    } else {
+      actionCell = `<button class="button button-secondary button-sm sched-prot-btn sched-prot-btn--protect" data-title="${escHtml(item.title)}" data-protect="true">Protect</button>`;
+    }
     return `<tr>
-      <td>${escHtml(item.title)}${reasonHtml}</td>
+      <td>${escHtml(item.title)}</td>
       <td style="text-transform:capitalize">${escHtml(item.type)}</td>
       <td>${item.date_added}</td>
       <td>${item.removal_date}</td>
@@ -528,8 +555,31 @@ function renderSchedule(tbody, schedule) {
       <td><span class="${daysClass}">${daysLabel}</span></td>
       <td>${graceCell}</td>
       <td>${deleteCell}</td>
+      <td>${actionCell}</td>
     </tr>`;
   }).join("");
+  tbody.querySelectorAll(".sched-prot-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const protecting = btn.dataset.protect === "true";
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      try {
+        const resp = await fetch("/api/overrides", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: btn.dataset.title, protected: protecting }),
+        });
+        if (!resp.ok) throw new Error("Request failed");
+        loadRemovalSchedule(tbody);
+        const pp = document.getElementById("protectionPanel");
+        if (pp) loadProtectionState(pp);
+      } catch {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 function renderHistory(tbody, history) {

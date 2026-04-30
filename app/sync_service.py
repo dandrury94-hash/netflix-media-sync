@@ -107,6 +107,13 @@ class SyncService:
         netflix_movies = [i["title"] for i in trending if i["type"] == "movie"]
         netflix_series = [i["title"] for i in trending if i["type"] == "series"]
 
+        top_by_source: dict[str, dict] = {}
+        for item in trending:
+            src = item["source"]
+            if src not in top_by_source:
+                top_by_source[src] = {"movie": [], "series": []}
+            top_by_source[src][item["type"]].append(item["title"])
+
         logger.info("Top movies: %s", netflix_movies)
         logger.info("Top series: %s", netflix_series)
 
@@ -188,6 +195,7 @@ class SyncService:
             "protected": sorted(protected_titles),
             "top_movies": netflix_movies,
             "top_series": netflix_series,
+            "top_by_source": top_by_source,
         }
         if added_movies or added_series:
             lines = [f"🎬 {t}" for t in added_movies] + [f"📺 {t}" for t in added_series]

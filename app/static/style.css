@@ -297,9 +297,39 @@ body::before {
 
 /* ── Status & actions card ── */
 .status-actions-card {
+    display: block;
+}
+
+.sac-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin-bottom: 4px;
+}
+
+@media (max-width: 600px) {
+    .sac-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Sync error box ── */
+.sync-error-box {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: rgba(44, 18, 18, 0.9);
+    border: 1px solid rgba(255, 107, 107, 0.28);
+    color: #ffb3b3;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.sync-error-msg {
+    margin: 0 0 10px;
+}
+
+.sync-error-actions {
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    gap: 8px;
 }
 
 .card-divider {
@@ -426,6 +456,46 @@ body::before {
     opacity: 0.75;
 }
 
+/* ── Per-source Top 10 cards ── */
+.services-grid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+}
+
+.source-card-dual {
+    grid-column: 1 / -1;
+}
+
+.source-dual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.source-subcard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    padding: 16px 18px;
+}
+
+.source-subpanel-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 10px;
+}
+
+@media (max-width: 720px) {
+    .services-grid { grid-template-columns: 1fr; }
+    .source-card-dual { grid-column: span 1; }
+    .source-dual-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Import preview ── */
 .import-columns {
     display: grid;
@@ -513,14 +583,24 @@ body::before {
 .protect-badge--manual   { background: rgba(240, 180, 41, 0.14); color: #f0b429; }
 
 /* ── Scheduled removal table ── */
+.removal-scroll {
+    margin-top: 14px;
+    max-height: 440px;
+    overflow-y: auto;
+    border-radius: 8px;
+}
+
 .removal-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
-    margin-top: 14px;
 }
 
 .removal-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
     text-align: left;
     padding: 8px 12px;
     font-size: 0.78rem;
@@ -538,6 +618,11 @@ body::before {
 }
 
 .removal-table tr:last-child td { border-bottom: none; }
+
+.sched-prot-btn--protect {
+    color: #2ecf7d;
+    border-color: rgba(46, 207, 125, 0.25);
+}
 
 .table-empty {
     color: var(--muted);
