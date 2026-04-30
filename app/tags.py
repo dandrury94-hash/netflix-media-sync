@@ -16,5 +16,7 @@ def tag_category(media_type: str) -> str:
     return TAG_CAT_MOVIE if media_type == "movie" else TAG_CAT_TV
 
 
-def all_tags_for(source: str, media_type: str) -> list[str]:
-    return [TAG_ROOT, tag_source(source), tag_category(media_type)]
+def all_tags_for(sources: str | list[str], media_type: str) -> list[str]:
+    if isinstance(sources, str):
+        sources = [sources]
+    return [TAG_ROOT] + [tag_source(s) for s in sources] + [tag_category(media_type)]

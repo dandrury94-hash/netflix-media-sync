@@ -5,6 +5,26 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-032 — 2026-04-30 — P1-0 + P1-1: Multi-source tags and ownership check
+
+### Changes
+- **`app/netflix_fetcher.py`** — `fetch_from_sources()` deduplication rewritten: `seen` is now a `dict[key → index]` instead of a set; when a `(title, type)` pair is seen again from a later source, its source key is appended to the existing entry's `"sources"` list rather than dropped. Each returned dict now carries both `"source"` (first/primary source, kept for backwards compatibility with `top_by_source` grouping) and `"sources"` (full list of all sources that listed this title). Defensive guard added: items with a missing or empty `"source"` key are logged as a warning and skipped, preventing a silent `streamarr-src-` tag from being produced
+- **`app/tags.py`** — `all_tags_for(sources, media_type)` signature changed from `source: str` to `sources: str | list[str]`; a bare string is promoted to a single-element list automatically; returns one `streamarr-src-{s}` tag per source so a title appearing on Netflix and Disney+ receives both `streamarr-src-netflix` and `streamarr-src-disney_plus` alongside the root `streamarr` and category tags
+- **`app/sync_service.py`** — enabled-mode add loops now pass `item["sources"]` (the full source list) instead of `item["source"]` to `all_tags_for()` so all source attribution tags are applied per title
+- **`app/radarr_client.py`** — added `_put()` HTTP helper mirroring `_post()`; added `_resolve_tag_ids(tag_names, title)` which calls `ensure_tag()` per name and collects the resulting IDs; added `_ensure_movie_tagged(movie, tag_names, title)` which resolves the `streamarr` root tag ID via `ensure_tag()`, skips silently if already present, otherwise merges `tag_names` IDs with the movie's existing tag ID list via set union and PUTs the full movie dict with updated tags — always returns `False` (item was not newly added); `add_movie()` refactored to resolve `tag_names` once at the top and delegate all existing-item paths (library cache hit with id, and lookup result with id) to `_ensure_movie_tagged()` so untagged library items are retroactively tagged on the next sync without being re-added via POST
+- **`app/sonarr_client.py`** — identical additions: `_put()`, `_resolve_tag_ids()`, `_ensure_series_tagged()` added with the same logic; `add_series()` refactored to delegate existing-item paths to `_ensure_series_tagged()`
+
+---
+
+
+## CHG-031 — 2026-04-30 — P1-2: Deletion ownership comment
+
+### Changes
+- **`app/sync_service.py`** — comment added before the `get_tagged_movies()` loop in `run_deletions()` documenting that deletion eligibility is determined solely by the presence of the `streamarr` tag: items whose tag is removed externally in Radarr or Sonarr are automatically excluded from deletion — Streamarr no longer considers them managed and will not attempt to delete them
+
+---
+
+
 ## CHG-030 — 2026-04-30 — Tag namespace: netflix-sync → streamarr
 
 ### Additions
@@ -37,6 +57,9 @@ All changes to this project are recorded here with a unique reference, date, and
 - **`app/web.py`** — HTTP Basic Auth realm changed from `"Netflix Sync"` to `"Streamarr"`; Pushover test notification title changed from `"Netflix Sync — Test"` to `"Streamarr — Test"`; test notification message changed from `"Test notification from Netflix Media Sync"` to `"Test notification from Streamarr"`
 - **`app/sync_service.py`** — Pushover notification titles changed: `"Netflix Sync — Error"` → `"Streamarr — Error"`, `"Netflix Sync — Added"` → `"Streamarr — Added"`, `"Netflix Sync — Deleted"` (×2) → `"Streamarr — Deleted"`
 - **`app/main.py`** — startup log message changed from `"Starting Netflix Sync service"` to `"Starting Streamarr service"`; weekly preview Pushover title changed from `"Netflix Sync — Weekly Preview"` to `"Streamarr — Weekly Preview"`
+- **`app/static/script.js`** — log download filename changed from `netflix-sync-{date}.log` to `streamarr-{date}.log`; Scheduled Removals empty-state message changed from `No <code>netflix-sync</code> tagged titles found` to `No <code>streamarr</code> tagged titles found`; Protection Manager empty-state message updated to reference `streamarr` tag
+- **`app/templates/index.html`** — Scheduled Removals field-help and Protection Manager field-help updated from `netflix-sync` to `streamarr`
+- **`app/templates/settings.html`** — deletion warning updated: `Only titles tagged <code>netflix-sync</code> are affected` → `Only titles tagged <code>streamarr</code> are affected`
 
 ---
 

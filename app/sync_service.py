@@ -140,7 +140,7 @@ class SyncService:
         if radarr_mode == "enabled":
             _t = time.monotonic()
             for item in movie_items:
-                if self.radarr.add_movie(item["title"], library_cache=radarr_cache, tags=_tags.all_tags_for(item["source"], "movie")):
+                if self.radarr.add_movie(item["title"], library_cache=radarr_cache, tags=_tags.all_tags_for(item["sources"], "movie")):
                     added_movies.append(item["title"])
                     self.sync_log.log_add(item["title"], "movie")
             logger.info("[timing] radarr_add_loop: %.1fs", time.monotonic() - _t)
@@ -168,7 +168,7 @@ class SyncService:
         if sonarr_mode == "enabled":
             _t = time.monotonic()
             for item in series_items:
-                if self.sonarr.add_series(item["title"], library_cache=sonarr_cache, tags=_tags.all_tags_for(item["source"], "series")):
+                if self.sonarr.add_series(item["title"], library_cache=sonarr_cache, tags=_tags.all_tags_for(item["sources"], "series")):
                     added_series.append(item["title"])
                     self.sync_log.log_add(item["title"], "series")
             logger.info("[timing] sonarr_add_loop: %.1fs", time.monotonic() - _t)
@@ -223,6 +223,9 @@ class SyncService:
         deleted_series: list[str] = []
         grace_started: list[str] = []
 
+        # Deletion eligibility is determined solely by the presence of the streamarr tag.
+        # Items that lose their tag externally (e.g. user removes it in Radarr/Sonarr) are
+        # automatically excluded from deletion — Streamarr no longer considers them managed.
         radarr_mode = self.settings.get("radarr_mode", "disabled")
         if radarr_mode != "disabled":
             for movie in self.radarr.get_tagged_movies():

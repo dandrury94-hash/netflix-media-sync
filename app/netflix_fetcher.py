@@ -99,7 +99,7 @@ def fetch_from_sources(
         flixpatrol_cache_hours:    How many hours to cache FlixPatrol results before re-fetching.
     """
     items: list[dict] = []
-    seen: set[tuple[str, str]] = set()
+    seen: dict[tuple[str, str], int] = {}  # key → index in items
     for source in sources:
         if source == "trakt":
             raw = _fetch_trakt_items(country_codes, client_id)
@@ -114,10 +114,16 @@ def fetch_from_sources(
             logger.warning("Unknown source %r, skipping", source)
             continue
         for item in raw:
+            if not item.get("source"):
+                logger.warning("Source dict missing or empty 'source' key, skipping: %r", item)
+                continue
             key = (item["title"].lower(), item["type"])
-            if key not in seen:
-                seen.add(key)
-                items.append(item)
+            if key in seen:
+                # Title already seen — merge this source into the existing entry
+                items[seen[key]]["sources"].append(item["source"])
+            else:
+                seen[key] = len(items)
+                items.append({**item, "sources": [item["source"]]})
     return items
 
 
