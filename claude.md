@@ -1,221 +1,183 @@
-# Netflix Media Sync
+# CLAUDE.md — Streamarr
 
-A Flask-based media lifecycle system. Syncs trending content via Trakt
-and FlixPatrol into Radarr and Sonarr. Tracks protection, deletion,
-and history. Rebranded to Streamarr.
+This file defines how Claude Code should operate within the Streamarr project.
 
-This is NOT a sync script. It is a state-driven media lifecycle system.
+It is **authoritative**. Follow it strictly.
 
 ---
 
-## 1. Core Rules
+## 🧭 Core Principles
 
-- Admin-only tool — prioritise simplicity over scalability
-- Avoid over-engineering
-- Keep changes minimal and localised
-- Do not refactor working systems without explicit instruction
-- When in doubt, do less
-
----
-
-## 2. Core Principles
-
-- Deterministic behaviour — same input always produces same output
-  across dashboard, protection, top 10, and deletion
-- No duplicated logic — if the same logic appears in two places,
-  extract a helper
-- Prefer simple, direct implementations over heavy abstraction
-- Fail gracefully — external service failures must not crash the app
+- Streamarr is a **deterministic system**
+- **Tags are the single source of truth**
+- **No duplicated logic across layers**
+- **No hidden or implicit state**
+- **Every change must be traceable via CHANGELOG.md**
 
 ---
 
-## 3. Architecture Rules
+## 🔒 Hard Rules (Non-Negotiable)
 
-- Maintain clear separation of concerns:
-  - Sync logic ONLY in sync_service.py
-  - API/UI logic ONLY in web.py
-  - External calls ONLY in client files (radarr_client, sonarr_client, etc.)
-  - Tag constants and helpers ONLY in tags.py
-- Do NOT move logic into the frontend or templates
-- Do NOT duplicate logic across layers
+### 1. CHANGELOG is a gate
+- Do **not** present work as complete until:
+  - CHANGELOG.md is updated
+  - A new CHG-XXX entry is added
+- If no changelog entry → the work is **not complete**
 
 ---
 
-## 4. Sync Behaviour Rules
+### 2. media_state is the ONLY state engine
+- All UI/API state must come from:
+  _fetch_media_state()
+- Which delegates to:
+  build_media_state()
 
-- The system is a reconciliation engine, not a one-off script
-- All sync operations must be:
-  - Idempotent (safe to run multiple times)
-  - Deterministic (same input → same result)
-- Respect integration modes:
-  - "disabled" = no interaction
-  - "read" = fetch + simulate only
-  - "enabled" = apply changes
-- Never bypass or weaken these modes
-
----
-
-## 5. State & Persistence Rules
-
-- All persistent state must go through:
-  - SyncLog
-  - SettingsStore
-- ManualOverrides.json is removed — protection state lives in
-  Radarr/Sonarr as the streamarr-state-protected tag
-- Do NOT introduce new ad-hoc file writes
-- Ensure thread safety is preserved
+❌ NEVER:
+- Recompute protection
+- Recompute eligibility
+- Recompute deletion logic
+- Recompute retention logic
 
 ---
 
-## 6. Tag Architecture (Locked)
+### 3. Tags define reality
+- streamarr → managed by Streamarr  
+- streamarr-state-protected → protected  
 
-- app/tags.py is the single source of truth for all tag constants
-  and helpers — never hardcode tag strings elsewhere
-- Tag vocabulary:
-  - streamarr — ownership marker (required on every managed item)
-  - streamarr-src-{source} — e.g. streamarr-src-netflix
-  - streamarr-cat-movie / streamarr-cat-tv — category
-  - streamarr-state-protected — protection (replaces ManualOverrides)
-- Deletion eligibility is determined solely by presence of the
-  streamarr tag — items without it are not managed by Streamarr
-- Streamarr only owns what it adds — existing library items are
-  never tagged, modified, or deleted
-- Protection state is written immediately to Radarr/Sonarr on
-  UI toggle — not deferred to the next sync
+Everything must derive from **tag presence**, not stored values.
 
 ---
 
-## 7. API & Integration Rules
+### 4. No title-based logic (except logging)
+❌ Forbidden:
+- Matching titles for protection  
+- Matching titles for deletion  
+- Matching titles for ownership  
 
-- External services must be accessed ONLY via their client classes
-- All endpoints must use bulk-fetched data and perform lightweight
-  in-memory aggregation
-- No endpoint may make per-item external API calls inside a loop
-- Handle failures gracefully:
-  - Never crash the entire sync due to one bad item
-  - Skip + log errors instead
-- Avoid unnecessary repeated API calls
-
----
-
-## 8. UI Rules
-
-- UI reflects backend state — it must not contain business logic
-- All data must come from API endpoints
-- Keep behaviour consistent with existing patterns
-  (polling, endpoints, etc.)
+✅ Allowed:
+- Logging (SyncLog)  
+- Display purposes only  
 
 ---
 
-## 9. Changelog Rules (CRITICAL)
+### 5. SyncLog is metadata only
+SyncLog may store:
+- date_added
+- last_watched
+- sources
 
-Every meaningful change MUST update CHANGELOG.md.
-
-Follow this exact format:
-
-    ## CHG-XXX — YYYY-MM-DD — Title
-
-    ### Additions
-    - ...
-
-    ### Changes
-    - ...
-
-    ### Fixes
-    - ...
-
-    ### Infrastructure
-    - ...
-
-Rules:
-- Increment CHG number sequentially
-- Use today's date
-- Be specific (mention files and behaviour)
-- Do NOT summarise vaguely
-- Match the existing tone and level of detail
-- Current CHG number: CHG-032 (next is CHG-033)
+SyncLog must NOT:
+- Drive protection  
+- Drive eligibility  
+- Act as source of truth  
 
 ---
 
-## 10. Code Quality Rules
-
-- Prefer clarity over cleverness
-- Avoid large, monolithic functions
-- Reuse existing helpers where possible
-- Do not introduce unnecessary dependencies
-- Keep changes minimal and focused
-
----
-
-## 11. Performance Rules
-
-- All endpoints must use bulk-fetched data and perform lightweight
-  in-memory aggregation
-- No endpoint may make per-item external API calls inside a loop
-- Similar logic across endpoints must behave consistently
-- If logic becomes complex or duplicated, extract a shared helper
-  rather than copying it
+### 6. No duplicate logic across files
+- Logic must live in **one place only**
+- If logic exists in:
+  - media_state.py
+- It must NOT be duplicated in:
+  - web.py
+  - sync_service.py
+  - any endpoint
 
 ---
 
-## 12. Non-Goals
+### 7. Deterministic deletions only
+Deletion must be based on:
+- Tag presence (streamarr)
+- Retention window
+- Protection tag absence
 
-- No heavy frontend frameworks
-- No over-engineering or unnecessary abstractions
-- No breaking existing working features
-- No new pip dependencies without explicit instruction
-
----
-
-## 13. Workflow & Orchestration
-
-### Plan Mode Default
-- Enter plan mode for ANY non-trivial task (3+ steps or
-  architectural decisions)
-- If something goes sideways, STOP and re-plan immediately
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
-
-### Subagent Strategy
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-
-### Self-Improvement Loop
-- After ANY correction from the user: update tasks/lessons.md
-  with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
-
-### Verification Before Done
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
-
-### Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more
-  elegant way?"
-- If a fix feels hacky: "Knowing everything I know now,
-  implement the elegant solution"
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
-
-### Autonomous Bug Fixing
-- When given a bug report: just fix it
-- Point at logs, errors, failing tests — then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
+Nothing else.
 
 ---
 
-## 14. Task Management
+## 🚫 Forbidden Patterns
 
-1. **Plan First** — write plan to tasks/todo.md with checkable items
-2. **Verify Plan** — check in before starting implementation
-3. **Track Progress** — mark items complete as you go
-4. **Explain Changes** — high-level summary at each step
-5. **Document Results** — add review section to tasks/todo.md
-6. **Capture Lessons** — update tasks/lessons.md after corrections
+These have caused bugs previously and must not be reintroduced:
+
+- ❌ Title-based protection systems  
+- ❌ ManualOverrides-style state files  
+- ❌ Multiple competing “sources of truth”  
+- ❌ Per-endpoint state calculation  
+- ❌ Hidden background mutations  
+- ❌ Using Tautulli as a protection system  
+- ❌ Mixing business logic into Flask routes  
+- ❌ Re-fetching Radarr/Sonarr per item inside loops  
+
+---
+
+## 🧠 Architectural Decisions (Summary)
+
+Refer to DECISIONS.md for full context.
+
+Key highlights:
+- Tags are the only state authority  
+- Tautulli is signal only (last_watched), not protection  
+- Retention is anchored to:
+  - last_watched OR
+  - date_added  
+- Streamarr only operates on its own tagged items  
+- Deletion logic must be fully deterministic  
+
+---
+
+## 🧩 Development Workflow
+
+### Before starting work:
+- Read:
+  - CLAUDE.md
+  - DECISIONS.md
+  - FILES_OF_INTEREST.md
+  - CHANGE_IMPACT_MAP.md
+  - CHANGELOG.md
+  - tasks/todo.md
+
+---
+
+### While implementing:
+- Keep logic centralized
+- Avoid introducing new state
+- Prefer extending existing structures
+
+---
+
+### Before marking complete:
+- Update CHANGELOG.md
+- Ensure:
+  - No duplicated logic introduced
+  - No forbidden patterns used
+  - Tags remain the source of truth
+
+---
+
+## 📌 Canonical Data Flow
+
+Sources → SyncService → Radarr/Sonarr (tags applied)  
+→ SyncLog (metadata only)  
+→ _fetch_media_state()  
+→ build_media_state()  
+→ API/UI
+
+---
+
+## ⚠️ Known Constraints
+
+- Only streamarr-tagged items are managed
+- Unmanaged library items must never appear in UI
+- Deletion must never affect non-streamarr content
+- All protection must come from tags
+
+---
+
+## 🎯 Goal
+
+Keep Streamarr:
+- Predictable
+- Inspectable
+- Safe
+- Easy to reason about
+
+If a change makes the system harder to reason about, it is wrong.

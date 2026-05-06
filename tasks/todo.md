@@ -190,6 +190,17 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 - [ ] No writes to Radarr/Sonarr/SyncLog in simulation mode
 - [ ] UI indicator when simulation mode is active
 
+### Repo hygiene (low-priority, batch into one commit)
+- [ ] T-012 — Remove `config/manual_overrides.json` if it still exists on disk;
+      confirm no remaining codebase references (CHG-034 removed the Python module
+      but the runtime JSON may still be present)
+- [ ] T-013 — Verify `__pycache__/` is in `.gitignore`; add if missing
+- [ ] T-014 — Remove `streamarrtree.txt` from repo root (non-production artifact;
+      confirm no references before deleting)
+- [ ] T-010 — Add a minimal smoke-test for `sources` list integrity in
+      `fetch_from_sources()` output (assert all items have `sources` as a
+      non-empty list); requires deciding on a test runner first
+
 ---
 
 ## Blocked — Phase 3 (after P1 + P2 complete)
