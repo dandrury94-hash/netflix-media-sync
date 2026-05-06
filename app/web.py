@@ -4,7 +4,6 @@ import requests as _requests
 from flask import Flask, Response, jsonify, render_template, request
 
 from app.config import LOG_PATH
-from app.manual_overrides import ManualOverrides
 from app.media_state import build_media_state
 from app.netflix_fetcher import bust_flixpatrol_cache, fetch_flixpatrol_fresh, get_flixpatrol_cache_info
 from app.removal_history import RemovalHistory
@@ -46,7 +45,6 @@ def create_app(
     settings: SettingsStore,
     sync_service: SyncService,
     sync_log: SyncLog,
-    manual_overrides: ManualOverrides,
     removal_history: RemovalHistory,
 ) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -75,7 +73,13 @@ def create_app(
             sonarr_tagged = sync_service.sonarr.get_tagged_series()
         last_sync = sync_log.get_last_sync() or {}
         tautulli_prot = set(last_sync.get("protected", []))
-        manual_prot = manual_overrides.to_set()
+        radarr_prot_id = sync_service.radarr.get_state_protected_tag_id() if radarr_mode != "disabled" else None
+        sonarr_prot_id = sync_service.sonarr.get_state_protected_tag_id() if sonarr_mode != "disabled" else None
+        manual_prot: set[str] = set()
+        if radarr_prot_id is not None:
+            manual_prot |= {m["title"] for m in radarr_movies if radarr_prot_id in m.get("tags", [])}
+        if sonarr_prot_id is not None:
+            manual_prot |= {s["title"] for s in sonarr_tagged if sonarr_prot_id in s.get("tags", [])}
         return build_media_state(
             radarr_movies=radarr_movies,
             sonarr_series=sonarr_tagged,
@@ -102,16 +106,10 @@ def create_app(
         last_sync = sync_log.get_last_sync()
         if last_sync and "timestamp" in last_sync:
             last_sync = {**last_sync, "timestamp": _fmt_timestamp(last_sync["timestamp"])}
-        manual = manual_overrides.to_set()
-        tautulli_protected = set(last_sync.get("protected", [])) if last_sync else set()
-        all_protected = sorted(tautulli_protected | manual)
         return render_template(
             "index.html",
             settings=settings.to_dict(),
             last_sync=last_sync,
-            protected_titles=all_protected,
-            tautulli_protected=tautulli_protected,
-            manual_protected=manual,
         )
 
     @app.route("/settings")
@@ -253,11 +251,27 @@ def create_app(
     def post_overrides():
         payload = request.json or {}
         title = payload.get("title", "").strip()
+        media_type = payload.get("type", "").strip()
         if not title:
             return jsonify({"error": "title required"}), 400
+        if media_type not in ("movie", "series"):
+            return jsonify({"error": "type must be 'movie' or 'series'"}), 400
         protected = bool(payload.get("protected", False))
-        manual_overrides.set_override(title, protected)
-        return jsonify({"status": "ok", "title": title, "protected": protected})
+        if media_type == "movie":
+            all_movies = sync_service.radarr.get_all_movies()
+            match = next((m for m in all_movies if m.get("title", "").lower() == title.lower()), None)
+            if not match:
+                return jsonify({"error": f"'{title}' not found in Radarr"}), 404
+            ok = sync_service.radarr.set_movie_protection(match["id"], protected)
+        else:
+            all_series = sync_service.sonarr.get_all_series()
+            match = next((s for s in all_series if s.get("title", "").lower() == title.lower()), None)
+            if not match:
+                return jsonify({"error": f"'{title}' not found in Sonarr"}), 404
+            ok = sync_service.sonarr.set_series_protection(match["id"], protected)
+        if not ok:
+            return jsonify({"error": "Failed to update protection"}), 500
+        return jsonify({"status": "ok", "title": title, "type": media_type, "protected": protected})
 
     @app.route("/api/removal-schedule")
     def removal_schedule():

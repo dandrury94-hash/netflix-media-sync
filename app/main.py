@@ -6,7 +6,6 @@ from threading import Event, Thread
 from waitress import serve
 
 from app.config import LOG_PATH
-from app.manual_overrides import ManualOverrides
 from app.removal_history import RemovalHistory
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
@@ -53,7 +52,6 @@ def run_weekly_preview(
     stop_event: Event,
     sync_service: SyncService,
     sync_log: SyncLog,
-    manual_overrides: ManualOverrides,
     settings: SettingsStore,
 ) -> None:
     while not stop_event.is_set():
@@ -79,15 +77,16 @@ def run_weekly_preview(
 
         last_sync = sync_log.get_last_sync() or {}
         tautulli_protected = set(last_sync.get("protected", []))
-        all_protected = tautulli_protected | manual_overrides.to_set()
 
         upcoming: list[str] = []
 
         radarr_mode = settings.get("radarr_mode", "disabled")
+        radarr_prot_id = sync_service.radarr.get_state_protected_tag_id() if radarr_mode != "disabled" else None
         if radarr_mode != "disabled":
             for movie in sync_service.radarr.get_tagged_movies():
                 title = movie.get("title", "")
-                if not title or title in all_protected:
+                manually_protected = radarr_prot_id is not None and radarr_prot_id in movie.get("tags", [])
+                if not title or title in tautulli_protected or manually_protected:
                     continue
                 date_added_str = sync_log.get_date_added(title)
                 date_added = today
@@ -101,10 +100,12 @@ def run_weekly_preview(
                     upcoming.append(f"🎬 {title} (removes {removal_date})")
 
         sonarr_mode = settings.get("sonarr_mode", "disabled")
+        sonarr_prot_id = sync_service.sonarr.get_state_protected_tag_id() if sonarr_mode != "disabled" else None
         if sonarr_mode != "disabled":
             for series in sync_service.sonarr.get_tagged_series():
                 title = series.get("title", "")
-                if not title or title in all_protected:
+                manually_protected = sonarr_prot_id is not None and sonarr_prot_id in series.get("tags", [])
+                if not title or title in tautulli_protected or manually_protected:
                     continue
                 date_added_str = sync_log.get_date_added(title)
                 date_added = today
@@ -129,9 +130,8 @@ def main() -> None:
 
     settings = SettingsStore()
     sync_log = SyncLog()
-    manual_overrides = ManualOverrides()
     removal_history = RemovalHistory()
-    sync_service = SyncService(settings, sync_log, manual_overrides, removal_history)
+    sync_service = SyncService(settings, sync_log, removal_history)
     stop_event = Event()
 
     worker = Thread(target=run_worker, args=(stop_event, sync_service), daemon=True)
@@ -139,12 +139,12 @@ def main() -> None:
 
     weekly = Thread(
         target=run_weekly_preview,
-        args=(stop_event, sync_service, sync_log, manual_overrides, settings),
+        args=(stop_event, sync_service, sync_log, settings),
         daemon=True,
     )
     weekly.start()
 
-    app = create_app(settings, sync_service, sync_log, manual_overrides, removal_history)
+    app = create_app(settings, sync_service, sync_log, removal_history)
     port = settings.get("web_port", 8080)
     logger.info("Opening web interface on port %s", port)
     serve(app, host="0.0.0.0", port=port)

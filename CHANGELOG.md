@@ -5,6 +5,26 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-034 — 2026-05-06 — P1-2 + P1-3: Protection via Radarr/Sonarr tag
+
+### Additions
+- **`app/radarr_client.py`** — `get_state_protected_tag_id() -> int | None`: fetches the Radarr tag list and returns the ID for `streamarr-state-protected`, or `None` if not yet created; `set_movie_protection(movie_id, protected)`: GETs the full movie record, adds or removes the `streamarr-state-protected` tag ID, then PUTs the updated record back — returns `True` on success
+- **`app/sonarr_client.py`** — identical additions: `get_state_protected_tag_id()` and `set_series_protection(series_id, protected)`
+
+### Changes
+- **`app/tags.py`** — added `TAG_STATE_PROTECTED = "streamarr-state-protected"` constant and `tag_state_protected() -> str` helper
+- **`app/web.py`** — `POST /api/overrides` now requires `type` field (`"movie"` or `"series"`); on receipt it bulk-fetches the relevant library, finds the item by title, and immediately writes the `streamarr-state-protected` tag to Radarr or Sonarr — no JSON file involved; `_fetch_media_state()` derives `manual_prot` by resolving the `streamarr-state-protected` tag ID once then filtering the already-fetched item lists; `ManualOverrides` parameter removed from `create_app()`; index route no longer passes `protected_titles`/`tautulli_protected`/`manual_protected` to the template (all loaded async via API)
+- **`app/sync_service.py`** — `run_deletions()` resolves `streamarr-state-protected` tag ID once per service before each deletion loop; per-item protection check reads from the item's `tags` array rather than a JSON file; `ManualOverrides` removed from `__init__` signature and import
+- **`app/main.py`** — `run_weekly_preview()` signature updated to remove `manual_overrides` parameter; protection check reads from item tags same as `run_deletions()`; `ManualOverrides` instantiation and passing removed from `main()`; `create_app()` call updated to match new signature
+- **`app/static/script.js`** — all five `/api/overrides` call sites updated to include `type` in the JSON payload; `handleProtectionToggle()` accepts `type` as new third argument; `_makeEntry()` stores `dataset.title` and `dataset.type` on each checkbox; batch protect/unprotect use `cb.dataset.title` / `cb.dataset.type` instead of `cb.value`; removal schedule action buttons include `data-type` attribute; dead `.override-checkbox` listener removed
+
+### Removals
+- **`app/manual_overrides.py`** — deleted; protection state now lives exclusively in Radarr/Sonarr as the `streamarr-state-protected` tag
+- **`app/config.py`** — `MANUAL_OVERRIDES_PATH` removed
+
+---
+
+
 ## CHG-033 — 2026-05-06 — Workflow scaffolding: tasks/ directory
 
 ### Additions

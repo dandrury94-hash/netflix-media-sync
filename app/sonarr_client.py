@@ -109,6 +109,32 @@ class SonarrClient:
             logger.warning("Failed to fetch Sonarr series %d: %s", series_id, exc)
             return None
 
+    def get_state_protected_tag_id(self) -> int | None:
+        try:
+            tag_list = self._get("/api/v3/tag")
+            return next((t["id"] for t in tag_list if t.get("label") == _tags.TAG_STATE_PROTECTED), None)
+        except Exception as exc:
+            logger.warning("Failed to fetch state-protected tag id from Sonarr: %s", exc)
+            return None
+
+    def set_series_protection(self, series_id: int, protected: bool) -> bool:
+        try:
+            tag_id = self.ensure_tag(_tags.TAG_STATE_PROTECTED)
+            series = self._get(f"/api/v3/series/{series_id}")
+            current_tags = series.get("tags", [])
+            if protected:
+                if tag_id not in current_tags:
+                    current_tags = [*current_tags, tag_id]
+            else:
+                current_tags = [t for t in current_tags if t != tag_id]
+            series["tags"] = current_tags
+            self._put(f"/api/v3/series/{series_id}", series)
+            logger.info("Set protection=%s for series id=%d", protected, series_id)
+            return True
+        except Exception as exc:
+            logger.error("Failed to set protection for series id=%d: %s", series_id, exc)
+            return False
+
     def lookup_series(self, title: str) -> dict | None:
         try:
             results = self._get("/api/v3/series/lookup", {"term": title})

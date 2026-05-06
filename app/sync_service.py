@@ -4,7 +4,6 @@ import threading
 import time
 
 from app import tags as _tags
-from app.manual_overrides import ManualOverrides
 from app.netflix_fetcher import fetch_from_sources
 from app.pushover_client import PushoverClient
 from app.radarr_client import RadarrClient
@@ -42,12 +41,10 @@ class SyncService:
         self,
         settings: SettingsStore,
         sync_log: SyncLog,
-        manual_overrides: ManualOverrides,
         removal_history: RemovalHistory,
     ) -> None:
         self.settings = settings
         self.sync_log = sync_log
-        self.manual_overrides = manual_overrides
         self.removal_history = removal_history
         self.radarr = RadarrClient(settings)
         self.sonarr = SonarrClient(settings)
@@ -216,7 +213,6 @@ class SyncService:
 
         last_sync = self.sync_log.get_last_sync() or {}
         tautulli_protected = set(last_sync.get("protected", []))
-        all_protected = tautulli_protected | self.manual_overrides.to_set()
 
         today = datetime.date.today()
         deleted_movies: list[str] = []
@@ -227,11 +223,13 @@ class SyncService:
         # Items that lose their tag externally (e.g. user removes it in Radarr/Sonarr) are
         # automatically excluded from deletion — Streamarr no longer considers them managed.
         radarr_mode = self.settings.get("radarr_mode", "disabled")
+        radarr_prot_id = self.radarr.get_state_protected_tag_id() if radarr_mode != "disabled" else None
         if radarr_mode != "disabled":
             for movie in self.radarr.get_tagged_movies():
                 title = movie.get("title", "")
                 movie_id = movie.get("id")
-                if not title or not movie_id or title in all_protected:
+                manually_protected = radarr_prot_id is not None and radarr_prot_id in movie.get("tags", [])
+                if not title or not movie_id or title in tautulli_protected or manually_protected:
                     continue
 
                 date_added = _resolve_date(
@@ -262,11 +260,13 @@ class SyncService:
                     self.pushover.send("Streamarr — Deleted", f"🎬 {title}")
 
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
+        sonarr_prot_id = self.sonarr.get_state_protected_tag_id() if sonarr_mode != "disabled" else None
         if sonarr_mode != "disabled":
             for series in self.sonarr.get_tagged_series():
                 title = series.get("title", "")
                 series_id = series.get("id")
-                if not title or not series_id or title in all_protected:
+                manually_protected = sonarr_prot_id is not None and sonarr_prot_id in series.get("tags", [])
+                if not title or not series_id or title in tautulli_protected or manually_protected:
                     continue
 
                 date_added = _resolve_date(

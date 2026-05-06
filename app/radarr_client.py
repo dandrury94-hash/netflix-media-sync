@@ -109,6 +109,32 @@ class RadarrClient:
             logger.warning("Failed to fetch Radarr movie %d: %s", movie_id, exc)
             return None
 
+    def get_state_protected_tag_id(self) -> int | None:
+        try:
+            tag_list = self._get("/api/v3/tag")
+            return next((t["id"] for t in tag_list if t.get("label") == _tags.TAG_STATE_PROTECTED), None)
+        except Exception as exc:
+            logger.warning("Failed to fetch state-protected tag id from Radarr: %s", exc)
+            return None
+
+    def set_movie_protection(self, movie_id: int, protected: bool) -> bool:
+        try:
+            tag_id = self.ensure_tag(_tags.TAG_STATE_PROTECTED)
+            movie = self._get(f"/api/v3/movie/{movie_id}")
+            current_tags = movie.get("tags", [])
+            if protected:
+                if tag_id not in current_tags:
+                    current_tags = [*current_tags, tag_id]
+            else:
+                current_tags = [t for t in current_tags if t != tag_id]
+            movie["tags"] = current_tags
+            self._put(f"/api/v3/movie/{movie_id}", movie)
+            logger.info("Set protection=%s for movie id=%d", protected, movie_id)
+            return True
+        except Exception as exc:
+            logger.error("Failed to set protection for movie id=%d: %s", movie_id, exc)
+            return False
+
     def lookup_movie(self, title: str) -> dict | None:
         try:
             results = self._get("/api/v3/movie/lookup", {"term": title})

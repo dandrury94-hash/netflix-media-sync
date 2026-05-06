@@ -11,20 +11,20 @@ None in progress.
 
 ## Up Next — Session B (CHG-034)
 
-### P1-2 — Introduce streamarr-state-protected tag
-- [ ] Add `TAG_STATE_PROTECTED = "streamarr-state-protected"` to `app/tags.py`
-- [ ] Add helper `tag_state_protected() -> str` to `app/tags.py`
-- [ ] Document in root `CLAUDE.md` tag vocabulary section
+### P1-2 — Introduce streamarr-state-protected tag ✓
+- [x] Add `TAG_STATE_PROTECTED = "streamarr-state-protected"` to `app/tags.py`
+- [x] Add helper `tag_state_protected() -> str` to `app/tags.py`
+- [x] Document in root `CLAUDE.md` tag vocabulary section (already present)
 
-### P1-3 — Move protection to tag, write immediately on UI toggle
-- [ ] Remove `ManualOverrides` from `app/manual_overrides.py` (or gut it)
-- [ ] Remove `ManualOverrides` from `app/main.py` instantiation
-- [ ] Remove `ManualOverrides` from `app/sync_service.py`
-- [ ] Update `POST /api/overrides` in `app/web.py` to write
+### P1-3 — Move protection to tag, write immediately on UI toggle ✓
+- [x] Remove `ManualOverrides` from `app/manual_overrides.py` (deleted)
+- [x] Remove `ManualOverrides` from `app/main.py` instantiation
+- [x] Remove `ManualOverrides` from `app/sync_service.py`
+- [x] Update `POST /api/overrides` in `app/web.py` to write
       `streamarr-state-protected` tag directly to Radarr/Sonarr immediately
-- [ ] Update `_fetch_media_state()` to read protection from tags
+- [x] Update `_fetch_media_state()` to read protection from tags
       not from `ManualOverrides`
-- [ ] Update UI — protection toggle must reflect tag state
+- [x] Update UI — protection toggle sends `type` field, all call sites updated
 - [ ] Verify: toggling protection in UI immediately writes tag to
       Radarr/Sonarr without waiting for next sync
 

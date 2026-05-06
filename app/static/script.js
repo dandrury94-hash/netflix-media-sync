@@ -230,32 +230,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── Manual override checkboxes ──
-  document.querySelectorAll(".override-checkbox").forEach((cb) => {
-    cb.addEventListener("change", async () => {
-      const title = cb.dataset.title;
-      const wasChecked = cb.checked;
-      try {
-        const resp = await fetch("/api/overrides", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, protected: wasChecked }),
-        });
-        if (!resp.ok) throw new Error("Request failed");
-        const badge = cb.closest(".protection-item").querySelector(".protect-badge--manual");
-        if (wasChecked && !badge) {
-          const span = document.createElement("span");
-          span.className = "protect-badge protect-badge--manual";
-          span.textContent = "Override";
-          cb.closest(".protection-item").appendChild(span);
-        } else if (!wasChecked && badge) {
-          badge.remove();
-        }
-      } catch {
-        cb.checked = !wasChecked;
-      }
-    });
-  });
 
   // ── Test connection buttons ──
   document.querySelectorAll(".test-conn-btn").forEach((btn) => {
@@ -542,9 +516,9 @@ function renderSchedule(tbody, schedule) {
     if (src === "tautulli" || src === "both") {
       actionCell = '<span class="prot-lock-label">Tautulli</span>';
     } else if (item.protected) {
-      actionCell = `<button class="button button-secondary button-sm sched-prot-btn" data-title="${escHtml(item.title)}" data-protect="false">Unprotect</button>`;
+      actionCell = `<button class="button button-secondary button-sm sched-prot-btn" data-title="${escHtml(item.title)}" data-type="${escHtml(item.type)}" data-protect="false">Unprotect</button>`;
     } else {
-      actionCell = `<button class="button button-secondary button-sm sched-prot-btn sched-prot-btn--protect" data-title="${escHtml(item.title)}" data-protect="true">Protect</button>`;
+      actionCell = `<button class="button button-secondary button-sm sched-prot-btn sched-prot-btn--protect" data-title="${escHtml(item.title)}" data-type="${escHtml(item.type)}" data-protect="true">Protect</button>`;
     }
     return `<tr>
       <td>${escHtml(item.title)}</td>
@@ -568,7 +542,7 @@ function renderSchedule(tbody, schedule) {
         const resp = await fetch("/api/overrides", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: btn.dataset.title, protected: protecting }),
+          body: JSON.stringify({ title: btn.dataset.title, type: btn.dataset.type, protected: protecting }),
         });
         if (!resp.ok) throw new Error("Request failed");
         loadRemovalSchedule(tbody);
@@ -672,7 +646,7 @@ function renderProtectionState(container, data) {
       await fetch("/api/overrides", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: cb.value, protected: false }),
+        body: JSON.stringify({ title: cb.dataset.title, type: cb.dataset.type, protected: false }),
       });
     }
     await loadProtectionState(container);
@@ -686,7 +660,7 @@ function renderProtectionState(container, data) {
       await fetch("/api/overrides", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: cb.value, protected: true }),
+        body: JSON.stringify({ title: cb.dataset.title, type: cb.dataset.type, protected: true }),
       });
     }
     await loadProtectionState(container);
@@ -703,6 +677,8 @@ function renderProtectionState(container, data) {
     cb.type = "checkbox";
     cb.className = "prot-entry-cb";
     cb.value = item.title;
+    cb.dataset.title = item.title;
+    cb.dataset.type = item.type;
     if (isProtected) cb.disabled = isTautulli;
     li.appendChild(cb);
 
@@ -746,14 +722,14 @@ function renderProtectionState(container, data) {
         const btn = document.createElement("button");
         btn.className = "button button-secondary button-sm prot-action-btn";
         btn.textContent = "Unprotect";
-        btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, false, container));
+        btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, item.type, false, container));
         li.appendChild(btn);
       }
     } else {
       const btn = document.createElement("button");
       btn.className = "button button-secondary button-sm prot-action-btn prot-action-btn--protect";
       btn.textContent = "Protect";
-      btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, true, container));
+      btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, item.type, true, container));
       li.appendChild(btn);
     }
 
@@ -767,13 +743,13 @@ function renderProtectionState(container, data) {
   unprotectedItems.forEach((item) => unprotList.appendChild(_makeEntry(item, false)));
 }
 
-async function handleProtectionToggle(btn, title, protect, container) {
+async function handleProtectionToggle(btn, title, type, protect, container) {
   btn.disabled = true;
   try {
     const resp = await fetch("/api/overrides", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, protected: protect }),
+      body: JSON.stringify({ title, type, protected: protect }),
     });
     if (!resp.ok) throw new Error("Request failed");
     await loadProtectionState(container);
