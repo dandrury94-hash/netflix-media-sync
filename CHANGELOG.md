@@ -5,6 +5,15 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-033 — 2026-05-06 — Workflow scaffolding: tasks/ directory
+
+### Additions
+- **`tasks/todo.md`** — task planning and progress tracker; one block per session or feature; format mirrors §14 of CLAUDE.md (plan → verify → track → review)
+- **`tasks/lessons.md`** — lessons log capturing corrections and the rules derived from them; pre-populated with three lessons from recent sessions: never tag pre-existing library items, wait for user confirmation before committing, and use dict insertion order for deterministic source lists
+
+---
+
+
 ## CHG-032 — 2026-04-30 — P1-0 + P1-1: Multi-source tags and ownership check
 
 ### Changes
