@@ -129,3 +129,30 @@ remaining, producing truncated or incomplete output.
 **Rule:** If the user indicates low remaining usage, scope to what
 can be completed and committed cleanly. A partial implementation is
 worse than none.
+
+---
+
+## Grep the entire codebase when removing a concept, not just known files
+
+**Context:** P2-2 removed Tautulli from the protection model. `web.py` and
+`media_state.py` were updated correctly, but `run_weekly_preview` in `main.py`
+still referenced `tautulli_protected` — missed because only the obviously
+relevant files were updated. Caught during the end-of-session file review.
+
+**Rule:** When removing a concept (a parameter, a data source, a protection
+mechanism), grep the entire codebase for its name before closing the task.
+Never rely on knowing which files are affected — search proves it.
+
+---
+
+## Keep README and CLAUDE.md current when the model changes
+
+**Context:** After CHG-034 through CHG-037 the README still described Tautulli
+as a protection source, still mentioned `manual_overrides.json` (removed in
+CHG-034), and still described a grace period (removed in CHG-036). `app/CLAUDE.md`
+still listed `"tautulli"` and `"both"` as valid `protection_source` values.
+Both had to be corrected in a separate pass.
+
+**Rule:** Any session that changes a core concept (protection model, deletion
+flow, data shape) must update README and the relevant CLAUDE.md in the same
+commit. Documentation that contradicts the code will mislead future sessions.
