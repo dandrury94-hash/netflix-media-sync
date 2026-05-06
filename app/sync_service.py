@@ -142,7 +142,7 @@ class SyncService:
             for item in movie_items:
                 if self.radarr.add_movie(item["title"], library_cache=radarr_cache, tags=_tags.all_tags_for(item["sources"], "movie")):
                     added_movies.append(item["title"])
-                    self.sync_log.log_add(item["title"], "movie")
+                    self.sync_log.log_add(item["title"], "movie", item["sources"])
             logger.info("[timing] radarr_add_loop: %.1fs", time.monotonic() - _t)
         elif radarr_mode == "read":
             for title in netflix_movies:
@@ -170,7 +170,7 @@ class SyncService:
             for item in series_items:
                 if self.sonarr.add_series(item["title"], library_cache=sonarr_cache, tags=_tags.all_tags_for(item["sources"], "series")):
                     added_series.append(item["title"])
-                    self.sync_log.log_add(item["title"], "series")
+                    self.sync_log.log_add(item["title"], "series", item["sources"])
             logger.info("[timing] sonarr_add_loop: %.1fs", time.monotonic() - _t)
         elif sonarr_mode == "read":
             for title in netflix_series:

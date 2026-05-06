@@ -39,7 +39,7 @@ class SyncLog:
         except Exception:
             logger.warning("Failed to save sync log to %s", self.path, exc_info=True)
 
-    def log_add(self, title: str, media_type: str, source: str = "trakt") -> None:
+    def log_add(self, title: str, media_type: str, sources: list[str]) -> None:
         with self._lock:
             if not isinstance(self._data.get("entries"), list):
                 self._data["entries"] = []
@@ -47,7 +47,7 @@ class SyncLog:
                 "title": title,
                 "type": media_type,
                 "date_added": datetime.date.today().isoformat(),
-                "source": source,
+                "sources": sources,
             })
             self._save()
 

@@ -5,6 +5,17 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-037 — 2026-05-06 — P2-1 + P2-2: Multi-source addition history, Tautulli removed from protection model
+
+### Changes
+- **`app/sync_log.py`** — `log_add()` signature changed: `source: str = "trakt"` → `sources: list[str]`; stored field renamed from `"source"` to `"sources"` (list); existing single-source entries are migrated on read at the API layer
+- **`app/sync_service.py`** — `_run()`: both `log_add()` call sites now pass `item["sources"]` (the full list from `fetch_from_sources`) instead of the hardcoded `"trakt"` default
+- **`app/web.py`** — `addition_history()`: normalises entries on the fly — if an old entry has only `"source"` (str), it is returned as `sources: [source]`; new entries carry `sources` list directly; `_fetch_media_state()`: removed `tautulli_prot` / `last_sync.get("protected", [])` from protection evaluation; removed `protected_set` and `tautulli_protected` arguments from `build_media_state()` call
+- **`app/media_state.py`** — `build_media_state()`: removed `protected_set` and `tautulli_protected` parameters; protection is now derived solely from `manual_protected`; removed `"tautulli"`, `"both"` branches from `_add()` and corresponding `_SRC_LABELS` entries; `MediaStateEntry.protection_source` type narrowed to `"manual" | None`
+- **`app/static/script.js`** — `renderAdditionHistory()`: added `fmtSource()` helper that maps `"flixpatrol"` → `"FlixPatrol"` and title-cases others; source cell now joins the `sources` array with `" + "` (e.g. `"Trakt + FlixPatrol"`); falls back to `item.source` for old entries
+- **`app/templates/index.html`** — removed stale "Tautulli-protected titles cannot be unprotected here" note from protection tab
+- **`app/CLAUDE.md`** — updated Protection section to reflect new model: `streamarr-state-protected` tag only; Tautulli = retention signal only; `protection_source` valid values: `"manual"` | `None`
+
 ## CHG-036 — 2026-05-06 — P1-5 + P1-6 + P1-7: Tag-only deletion, grace period removal, pre-deletion warnings
 
 ### Changes

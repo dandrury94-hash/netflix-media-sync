@@ -463,17 +463,24 @@ async function loadAdditionHistory(tbody) {
   }
 }
 
+function fmtSource(key) {
+  return key === "flixpatrol" ? "FlixPatrol" : key.charAt(0).toUpperCase() + key.slice(1);
+}
+
 function renderAdditionHistory(tbody, additions) {
   if (!additions.length) {
     tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No titles added in the last 7 days.</td></tr>';
     return;
   }
-  tbody.innerHTML = additions.map((item) => `<tr>
+  tbody.innerHTML = additions.map((item) => {
+    const srcs = (item.sources || [item.source || "trakt"]).map(fmtSource).join(" + ");
+    return `<tr>
     <td>${escHtml(item.title)}</td>
     <td style="text-transform:capitalize">${escHtml(item.type)}</td>
     <td>${escHtml(item.date_added)}</td>
-    <td>${escHtml(item.source || "trakt")}</td>
-  </tr>`).join("");
+    <td>${escHtml(srcs)}</td>
+  </tr>`;
+  }).join("");
 }
 
 async function loadRemovalHistory(tbody) {

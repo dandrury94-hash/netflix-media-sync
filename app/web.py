@@ -71,8 +71,6 @@ def create_app(
             radarr_movies = sync_service.radarr.get_tagged_movies()
         if sonarr_mode != "disabled":
             sonarr_tagged = sync_service.sonarr.get_tagged_series()
-        last_sync = sync_log.get_last_sync() or {}
-        tautulli_prot = set(last_sync.get("protected", []))
         radarr_prot_id = sync_service.radarr.get_state_protected_tag_id() if radarr_mode != "disabled" else None
         sonarr_prot_id = sync_service.sonarr.get_state_protected_tag_id() if sonarr_mode != "disabled" else None
         manual_prot: set[str] = set()
@@ -84,8 +82,6 @@ def create_app(
             radarr_movies=radarr_movies,
             sonarr_series=sonarr_tagged,
             sync_entries=sync_log.get_entries(),
-            protected_set=tautulli_prot | manual_prot,
-            tautulli_protected=tautulli_prot,
             manual_protected=manual_prot,
             movie_retention_days=int(settings.get("movie_retention_days", 30)),
             series_retention_days=int(settings.get("series_retention_days", 30)),
@@ -291,7 +287,8 @@ def create_app(
             title = e.get("title", "")
             if e.get("date_added", "") >= cutoff and title and title not in seen:
                 seen.add(title)
-                recent.append(e)
+                sources = e.get("sources") or [e.get("source", "trakt")]
+                recent.append({**e, "sources": sources})
         return jsonify({"additions": recent})
 
     @app.route("/api/protection-state")

@@ -27,9 +27,9 @@
 
 ## Protection
 
-- Manual overrides take priority over Tautulli
-- Tautulli protection is read-only
-- Protection source must always be attributable (manual / tautulli / both)
+- Protection = `streamarr-state-protected` tag only
+- Tautulli = retention clock signal only (via `last_watched`) — never a protection source
+- `protection_source` valid values: `"manual"` | `None`
 
 ## Error Handling
 

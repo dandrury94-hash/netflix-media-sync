@@ -10,7 +10,7 @@ class MediaStateEntry(TypedDict):
     in_library: bool
     has_file: bool
     protected: bool
-    protection_source: str | None      # "tautulli" | "manual" | "both" | None
+    protection_source: str | None      # "manual" | None
     eligible_for_deletion: bool
     days_remaining: int
     date_added: str
@@ -23,8 +23,6 @@ def build_media_state(
     radarr_movies: list[dict],
     sonarr_series: list[dict],
     sync_entries: list[dict],
-    protected_set: set[str],
-    tautulli_protected: set[str],
     manual_protected: set[str],
     movie_retention_days: int,
     series_retention_days: int,
@@ -59,7 +57,7 @@ def build_media_state(
                 pass
         return today
 
-    _SRC_LABELS = {"tautulli": "Tautulli", "manual": "Manual", "both": "Tautulli & Manual"}
+    _SRC_LABELS = {"manual": "Manual"}
 
     state: dict[str, MediaStateEntry] = {}
 
@@ -82,17 +80,8 @@ def build_media_state(
         removal_date = anchor_date + datetime.timedelta(days=retention_days)
         days_remaining = (removal_date - today).days
 
-        in_tautulli = title in tautulli_protected
-        in_manual = title in manual_protected
-        is_protected = title in protected_set
-        if in_tautulli and in_manual:
-            protection_source: str | None = "both"
-        elif in_tautulli:
-            protection_source = "tautulli"
-        elif in_manual:
-            protection_source = "manual"
-        else:
-            protection_source = None
+        is_protected = title in manual_protected
+        protection_source: str | None = "manual" if is_protected else None
 
         eligible = days_remaining <= 0 and not is_protected
 
