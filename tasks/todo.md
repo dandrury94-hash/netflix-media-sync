@@ -5,11 +5,11 @@ Current work tracking. Updated as tasks are completed.
 ---
 
 ## Current Session
-None in progress.
+Session C (CHG-036) — P1-5, P1-6, P1-7 implemented. Awaiting user verification.
 
 ---
 
-## Up Next — Session B (CHG-034)
+## Up Next — Session D (CHG-037)
 
 ### P1-2 — Introduce streamarr-state-protected tag ✓
 - [x] Add `TAG_STATE_PROTECTED = "streamarr-state-protected"` to `app/tags.py`
@@ -35,7 +35,7 @@ None in progress.
 - [x] Update retention calculation in `run_deletions()`:
       anchor = `max(date_added, last_watched)`
 - [x] Same anchor applied in `media_state.py` and weekly preview
-- [ ] Verify: watching a title resets the 30-day clock from
+- [x] Verify: watching a title resets the 30-day clock from
       that watch date
 
 ### Pre-flight checks before starting
@@ -46,29 +46,28 @@ None in progress.
 
 ---
 
-## Blocked — Session C (CHG-035)
-Blocked until Session B is complete and tested.
+## Completed — Session C (CHG-036)
 
-### P1-5 — Rewrite deletion logic to use tags only
-- [ ] Remove all title-string matching from `run_deletions()`
-- [ ] Deletion eligibility = `streamarr` tag present only
-- [ ] Items whose tag is removed externally are silently excluded
-- [ ] Document this behaviour in a comment in `run_deletions()`
+### P1-5 — Rewrite deletion logic to use tags only ✓
+- [x] Remove all title-string matching from `run_deletions()`
+- [x] Deletion eligibility = `streamarr` tag present only
+- [x] Items whose tag is removed externally are silently excluded
+- [x] Document this behaviour in a comment in `run_deletions()`
 
-### P1-6 — Replace grace period with 7-day pre-deletion notification
-- [ ] Remove grace period tracking from `SyncLog`
-- [ ] Remove `start_grace_period()`, `get_grace_periods()`,
+### P1-6 — Replace grace period with 7-day pre-deletion notification ✓
+- [x] Remove grace period tracking from `SyncLog`
+- [x] Remove `start_grace_period()`, `get_grace_periods()`,
       `clear_grace_period()` from `app/sync_log.py`
-- [ ] Remove grace period logic from `run_deletions()`
-- [ ] Add pre-deletion Pushover notification 7 days before
+- [x] Remove grace period logic from `run_deletions()`
+- [x] Add pre-deletion Pushover notification 7 days before
       deletion date
 - [ ] Verify: no grace period state remains in any code path
       (`grep -r "grace"` returns nothing in active paths)
 
-### P1-7 — Restrict evaluation to streamarr-tagged items only
-- [ ] `run_deletions()` must only process items with `streamarr` tag
-- [ ] `_fetch_media_state()` must only surface streamarr-tagged items
-- [ ] Unmanaged library items must never appear in any Streamarr UI
+### P1-7 — Restrict evaluation to streamarr-tagged items only ✓
+- [x] `run_deletions()` must only process items with `streamarr` tag
+- [x] `_fetch_media_state()` must only surface streamarr-tagged items
+- [x] Unmanaged library items must never appear in any Streamarr UI
 
 ---
 

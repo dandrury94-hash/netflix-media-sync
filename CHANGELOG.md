@@ -5,6 +5,24 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-036 — 2026-05-06 — P1-5 + P1-6 + P1-7: Tag-only deletion, grace period removal, pre-deletion warnings
+
+### Changes
+- **`app/sync_service.py`** — `run_deletions()`: removed `tautulli_protected` title-string matching from the deletion gate — protection is now fully tag-based (manual override tag) combined with `last_watched` anchor dates; removed all grace period state (`start_grace_period`, `get_grace_periods`, `clear_grace_period`); when a title enters the 7-day window before its removal date, a Pushover warning is sent once per title (tracked in `pre_deletion_notified`); when `days_remaining <= 0`, deletion proceeds immediately with no grace delay; `was_watched` now derived from `last_watched_all` presence rather than Tautulli title comparison; return value no longer includes `grace_started`
+- **`app/sync_log.py`** — removed `grace_periods` dict and the three associated methods (`start_grace_period`, `get_grace_periods`, `clear_grace_period`); added `pre_deletion_notified: dict[str, str]` (title → date notified) with `mark_pre_deletion_notified(title)`, `get_pre_deletion_notified() -> dict`, and `clear_pre_deletion_notified(title)`; `_load()` now migrates old JSON by removing the stale `grace_periods` key
+- **`app/media_state.py`** — `build_media_state()` no longer accepts `grace_periods` or `grace_period_days` parameters; `MediaStateEntry` no longer includes `grace_started`, `grace_expires`, `days_until_deletion`, or `in_grace` fields; `eligible_for_deletion` is now `days_remaining <= 0 and not is_protected`; `reason` field no longer has grace-period conditions
+- **`app/web.py`** — `_fetch_media_state()` call to `build_media_state()` drops `grace_periods` and `grace_period_days` arguments; `post_settings()` normalized dict no longer saves `grace_period_days`
+- **`app/config.py`** — removed `grace_period_days` from `DEFAULT_SETTINGS` and `GRACE_PERIOD_DAYS` from `ENV_VAR_TO_SETTING`
+- **`app/templates/settings.html`** — removed grace period days input field; updated deletion help text to describe 7-day Pushover warning instead
+- **`app/templates/index.html`** — removed "Grace expires" and "Days to delete" columns from scheduled removals table; colspan updated to 7
+- **`app/static/script.js`** — removed `graceCell` and `deleteCell` from `renderSchedule()`; table row reduced from 9 to 7 columns; all `colspan="9"` updated to `colspan="7"`
+
+### Infrastructure
+- P1-7 confirmed satisfied: `run_deletions()` and `_fetch_media_state()` both source exclusively from `get_tagged_movies()` / `get_tagged_series()` — unmanaged library items are never evaluated or surfaced in any Streamarr UI
+
+---
+
+
 ## CHG-035 — 2026-05-06 — P1-4: Reset retention clock on last_watched
 
 ### Fixes

@@ -33,7 +33,6 @@ DEFAULT_SETTINGS = {
     "pushover_user_key": "",
     "pushover_api_token": "",
     "deletion_enabled": False,
-    "grace_period_days": 7,
     "sources": ["trakt"],
     "flixpatrol_country": "United Kingdom",
     "flixpatrol_services": [],
@@ -55,5 +54,4 @@ ENV_VAR_TO_SETTING = {
     "PUSHOVER_USER_KEY": "pushover_user_key",
     "PUSHOVER_API_TOKEN": "pushover_api_token",
     "DELETION_ENABLED": "deletion_enabled",
-    "GRACE_PERIOD_DAYS": "grace_period_days",
 }

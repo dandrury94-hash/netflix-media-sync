@@ -211,11 +211,7 @@
                 <input type="checkbox" name="deletion_enabled" {% if settings.deletion_enabled %}checked{% endif %} />
                 Enable automatic deletion
             </label>
-            <p class="field-help">⚠️ When enabled, titles past their retention date and grace period will be permanently deleted from Radarr / Sonarr including media files. Only titles tagged <code>streamarr</code> are affected. Protected titles are never deleted.</p>
-            <label>Grace period days
-                <input type="number" name="grace_period_days" value="{{ settings.grace_period_days }}" />
-                <p class="field-help">Days to wait after the retention date before deleting.</p>
-            </label>
+            <p class="field-help">⚠️ When enabled, titles past their retention date will be permanently deleted from Radarr / Sonarr including media files. Only titles tagged <code>streamarr</code> are affected. A Pushover warning is sent when a title enters the 7-day deletion window. Protected titles are never deleted.</p>
         </section>
     </div>
 

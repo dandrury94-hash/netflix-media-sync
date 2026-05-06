@@ -208,24 +208,21 @@ class SyncService:
 
     def run_deletions(self) -> dict:
         if not self.settings.get("deletion_enabled", False):
-            return {"deleted_movies": [], "deleted_series": [], "grace_started": []}
+            return {"deleted_movies": [], "deleted_series": []}
 
-        grace_period_days = int(self.settings.get("grace_period_days", 7))
         movie_retention = int(self.settings.get("movie_retention_days", 30))
         series_retention = int(self.settings.get("series_retention_days", 30))
-
-        last_sync = self.sync_log.get_last_sync() or {}
-        tautulli_protected = set(last_sync.get("protected", []))
         last_watched_all = self.sync_log.get_last_watched_all()
+        pre_notified = self.sync_log.get_pre_deletion_notified()
 
         today = datetime.date.today()
         deleted_movies: list[str] = []
         deleted_series: list[str] = []
-        grace_started: list[str] = []
+        pre_deletion_warnings: list[str] = []
 
         # Deletion eligibility is determined solely by the presence of the streamarr tag.
         # Items that lose their tag externally (e.g. user removes it in Radarr/Sonarr) are
-        # automatically excluded from deletion — Streamarr no longer considers them managed.
+        # automatically excluded — Streamarr no longer considers them managed.
         radarr_mode = self.settings.get("radarr_mode", "disabled")
         radarr_prot_id = self.radarr.get_state_protected_tag_id() if radarr_mode != "disabled" else None
         if radarr_mode != "disabled":
@@ -233,7 +230,7 @@ class SyncService:
                 title = movie.get("title", "")
                 movie_id = movie.get("id")
                 manually_protected = radarr_prot_id is not None and radarr_prot_id in movie.get("tags", [])
-                if not title or not movie_id or title in tautulli_protected or manually_protected:
+                if not title or not movie_id or manually_protected:
                     continue
 
                 date_added = _resolve_date(
@@ -247,27 +244,23 @@ class SyncService:
                     except ValueError:
                         pass
                 removal_date = anchor_date + datetime.timedelta(days=movie_retention)
-                if today < removal_date:
+                days_remaining = (removal_date - today).days
+
+                if days_remaining > 7:
                     continue
 
-                self.sync_log.start_grace_period(title, "movie")
-                grace_info = self.sync_log.get_grace_periods().get(title, {})
-                try:
-                    grace_start = datetime.date.fromisoformat(grace_info["started"])
-                except (KeyError, ValueError):
-                    grace_started.append(title)
+                if 0 < days_remaining <= 7 and title not in pre_notified:
+                    pre_deletion_warnings.append(f"🎬 {title} ({days_remaining}d)")
+                    self.sync_log.mark_pre_deletion_notified(title)
+
+                if days_remaining > 0:
                     continue
 
-                grace_expires = grace_start + datetime.timedelta(days=grace_period_days)
-                if today < grace_expires:
-                    grace_started.append(title)
-                    continue
-
-                was_watched = title in tautulli_protected
+                was_watched = last_watched_all.get(title) is not None
                 if self.radarr.delete_movie(movie_id):
                     deleted_movies.append(title)
                     self.removal_history.log_removal(title, "movie", reason="retention", was_watched=was_watched)
-                    self.sync_log.clear_grace_period(title)
+                    self.sync_log.clear_pre_deletion_notified(title)
                     self.pushover.send("Streamarr — Deleted", f"🎬 {title}")
 
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
@@ -277,7 +270,7 @@ class SyncService:
                 title = series.get("title", "")
                 series_id = series.get("id")
                 manually_protected = sonarr_prot_id is not None and sonarr_prot_id in series.get("tags", [])
-                if not title or not series_id or title in tautulli_protected or manually_protected:
+                if not title or not series_id or manually_protected:
                     continue
 
                 date_added = _resolve_date(
@@ -291,28 +284,30 @@ class SyncService:
                     except ValueError:
                         pass
                 removal_date = anchor_date + datetime.timedelta(days=series_retention)
-                if today < removal_date:
+                days_remaining = (removal_date - today).days
+
+                if days_remaining > 7:
                     continue
 
-                self.sync_log.start_grace_period(title, "series")
-                grace_info = self.sync_log.get_grace_periods().get(title, {})
-                try:
-                    grace_start = datetime.date.fromisoformat(grace_info["started"])
-                except (KeyError, ValueError):
-                    grace_started.append(title)
+                if 0 < days_remaining <= 7 and title not in pre_notified:
+                    pre_deletion_warnings.append(f"📺 {title} ({days_remaining}d)")
+                    self.sync_log.mark_pre_deletion_notified(title)
+
+                if days_remaining > 0:
                     continue
 
-                grace_expires = grace_start + datetime.timedelta(days=grace_period_days)
-                if today < grace_expires:
-                    grace_started.append(title)
-                    continue
-
-                was_watched = title in tautulli_protected
+                was_watched = last_watched_all.get(title) is not None
                 if self.sonarr.delete_series(series_id):
                     deleted_series.append(title)
                     self.removal_history.log_removal(title, "series", reason="retention", was_watched=was_watched)
-                    self.sync_log.clear_grace_period(title)
+                    self.sync_log.clear_pre_deletion_notified(title)
                     self.pushover.send("Streamarr — Deleted", f"📺 {title}")
+
+        if pre_deletion_warnings:
+            self.pushover.send(
+                "Streamarr — Deletion warning",
+                "Titles due for removal soon:\n" + "\n".join(pre_deletion_warnings),
+            )
 
         if deleted_movies or deleted_series:
             logger.info(
@@ -321,8 +316,4 @@ class SyncService:
                 deleted_series,
             )
 
-        return {
-            "deleted_movies": deleted_movies,
-            "deleted_series": deleted_series,
-            "grace_started": grace_started,
-        }
+        return {"deleted_movies": deleted_movies, "deleted_series": deleted_series}

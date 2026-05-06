@@ -449,7 +449,7 @@ async function loadRemovalSchedule(tbody) {
     const data = await resp.json();
     renderSchedule(tbody, data.schedule || []);
   } catch {
-    tbody.innerHTML = '<tr><td colspan="9" class="table-empty">Failed to load removal schedule.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Failed to load removal schedule.</td></tr>';
   }
 }
 
@@ -488,7 +488,7 @@ async function loadRemovalHistory(tbody) {
 
 function renderSchedule(tbody, schedule) {
   if (!schedule.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No <code>streamarr</code> tagged titles found in Radarr / Sonarr.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No <code>streamarr</code> tagged titles found in Radarr / Sonarr.</td></tr>';
     return;
   }
   tbody.innerHTML = schedule.map((item) => {
@@ -500,17 +500,6 @@ function renderSchedule(tbody, schedule) {
     const statusCell = item.protected
       ? '<span class="protected-badge">Protected</span>'
       : '<span style="color:var(--muted)">—</span>';
-    const graceCell = item.in_grace && item.grace_expires
-      ? escHtml(item.grace_expires)
-      : '<span style="color:var(--muted)">—</span>';
-    let deleteCell = '<span style="color:var(--muted)">—</span>';
-    if (item.in_grace && item.days_until_deletion != null) {
-      const dc =
-        item.days_until_deletion <= 2 ? "days-urgent" :
-        item.days_until_deletion <= 5 ? "days-warning" : "days-ok";
-      const dl = item.days_until_deletion <= 0 ? "Due" : `${item.days_until_deletion}d`;
-      deleteCell = `<span class="${dc}">${dl}</span>`;
-    }
     let actionCell;
     const src = item.protection_source;
     if (src === "tautulli" || src === "both") {
@@ -527,8 +516,6 @@ function renderSchedule(tbody, schedule) {
       <td>${item.removal_date}</td>
       <td>${statusCell}</td>
       <td><span class="${daysClass}">${daysLabel}</span></td>
-      <td>${graceCell}</td>
-      <td>${deleteCell}</td>
       <td>${actionCell}</td>
     </tr>`;
   }).join("");
