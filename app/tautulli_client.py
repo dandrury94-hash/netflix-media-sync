@@ -54,7 +54,8 @@ class TautulliClient:
 
         logger.info("Fetching Tautulli history to protect watched media")
         history = self._request("get_history", {"length": 200})
-        items = history.get("data", [])
+        history_data = history.get("data", {})
+        items = history_data.get("data", []) if isinstance(history_data, dict) else []
         if not isinstance(items, list):
             items = []
         for item in items:
@@ -76,7 +77,8 @@ class TautulliClient:
                 protected_titles.add(title.strip())
 
         activity = self._request("get_activity")
-        sessions = activity.get("sessions", [])
+        activity_data = activity.get("data", {})
+        sessions = activity_data.get("sessions", []) if isinstance(activity_data, dict) else []
         if not isinstance(sessions, list):
             sessions = []
         for item in sessions:

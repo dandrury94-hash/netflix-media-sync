@@ -5,6 +5,21 @@ All changes to this project are recorded here with a unique reference, date, and
 ---
 
 
+## CHG-035 — 2026-05-06 — P1-4: Reset retention clock on last_watched
+
+### Fixes
+- **`app/tautulli_client.py`** — `fetch_protected_titles()` was always returning an empty set; `get_history` response nests history records under `response.data.data` (not `response.data`), and `get_activity` nests sessions under `response.data.sessions` (not `response.sessions`); both lookups now unwrap the inner `data` dict first — Tautulli protection was silently non-functional before this fix
+
+### Changes
+- **`app/sync_log.py`** — added `"last_watched": {}` to the in-memory data structure and load fallback; `set_last_watched(title, date_iso)` writes or updates the most-recent watch date for a title (only saves if the new date is equal to or later than the stored one); `get_last_watched_all() -> dict[str, str]` returns a snapshot of all stored watch dates for bulk pre-fetch
+- **`app/sync_service.py`** — `_run()`: after fetching Tautulli protected titles, records today's date as `last_watched` for each returned title via `sync_log.set_last_watched()`; `run_deletions()`: pre-fetches `last_watched_all` once before both loops; per-item retention anchor is `max(date_added, last_watched)` — watching a title resets the deletion clock from that watch date rather than the original add date
+- **`app/media_state.py`** — `build_media_state()` accepts optional `last_watched: dict[str, str]`; `_add()` resolves the same `max(date_added, last_watched)` anchor so the UI removal date matches the actual deletion logic
+- **`app/web.py`** — `_fetch_media_state()` passes `last_watched=sync_log.get_last_watched_all()` to `build_media_state()`
+- **`app/main.py`** — `run_weekly_preview()` applies the same `anchor_date` logic so weekly Pushover notifications reflect watch-adjusted removal dates
+
+---
+
+
 ## CHG-034 — 2026-05-06 — P1-2 + P1-3: Protection via Radarr/Sonarr tag
 
 ### Additions

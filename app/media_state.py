@@ -34,6 +34,7 @@ def build_media_state(
     movie_retention_days: int,
     series_retention_days: int,
     grace_period_days: int,
+    last_watched: dict[str, str] | None = None,
 ) -> dict[str, MediaStateEntry]:
     """
     Build an in-memory state map for all streamarr tagged titles.
@@ -77,7 +78,14 @@ def build_media_state(
         retention_days: int,
     ) -> None:
         date_added = _resolve_date(earliest_added.get(title), api_added)
-        removal_date = date_added + datetime.timedelta(days=retention_days)
+        anchor_date = date_added
+        lw = (last_watched or {}).get(title)
+        if lw:
+            try:
+                anchor_date = max(date_added, datetime.date.fromisoformat(lw))
+            except ValueError:
+                pass
+        removal_date = anchor_date + datetime.timedelta(days=retention_days)
         days_remaining = (removal_date - today).days
 
         in_tautulli = title in tautulli_protected

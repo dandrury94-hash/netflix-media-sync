@@ -33,6 +33,20 @@ tag sets across runs.
 
 ---
 
+## Verify Tautulli (and similar) API response envelope before writing client code
+
+**Context:** `tautulli_client.fetch_protected_titles()` always returned an empty set.
+`_request()` returns `response["response"]`, so `get_history` data lives at
+`response.data.data` (double-nested) and `get_activity` sessions at `response.data.sessions`.
+The original code did `history.get("data", [])` which returned the inner dict, failed the
+`isinstance(list)` check, and silently fell through to `[]`.
+
+**Rule:** When writing a client against a wrapped API (Tautulli, Radarr, etc.), log the raw
+response shape on first integration and assert the path to the actual records. Never assume
+a single `.get("data")` unwraps to the payload — check whether it's a list or another dict.
+
+---
+
 ## Read the actual source before writing integration code
 
 **Context:** Scraper files were generated based on the integration brief

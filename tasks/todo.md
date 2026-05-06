@@ -28,12 +28,13 @@ None in progress.
 - [ ] Verify: toggling protection in UI immediately writes tag to
       Radarr/Sonarr without waiting for next sync
 
-### P1-4 — Tautulli: reset retention clock on last_watched
-- [ ] Add `last_watched` field to `SyncLog` entry schema
-- [ ] Update `SyncService._run()` to write `last_watched` date
+### P1-4 — Tautulli: reset retention clock on last_watched ✓
+- [x] Add `last_watched` field to `SyncLog` entry schema
+- [x] Update `SyncService._run()` to write `last_watched` date
       when Tautulli reports a title as watched
-- [ ] Update retention calculation in `run_deletions()`:
-      anchor = `last_watched` if present, else `date_added`
+- [x] Update retention calculation in `run_deletions()`:
+      anchor = `max(date_added, last_watched)`
+- [x] Same anchor applied in `media_state.py` and weekly preview
 - [ ] Verify: watching a title resets the 30-day clock from
       that watch date
 

@@ -123,6 +123,9 @@ class SyncService:
             _t = time.monotonic()
             protected_titles = list(self.tautulli.fetch_protected_titles())
             logger.info("[timing] tautulli_fetch: %.1fs", time.monotonic() - _t)
+            today_iso = datetime.date.today().isoformat()
+            for title in protected_titles:
+                self.sync_log.set_last_watched(title, today_iso)
 
         added_movies: list[str] = []
         would_add_movies: list[str] = []
@@ -213,6 +216,7 @@ class SyncService:
 
         last_sync = self.sync_log.get_last_sync() or {}
         tautulli_protected = set(last_sync.get("protected", []))
+        last_watched_all = self.sync_log.get_last_watched_all()
 
         today = datetime.date.today()
         deleted_movies: list[str] = []
@@ -235,7 +239,14 @@ class SyncService:
                 date_added = _resolve_date(
                     self.sync_log.get_date_added(title), movie.get("added"), today
                 )
-                removal_date = date_added + datetime.timedelta(days=movie_retention)
+                anchor_date = date_added
+                lw = last_watched_all.get(title)
+                if lw:
+                    try:
+                        anchor_date = max(date_added, datetime.date.fromisoformat(lw))
+                    except ValueError:
+                        pass
+                removal_date = anchor_date + datetime.timedelta(days=movie_retention)
                 if today < removal_date:
                     continue
 
@@ -272,7 +283,14 @@ class SyncService:
                 date_added = _resolve_date(
                     self.sync_log.get_date_added(title), series.get("added"), today
                 )
-                removal_date = date_added + datetime.timedelta(days=series_retention)
+                anchor_date = date_added
+                lw = last_watched_all.get(title)
+                if lw:
+                    try:
+                        anchor_date = max(date_added, datetime.date.fromisoformat(lw))
+                    except ValueError:
+                        pass
+                removal_date = anchor_date + datetime.timedelta(days=series_retention)
                 if today < removal_date:
                     continue
 

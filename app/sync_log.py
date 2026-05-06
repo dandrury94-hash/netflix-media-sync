@@ -14,7 +14,7 @@ class SyncLog:
     def __init__(self, path: Path = SYNC_LOG_PATH) -> None:
         self.path = path
         self._lock = threading.Lock()
-        self._data: dict[str, Any] = {"last_sync": None, "entries": [], "grace_periods": {}}
+        self._data: dict[str, Any] = {"last_sync": None, "entries": [], "grace_periods": {}, "last_watched": {}}
         self._load()
 
     def _load(self) -> None:
@@ -26,6 +26,8 @@ class SyncLog:
                 self._data = data
                 if "grace_periods" not in self._data:
                     self._data["grace_periods"] = {}
+                if "last_watched" not in self._data:
+                    self._data["last_watched"] = {}
         except Exception:
             logger.warning("Failed to load sync log from %s", self.path, exc_info=True)
 
@@ -85,6 +87,17 @@ class SyncLog:
             if title in gp:
                 del gp[title]
                 self._save()
+
+    def set_last_watched(self, title: str, date_iso: str) -> None:
+        with self._lock:
+            watches = self._data.setdefault("last_watched", {})
+            if title not in watches or date_iso > watches[title]:
+                watches[title] = date_iso
+                self._save()
+
+    def get_last_watched_all(self) -> dict[str, str]:
+        with self._lock:
+            return dict(self._data.get("last_watched", {}))
 
     def get_date_added(self, title: str) -> str | None:
         """Return the earliest date_added recorded for a title."""

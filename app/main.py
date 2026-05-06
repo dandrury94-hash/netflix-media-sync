@@ -77,6 +77,7 @@ def run_weekly_preview(
 
         last_sync = sync_log.get_last_sync() or {}
         tautulli_protected = set(last_sync.get("protected", []))
+        last_watched_all = sync_log.get_last_watched_all()
 
         upcoming: list[str] = []
 
@@ -95,7 +96,14 @@ def run_weekly_preview(
                         date_added = datetime.date.fromisoformat(date_added_str)
                     except ValueError:
                         pass
-                removal_date = date_added + datetime.timedelta(days=movie_retention)
+                anchor_date = date_added
+                lw = last_watched_all.get(title)
+                if lw:
+                    try:
+                        anchor_date = max(date_added, datetime.date.fromisoformat(lw))
+                    except ValueError:
+                        pass
+                removal_date = anchor_date + datetime.timedelta(days=movie_retention)
                 if today <= removal_date <= in_7_days:
                     upcoming.append(f"🎬 {title} (removes {removal_date})")
 
@@ -114,7 +122,14 @@ def run_weekly_preview(
                         date_added = datetime.date.fromisoformat(date_added_str)
                     except ValueError:
                         pass
-                removal_date = date_added + datetime.timedelta(days=series_retention)
+                anchor_date = date_added
+                lw = last_watched_all.get(title)
+                if lw:
+                    try:
+                        anchor_date = max(date_added, datetime.date.fromisoformat(lw))
+                    except ValueError:
+                        pass
+                removal_date = anchor_date + datetime.timedelta(days=series_retention)
                 if today <= removal_date <= in_7_days:
                     upcoming.append(f"📺 {title} (removes {removal_date})")
 

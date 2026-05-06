@@ -91,6 +91,7 @@ def create_app(
             movie_retention_days=int(settings.get("movie_retention_days", 30)),
             series_retention_days=int(settings.get("series_retention_days", 30)),
             grace_period_days=int(settings.get("grace_period_days", 7)),
+            last_watched=sync_log.get_last_watched_all(),
         )
 
     def _fmt_timestamp(ts: str) -> str:
