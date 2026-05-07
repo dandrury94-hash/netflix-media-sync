@@ -41,6 +41,12 @@ DEFAULT_SETTINGS = {
     "flixpatrol_service_types": {},
     "flixpatrol_cache_hours": 6,
     "simulation_mode": False,
+    "plex_mode": "disabled",
+    "plex_url": "http://plex:32400",
+    "plex_token": "",
+    "plex_movie_library": "Movies",
+    "plex_tv_library": "TV Shows",
+    "plex_collection_sync_hours": 2,
 }
 
 ENV_VAR_TO_SETTING = {
@@ -65,4 +71,7 @@ ENV_VAR_TO_SETTING = {
     "PUSHOVER_USER_KEY": "pushover_user_key",
     "PUSHOVER_API_TOKEN": "pushover_api_token",
     "DELETION_ENABLED": "deletion_enabled",
+    "PLEX_MODE": "plex_mode",
+    "PLEX_URL": "plex_url",
+    "PLEX_TOKEN": "plex_token",
 }

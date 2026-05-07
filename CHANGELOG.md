@@ -4,6 +4,34 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-049 — 2026-05-07 — P4-1: Plex collections
+
+### Additions
+- **`app/plex_client.py`** (new) — `PlexClient` class: connects to Plex via direct API
+  token; fetches library section IDs; builds `tmdbId`/`tvdbId` → `ratingKey` maps using
+  `includeGuids=1`; creates, reads, and diffs collections; batches item additions in groups
+  of 50. `sync_plex_collections()` module-level function orchestrates the full sync:
+  - One `Streamarr` collection per library (Movies + TV Shows) containing all tagged items
+  - One per-service collection (Netflix, Disney+, Amazon Prime, etc.) per library, sourced
+    from SyncLog `sources` field; `trakt` excluded (not a streaming service)
+  - TV matching tries TMDB ID first (modern Plex agent), falls back to TVDB ID
+  - Items not yet in Plex (downloading) are silently skipped; picked up on next cycle
+  - `get_plex_sync_status()` exposes last sync timestamp and counts
+- **`app/config.py`** — Plex default settings: `plex_mode`, `plex_url`, `plex_token`,
+  `plex_movie_library`, `plex_tv_library`, `plex_collection_sync_hours`; env var mappings
+  for `PLEX_MODE`, `PLEX_URL`, `PLEX_TOKEN`
+- **`app/main.py`** — `_plex_collection_loop` thread: sleeps for `plex_collection_sync_hours`
+  then runs `sync_plex_collections`; skips if `plex_mode != "enabled"`
+- **`app/web.py`** — `POST /api/test/plex` test connection endpoint; `POST /api/plex/sync`
+  manual trigger; `plex_status` passed to settings template; `plex_token` added to
+  `_SENSITIVE_KEYS`
+- **`app/templates/settings.html`** — Plex settings card: mode, URL, token, library names,
+  sync interval, Test connection button, Sync collections now button with live status
+- **`app/static/script.js`** — Plex test connection handler; Plex sync button handler
+  showing movie/TV counts and add/remove delta
+
+---
+
 ## CHG-048 — 2026-05-07 — Codebase audit fixes
 
 ### Fixes

@@ -103,6 +103,48 @@
         </section>
 
         <section class="card">
+            <h2>Plex settings</h2>
+            <label>Plex mode
+                <select name="plex_mode">
+                    <option value="disabled" {% if settings.plex_mode=='disabled' %}selected{% endif %}>Disabled</option>
+                    <option value="enabled" {% if settings.plex_mode=='enabled' %}selected{% endif %}>Enabled</option>
+                </select>
+            </label>
+            <label>Plex URL
+                <input type="text" name="plex_url" value="{{ settings.plex_url }}" placeholder="http://plex:32400" />
+            </label>
+            <label>Plex token
+                <input type="password" name="plex_token"
+                    value="{{ '__REDACTED__' if settings.plex_token else '' }}"
+                    placeholder="{{ 'Paste to replace' if settings.plex_token else 'Paste token' }}" />
+            </label>
+            <label>Movie library name
+                <input type="text" name="plex_movie_library" value="{{ settings.plex_movie_library }}" />
+            </label>
+            <label>TV library name
+                <input type="text" name="plex_tv_library" value="{{ settings.plex_tv_library }}" />
+            </label>
+            <label>Collection sync interval (hours)
+                <input type="number" name="plex_collection_sync_hours" value="{{ settings.plex_collection_sync_hours }}" min="1" max="24" />
+                <p class="field-help">How often to sync Plex collections in the background. Items must finish downloading before they appear in Plex, so 2 h is recommended.</p>
+            </label>
+            <div class="test-conn-row">
+                <button type="button" class="button button-secondary button-sm" id="plexTestBtn">Test connection</button>
+                <span id="plexTestResult" class="test-conn-result"></span>
+            </div>
+            <div class="setting-divider"></div>
+            <div class="test-conn-row">
+                <button type="button" class="button button-secondary button-sm" id="plexSyncBtn">Sync collections now</button>
+                <span id="plexSyncStatus" class="test-conn-result">
+                    {%- if plex_status.synced_at_fmt %}Last synced: {{ plex_status.synced_at_fmt }}{% endif -%}
+                </span>
+            </div>
+            {% if plex_status.error %}
+            <p class="field-help fp-stale-msg" style="margin-top:6px">⚠ {{ plex_status.error }}</p>
+            {% endif %}
+        </section>
+
+        <section class="card">
             <h2>Trakt settings</h2>
             <label>Trakt Client ID
                 <input type="password" name="trakt_client_id"

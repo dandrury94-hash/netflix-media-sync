@@ -8,6 +8,7 @@ from waitress import serve
 
 from app.config import LOG_PATH
 from app.dismissed import DismissedTitles
+from app.plex_client import PlexClient, PlexError, sync_plex_collections
 from app.rank_tracker import RankTracker
 from app.removal_history import RemovalHistory
 from app.settings import SettingsStore
@@ -155,6 +156,35 @@ def run_weekly_preview(
             )
 
 
+def _plex_collection_loop(
+    sync_service: SyncService,
+    sync_log: SyncLog,
+    settings: SettingsStore,
+) -> None:
+    while True:
+        hours = float(settings.get("plex_collection_sync_hours", 2))
+        time.sleep(hours * 3600)
+        if settings.get("plex_mode") != "enabled":
+            continue
+        try:
+            plex = PlexClient(
+                url=settings.get("plex_url", ""),
+                token=settings.get("plex_token", ""),
+            )
+            sync_plex_collections(
+                plex=plex,
+                tagged_movies=sync_service.radarr.get_tagged_movies(),
+                tagged_series=sync_service.sonarr.get_tagged_series(),
+                sync_entries=sync_log.get_entries(),
+                movie_library=settings.get("plex_movie_library", "Movies"),
+                tv_library=settings.get("plex_tv_library", "TV Shows"),
+            )
+        except PlexError as exc:
+            logger.warning("Plex collection sync failed: %s", exc)
+        except Exception:
+            logger.exception("Plex collection sync error")
+
+
 def _dismissal_loop(svc: SyncService) -> None:
     while True:
         time.sleep(60)
@@ -186,6 +216,12 @@ def main() -> None:
     weekly.start()
 
     Thread(target=_dismissal_loop, args=(sync_service,), daemon=True).start()
+
+    Thread(
+        target=_plex_collection_loop,
+        args=(sync_service, sync_log, settings),
+        daemon=True,
+    ).start()
 
     app = create_app(settings, sync_service, sync_log, removal_history, dismissed)
     port = settings.get("web_port", 8080)

@@ -7,6 +7,7 @@ from app.config import LOG_PATH
 from app.dismissed import DismissedTitles
 from app.media_state import build_media_state
 from app.netflix_fetcher import bust_flixpatrol_cache, fetch_flixpatrol_fresh, get_flixpatrol_cache_info
+from app.plex_client import PlexClient, PlexError, get_plex_sync_status, sync_plex_collections
 from app.removal_history import RemovalHistory
 from app.scraper.sources.streaming import COUNTRIES as FLIXPATROL_COUNTRIES
 from app.settings import SettingsStore
@@ -22,6 +23,7 @@ _SENSITIVE_KEYS = {
     "web_password",
     "pushover_user_key",
     "pushover_api_token",
+    "plex_token",
 }
 
 COUNTRY_OPTIONS = [
@@ -120,12 +122,20 @@ def create_app(
             ).strftime("%H:%M %d/%m/%Y")
         else:
             fp_cache["cached_at_fmt"] = None
+        plex_status = get_plex_sync_status()
+        if plex_status.get("synced_at"):
+            plex_status["synced_at_fmt"] = datetime.datetime.fromtimestamp(
+                plex_status["synced_at"]
+            ).strftime("%H:%M %d/%m/%Y")
+        else:
+            plex_status["synced_at_fmt"] = None
         return render_template(
             "settings.html",
             settings=settings.to_dict(),
             country_options=COUNTRY_OPTIONS,
             flixpatrol_countries=sorted(FLIXPATROL_COUNTRIES.keys()),
             flixpatrol_cache=fp_cache,
+            plex_status=plex_status,
         )
 
     @app.route("/api/settings", methods=["GET"])
@@ -530,6 +540,43 @@ def create_app(
             return jsonify({"status": "error", "message": errors})
         except Exception as exc:
             return jsonify({"status": "error", "message": _exc_msg(exc)})
+
+    @app.route("/api/test/plex", methods=["POST"])
+    def test_plex():
+        payload = request.json or {}
+        url = payload.get("url", "").strip() or settings.get("plex_url", "")
+        token = _resolve_test_key(payload.get("token", ""), settings.get("plex_token", ""))
+        if not url:
+            return jsonify({"status": "error", "message": "Plex URL is required"})
+        if not token:
+            return jsonify({"status": "error", "message": "Plex token is required"})
+        plex = PlexClient(url=url, token=token)
+        ok, message = plex.test_connection()
+        return jsonify({"status": "ok" if ok else "error", "message": message})
+
+    @app.route("/api/plex/sync", methods=["POST"])
+    def plex_sync():
+        if settings.get("plex_mode") != "enabled":
+            return jsonify({"error": "Plex is not enabled"}), 400
+        plex = PlexClient(
+            url=settings.get("plex_url", ""),
+            token=settings.get("plex_token", ""),
+        )
+        try:
+            result = sync_plex_collections(
+                plex=plex,
+                tagged_movies=sync_service.radarr.get_tagged_movies(),
+                tagged_series=sync_service.sonarr.get_tagged_series(),
+                sync_entries=sync_log.get_entries(),
+                movie_library=settings.get("plex_movie_library", "Movies"),
+                tv_library=settings.get("plex_tv_library", "TV Shows"),
+            )
+            return jsonify({"ok": True, **result})
+        except PlexError as exc:
+            return jsonify({"error": str(exc)}), 500
+        except Exception as exc:
+            logger.exception("Plex manual sync error")
+            return jsonify({"error": str(exc)}), 500
 
     @app.route("/api/flixpatrol/preview")
     def flixpatrol_preview():

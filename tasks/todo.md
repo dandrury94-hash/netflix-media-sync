@@ -4,12 +4,13 @@ Current work tracking. Updated as tasks are completed.
 
 ---
 
-## Current Session — Session H (CHG-046/047)
+## Current Session — Session H (CHG-046/047/048/049)
 
 ### Completed this session
 - [x] T-017 — Cross-card dismiss sync (confirmed already working, no change needed)
 - [x] T-019 — Tautulli filter to tagged items + active watches UI card (CHG-046)
 - [x] T-018 — FlixPatrol ban detection + rate limiting (CHG-047)
+- [x] P4-1 — Plex collections (CHG-049)
 
 ### Completed previous session
 - [x] P3-1 — Rank tracking over time (CHG-044/045)
@@ -40,11 +41,7 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 
 ## Backlog — Session H+
 
----
-
-## Backlog — Session H+
-- P3-2 — Cross-source aggregation
-
+*(empty — ready for once-over pass)*
 
 ---
 

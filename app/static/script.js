@@ -231,6 +231,63 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
+  // ── Plex test connection ──
+  const plexTestBtn = document.getElementById("plexTestBtn");
+  if (plexTestBtn) {
+    plexTestBtn.addEventListener("click", async () => {
+      const resultEl = document.getElementById("plexTestResult");
+      const url = document.querySelector('[name="plex_url"]')?.value.trim() || "";
+      const tokenEl = document.querySelector('[name="plex_token"]');
+      const token = tokenEl ? tokenEl.value.trim() : "";
+      setTestResult(resultEl, "Testing…", "");
+      plexTestBtn.disabled = true;
+      try {
+        const resp = await fetch("/api/test/plex", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, token }),
+        });
+        const data = await resp.json();
+        if (data.status === "ok") {
+          setTestResult(resultEl, `✅ ${data.message}`, "success");
+        } else {
+          setTestResult(resultEl, `❌ ${data.message}`, "error");
+        }
+      } catch (err) {
+        setTestResult(resultEl, `❌ ${err.message}`, "error");
+      } finally {
+        plexTestBtn.disabled = false;
+      }
+    });
+  }
+
+  // ── Plex sync collections ──
+  const plexSyncBtn = document.getElementById("plexSyncBtn");
+  if (plexSyncBtn) {
+    plexSyncBtn.addEventListener("click", async () => {
+      const statusEl = document.getElementById("plexSyncStatus");
+      setTestResult(statusEl, "Syncing…", "");
+      plexSyncBtn.disabled = true;
+      try {
+        const resp = await fetch("/api/plex/sync", { method: "POST" });
+        const data = await resp.json();
+        if (data.ok) {
+          setTestResult(
+            statusEl,
+            `✅ Done — ${data.movie_count} movies, ${data.tv_count} TV (+${data.added}/-${data.removed})`,
+            "success"
+          );
+        } else {
+          setTestResult(statusEl, `❌ ${data.error || "Sync failed"}`, "error");
+        }
+      } catch (err) {
+        setTestResult(statusEl, `❌ ${err.message}`, "error");
+      } finally {
+        plexSyncBtn.disabled = false;
+      }
+    });
+  }
+
   // ── Test connection buttons ──
   document.querySelectorAll(".test-conn-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
