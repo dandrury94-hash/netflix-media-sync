@@ -252,8 +252,12 @@ class SyncService:
             watched_count = 0
             if not simulation_mode:
                 for title in protected_titles:
-                    if title.lower() in radarr_cache or title.lower() in sonarr_cache:
-                        self.sync_log.set_last_watched(title, today_iso)
+                    tl = title.lower()
+                    if tl in radarr_cache:
+                        self.sync_log.set_last_watched(radarr_cache[tl]["title"], today_iso)
+                        watched_count += 1
+                    elif tl in sonarr_cache:
+                        self.sync_log.set_last_watched(sonarr_cache[tl]["title"], today_iso)
                         watched_count += 1
                     else:
                         logger.debug("Tautulli: skipping unmanaged title: %s", title)

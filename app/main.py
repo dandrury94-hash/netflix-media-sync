@@ -1,5 +1,6 @@
 import datetime
 import logging
+import time
 from logging.handlers import RotatingFileHandler
 from threading import Event, Thread
 
@@ -96,6 +97,13 @@ def run_weekly_preview(
                         date_added = datetime.date.fromisoformat(date_added_str)
                     except ValueError:
                         pass
+                elif movie.get("added"):
+                    try:
+                        date_added = datetime.datetime.fromisoformat(
+                            movie["added"].replace("Z", "+00:00")
+                        ).date()
+                    except ValueError:
+                        pass
                 anchor_date = date_added
                 lw = last_watched_all.get(title)
                 if lw:
@@ -122,6 +130,13 @@ def run_weekly_preview(
                         date_added = datetime.date.fromisoformat(date_added_str)
                     except ValueError:
                         pass
+                elif series.get("added"):
+                    try:
+                        date_added = datetime.datetime.fromisoformat(
+                            series["added"].replace("Z", "+00:00")
+                        ).date()
+                    except ValueError:
+                        pass
                 anchor_date = date_added
                 lw = last_watched_all.get(title)
                 if lw:
@@ -141,9 +156,8 @@ def run_weekly_preview(
 
 
 def _dismissal_loop(svc: SyncService) -> None:
-    import time as _time
     while True:
-        _time.sleep(60)
+        time.sleep(60)
         try:
             svc.run_dismissal_deletions()
         except Exception:

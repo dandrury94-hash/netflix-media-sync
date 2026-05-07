@@ -44,8 +44,16 @@ DEFAULT_SETTINGS = {
 }
 
 ENV_VAR_TO_SETTING = {
+    "RADARR_MODE": "radarr_mode",
+    "RADARR_URL": "radarr_url",
+    "RADARR_API_KEY": "radarr_api_key",
+    "SONARR_MODE": "sonarr_mode",
+    "SONARR_URL": "sonarr_url",
+    "SONARR_API_KEY": "sonarr_api_key",
+    "TAUTULLI_MODE": "tautulli_mode",
     "TAUTULLI_URL": "tautulli_url",
     "TAUTULLI_API_KEY": "tautulli_api_key",
+    "TRAKT_CLIENT_ID": "trakt_client_id",
     "ROOT_FOLDER_MOVIES": "root_folder_movies",
     "ROOT_FOLDER_SERIES": "root_folder_series",
     "RADARR_QUALITY_PROFILE_ID": "radarr_quality_profile_id",

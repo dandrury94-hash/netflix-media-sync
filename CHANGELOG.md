@@ -4,6 +4,25 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-048 — 2026-05-07 — Codebase audit fixes
+
+### Fixes
+- **`app/config.py`** — `ENV_VAR_TO_SETTING` now includes `RADARR_URL`, `RADARR_API_KEY`,
+  `SONARR_URL`, `SONARR_API_KEY`, `TRAKT_CLIENT_ID`, `RADARR_MODE`, `SONARR_MODE`,
+  `TAUTULLI_MODE`; all critical settings can now be injected via Docker env vars
+- **`app/main.py`** — `run_weekly_preview` date calculation now falls back to the
+  Radarr/Sonarr API `added` field when SyncLog has no entry, matching `build_media_state`
+  behaviour; weekly Pushover removal dates now consistent with dashboard
+- **`app/sync_service.py`** — `set_last_watched` now stores the Radarr/Sonarr canonical
+  title (looked up from cache) rather than the Tautulli title; eliminates a potential
+  case-mismatch when Tautulli casing differs from the library record
+- **`app/settings.py`** — Invalid integer env var values now log a warning instead of
+  being silently discarded
+- **`app/main.py`** — `import time` moved to module level; removed local `import time as
+  _time` inside `_dismissal_loop`
+
+---
+
 ## CHG-047 — 2026-05-07 — T-018: FlixPatrol ban detection and rate limiting
 
 ### Fixes / Additions

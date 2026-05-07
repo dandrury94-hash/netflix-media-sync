@@ -42,7 +42,7 @@ class SettingsStore:
                 try:
                     self.values[setting_key] = int(raw)
                 except ValueError:
-                    pass
+                    logger.warning("Env var %s=%r is not a valid integer — ignored", env_key, raw)
             else:
                 self.values[setting_key] = raw
 
