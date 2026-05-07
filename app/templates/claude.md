@@ -9,6 +9,11 @@
 ## UX Requirements
 
 - Always show why something is happening — use the reason field where available
-- Protection must clearly show source: manual vs Tautulli
+- Protection must clearly show source: manual only (Tautulli is not a protection source — CHG-037)
 - Deletion must show time remaining
 - Prefer async updates over full page reloads
+
+## Jinja Variables
+- Never use `{% if not value %}` to infer missing state — treat all missing fields
+  as explicitly absent, not as an implied state
+- All conditional rendering must be based on fields explicitly passed by the route

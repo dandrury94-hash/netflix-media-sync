@@ -14,7 +14,7 @@ class SyncLog:
     def __init__(self, path: Path = SYNC_LOG_PATH) -> None:
         self.path = path
         self._lock = threading.Lock()
-        self._data: dict[str, Any] = {"last_sync": None, "entries": [], "grace_periods": {}}
+        self._data: dict[str, Any] = {"last_sync": None, "entries": [], "pre_deletion_notified": {}, "last_watched": {}}
         self._load()
 
     def _load(self) -> None:
@@ -24,8 +24,11 @@ class SyncLog:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 self._data = data
-                if "grace_periods" not in self._data:
-                    self._data["grace_periods"] = {}
+                self._data.pop("grace_periods", None)
+                if "pre_deletion_notified" not in self._data:
+                    self._data["pre_deletion_notified"] = {}
+                if "last_watched" not in self._data:
+                    self._data["last_watched"] = {}
         except Exception:
             logger.warning("Failed to load sync log from %s", self.path, exc_info=True)
 
@@ -36,7 +39,7 @@ class SyncLog:
         except Exception:
             logger.warning("Failed to save sync log to %s", self.path, exc_info=True)
 
-    def log_add(self, title: str, media_type: str, source: str = "trakt") -> None:
+    def log_add(self, title: str, media_type: str, sources: list[str]) -> None:
         with self._lock:
             if not isinstance(self._data.get("entries"), list):
                 self._data["entries"] = []
@@ -44,7 +47,7 @@ class SyncLog:
                 "title": title,
                 "type": media_type,
                 "date_added": datetime.date.today().isoformat(),
-                "source": source,
+                "sources": sources,
             })
             self._save()
 
@@ -65,26 +68,33 @@ class SyncLog:
             entries = self._data.get("entries", [])
             return list(entries) if isinstance(entries, list) else []
 
-    def start_grace_period(self, title: str, media_type: str) -> None:
+    def mark_pre_deletion_notified(self, title: str) -> None:
         with self._lock:
-            gp = self._data.setdefault("grace_periods", {})
-            if title not in gp:
-                gp[title] = {
-                    "started": datetime.date.today().isoformat(),
-                    "type": media_type,
-                }
+            pdn = self._data.setdefault("pre_deletion_notified", {})
+            pdn[title] = datetime.date.today().isoformat()
+            self._save()
+
+    def get_pre_deletion_notified(self) -> dict[str, str]:
+        with self._lock:
+            return dict(self._data.get("pre_deletion_notified", {}))
+
+    def clear_pre_deletion_notified(self, title: str) -> None:
+        with self._lock:
+            pdn = self._data.get("pre_deletion_notified", {})
+            if title in pdn:
+                del pdn[title]
                 self._save()
 
-    def get_grace_periods(self) -> dict:
+    def set_last_watched(self, title: str, date_iso: str) -> None:
         with self._lock:
-            return dict(self._data.get("grace_periods", {}))
-
-    def clear_grace_period(self, title: str) -> None:
-        with self._lock:
-            gp = self._data.get("grace_periods", {})
-            if title in gp:
-                del gp[title]
+            watches = self._data.setdefault("last_watched", {})
+            if title not in watches or date_iso > watches[title]:
+                watches[title] = date_iso
                 self._save()
+
+    def get_last_watched_all(self) -> dict[str, str]:
+        with self._lock:
+            return dict(self._data.get("last_watched", {}))
 
     def get_date_added(self, title: str) -> str | None:
         """Return the earliest date_added recorded for a title."""

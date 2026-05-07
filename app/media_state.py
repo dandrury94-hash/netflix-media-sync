@@ -10,12 +10,8 @@ class MediaStateEntry(TypedDict):
     in_library: bool
     has_file: bool
     protected: bool
-    protection_source: str | None      # "tautulli" | "manual" | "both" | None
+    protection_source: str | None      # "manual" | None
     eligible_for_deletion: bool
-    grace_started: str | None
-    grace_expires: str | None
-    days_until_deletion: int | None
-    in_grace: bool
     days_remaining: int
     date_added: str
     removal_date: str
@@ -27,16 +23,13 @@ def build_media_state(
     radarr_movies: list[dict],
     sonarr_series: list[dict],
     sync_entries: list[dict],
-    grace_periods: dict,
-    protected_set: set[str],
-    tautulli_protected: set[str],
     manual_protected: set[str],
     movie_retention_days: int,
     series_retention_days: int,
-    grace_period_days: int,
+    last_watched: dict[str, str] | None = None,
 ) -> dict[str, MediaStateEntry]:
     """
-    Build an in-memory state map for all netflix-sync tagged titles.
+    Build an in-memory state map for all streamarr tagged titles.
     Keyed by lowercase title. No API calls are made here.
     """
     today = datetime.date.today()
@@ -64,7 +57,7 @@ def build_media_state(
                 pass
         return today
 
-    _SRC_LABELS = {"tautulli": "Tautulli", "manual": "Manual", "both": "Tautulli & Manual"}
+    _SRC_LABELS = {"manual": "Manual"}
 
     state: dict[str, MediaStateEntry] = {}
 
@@ -77,44 +70,20 @@ def build_media_state(
         retention_days: int,
     ) -> None:
         date_added = _resolve_date(earliest_added.get(title), api_added)
-        removal_date = date_added + datetime.timedelta(days=retention_days)
-        days_remaining = (removal_date - today).days
-
-        in_tautulli = title in tautulli_protected
-        in_manual = title in manual_protected
-        is_protected = title in protected_set
-        if in_tautulli and in_manual:
-            protection_source: str | None = "both"
-        elif in_tautulli:
-            protection_source = "tautulli"
-        elif in_manual:
-            protection_source = "manual"
-        else:
-            protection_source = None
-
-        grace_info = grace_periods.get(title, {})
-        in_grace = False
-        grace_started: str | None = None
-        grace_expires: str | None = None
-        days_until_deletion: int | None = None
-        if grace_info.get("started"):
+        anchor_date = date_added
+        lw = (last_watched or {}).get(title)
+        if lw:
             try:
-                gs = datetime.date.fromisoformat(grace_info["started"])
-                ge = gs + datetime.timedelta(days=grace_period_days)
-                grace_started = gs.isoformat()
-                grace_expires = ge.isoformat()
-                days_until_deletion = (ge - today).days
-                in_grace = True
+                anchor_date = max(date_added, datetime.date.fromisoformat(lw))
             except ValueError:
                 pass
+        removal_date = anchor_date + datetime.timedelta(days=retention_days)
+        days_remaining = (removal_date - today).days
 
-        eligible = (
-            days_remaining <= 0
-            and in_grace
-            and days_until_deletion is not None
-            and days_until_deletion <= 0
-            and not is_protected
-        )
+        is_protected = title in manual_protected
+        protection_source: str | None = "manual" if is_protected else None
+
+        eligible = days_remaining <= 0 and not is_protected
 
         status = "available" if has_file else "pending"
 
@@ -123,11 +92,6 @@ def build_media_state(
             reason = f"Protected — {src}" if src else "Protected"
         elif eligible:
             reason = "Eligible for deletion"
-        elif in_grace and grace_expires and days_until_deletion is not None:
-            ge_date = datetime.date.fromisoformat(grace_expires)
-            reason = f"Grace period — expires {ge_date.strftime('%d/%m/%Y')}"
-        elif days_remaining <= 0:
-            reason = "Past retention date"
         elif days_remaining <= 7:
             reason = f"Removal in {days_remaining}d"
         elif days_remaining <= 30:
@@ -145,10 +109,6 @@ def build_media_state(
             "protected": is_protected,
             "protection_source": protection_source,
             "eligible_for_deletion": eligible,
-            "grace_started": grace_started,
-            "grace_expires": grace_expires,
-            "days_until_deletion": days_until_deletion,
-            "in_grace": in_grace,
             "days_remaining": days_remaining,
             "date_added": date_added.isoformat(),
             "removal_date": removal_date.isoformat(),

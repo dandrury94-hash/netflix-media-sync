@@ -297,9 +297,39 @@ body::before {
 
 /* ── Status & actions card ── */
 .status-actions-card {
+    display: block;
+}
+
+.sac-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin-bottom: 4px;
+}
+
+@media (max-width: 600px) {
+    .sac-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Sync error box ── */
+.sync-error-box {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: rgba(44, 18, 18, 0.9);
+    border: 1px solid rgba(255, 107, 107, 0.28);
+    color: #ffb3b3;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.sync-error-msg {
+    margin: 0 0 10px;
+}
+
+.sync-error-actions {
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    gap: 8px;
 }
 
 .card-divider {
@@ -426,6 +456,46 @@ body::before {
     opacity: 0.75;
 }
 
+/* ── Per-source Top 10 cards ── */
+.services-grid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+}
+
+.source-card-dual {
+    grid-column: 1 / -1;
+}
+
+.source-dual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.source-subcard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    padding: 16px 18px;
+}
+
+.source-subpanel-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 10px;
+}
+
+@media (max-width: 720px) {
+    .services-grid { grid-template-columns: 1fr; }
+    .source-card-dual { grid-column: span 1; }
+    .source-dual-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Import preview ── */
 .import-columns {
     display: grid;
@@ -513,14 +583,24 @@ body::before {
 .protect-badge--manual   { background: rgba(240, 180, 41, 0.14); color: #f0b429; }
 
 /* ── Scheduled removal table ── */
+.removal-scroll {
+    margin-top: 14px;
+    max-height: 440px;
+    overflow-y: auto;
+    border-radius: 8px;
+}
+
 .removal-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
-    margin-top: 14px;
 }
 
 .removal-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
     text-align: left;
     padding: 8px 12px;
     font-size: 0.78rem;
@@ -538,6 +618,11 @@ body::before {
 }
 
 .removal-table tr:last-child td { border-bottom: none; }
+
+.sched-prot-btn--protect {
+    color: #2ecf7d;
+    border-color: rgba(46, 207, 125, 0.25);
+}
 
 .table-empty {
     color: var(--muted);
@@ -709,6 +794,86 @@ body::before {
     width: 1px;
     background: rgba(255, 255, 255, 0.07);
     pointer-events: none;
+}
+
+/* ── Top 10 poster placeholder ── */
+.top10-item--no-poster {
+    position: relative;
+    overflow: hidden;
+    padding-left: 44px;
+}
+.top10-item--no-poster::before {
+    content: "TBA";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 54px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+/* ── Top 10 dismiss button ── */
+.top10-dismiss {
+    order: -1;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: rgba(255, 80, 80, 0.5);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+.top10-dismiss:hover {
+    color: #ff5050;
+    background: rgba(255, 80, 80, 0.12);
+}
+
+/* ── Top 10 title — grows to push status icon right ── */
+.top10-title {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Top 10 dismissed state ── */
+.top10-item--dismissed {
+    opacity: 0.4;
+}
+.top10-item--dismissed .top10-title {
+    text-decoration: line-through;
+}
+
+/* ── Top 10 undo button ── */
+.top10-undo {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: rgba(100, 180, 255, 0.6);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    opacity: 1;
+}
+.top10-undo:hover {
+    color: #64b4ff;
+    background: rgba(100, 180, 255, 0.12);
 }
 
 /* ── Log output — full height variant ── */
@@ -953,4 +1118,160 @@ body::before {
     font-size: 0.78rem;
     color: var(--muted);
     margin-top: 3px;
+}
+
+/* ── FlixPatrol service selector ── */
+.fp-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.fp-service-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.fp-service-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.fp-service-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.13);
+}
+
+.fp-service-item:has(.fp-service-cb:checked) {
+    background: rgba(60, 171, 255, 0.08);
+    border-color: rgba(60, 171, 255, 0.28);
+}
+
+.fp-service-cb {
+    width: 15px;
+    height: 15px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.fp-service-meta {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+}
+
+.fp-service-name {
+    font-size: 0.9rem;
+    color: #c5d2eb;
+    font-weight: 500;
+}
+
+.fp-service-counts {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.fp-count-badge {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.fp-count-badge--movie  { background: rgba(77, 140, 255, 0.14); color: #88c4f8; }
+.fp-count-badge--series { background: rgba(46, 207, 125, 0.14); color: #2ecf7d; }
+
+.fp-service-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.fp-service-row:not(:has(.fp-service-cb:checked)) .fp-type-toggles {
+    opacity: 0.45;
+}
+
+.fp-type-toggles {
+    display: flex;
+    gap: 10px;
+    padding-left: 24px;
+}
+
+.fp-type-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+.fp-toggle-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* ── FlixPatrol cache status ── */
+.fp-cache-status {
+    margin: 8px 0 0;
+}
+
+.fp-stale-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: rgba(240, 180, 41, 0.14);
+    color: #f0b429;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.fp-stale-msg {
+    color: #f0b429;
+    margin-top: 4px;
+}
+
+/* ── Simulation mode ── */
+.sim-mode-banner {
+    background: rgba(255, 180, 0, 0.07);
+    border: 1px solid rgba(255, 180, 0, 0.25);
+    border-radius: 6px;
+    color: rgba(255, 200, 60, 0.9);
+    font-size: 0.83rem;
+    padding: 9px 14px;
+    margin-bottom: 16px;
+}
+
+.sim-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(255, 180, 0, 0.15);
+    color: rgba(255, 200, 60, 0.85);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 4px;
+    vertical-align: middle;
 }

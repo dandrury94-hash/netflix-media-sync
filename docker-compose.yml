@@ -1,5 +1,5 @@
 services:
-  netflix-sync:
+  streamarr:
     build: .
     ports:
       - "8080:8080"

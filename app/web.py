@@ -4,9 +4,11 @@ import requests as _requests
 from flask import Flask, Response, jsonify, render_template, request
 
 from app.config import LOG_PATH
-from app.manual_overrides import ManualOverrides
+from app.dismissed import DismissedTitles
 from app.media_state import build_media_state
+from app.netflix_fetcher import bust_flixpatrol_cache, fetch_flixpatrol_fresh, get_flixpatrol_cache_info
 from app.removal_history import RemovalHistory
+from app.scraper.sources.streaming import COUNTRIES as FLIXPATROL_COUNTRIES
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
 from app.sync_service import SyncService
@@ -44,8 +46,8 @@ def create_app(
     settings: SettingsStore,
     sync_service: SyncService,
     sync_log: SyncLog,
-    manual_overrides: ManualOverrides,
     removal_history: RemovalHistory,
+    dismissed: DismissedTitles,
 ) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
@@ -59,7 +61,7 @@ def create_app(
             return Response(
                 "Authentication required",
                 401,
-                {"WWW-Authenticate": 'Basic realm="Netflix Sync"'},
+                {"WWW-Authenticate": 'Basic realm="Streamarr"'},
             )
 
     def _fetch_media_state() -> dict:
@@ -68,23 +70,24 @@ def create_app(
         radarr_movies: list[dict] = []
         sonarr_tagged: list[dict] = []
         if radarr_mode != "disabled":
-            radarr_movies = sync_service.radarr.get_tagged_movies("netflix-sync")
+            radarr_movies = sync_service.radarr.get_tagged_movies()
         if sonarr_mode != "disabled":
-            sonarr_tagged = sync_service.sonarr.get_tagged_series("netflix-sync")
-        last_sync = sync_log.get_last_sync() or {}
-        tautulli_prot = set(last_sync.get("protected", []))
-        manual_prot = manual_overrides.to_set()
+            sonarr_tagged = sync_service.sonarr.get_tagged_series()
+        radarr_prot_id = sync_service.radarr.get_state_protected_tag_id() if radarr_mode != "disabled" else None
+        sonarr_prot_id = sync_service.sonarr.get_state_protected_tag_id() if sonarr_mode != "disabled" else None
+        manual_prot: set[str] = set()
+        if radarr_prot_id is not None:
+            manual_prot |= {m["title"] for m in radarr_movies if radarr_prot_id in m.get("tags", [])}
+        if sonarr_prot_id is not None:
+            manual_prot |= {s["title"] for s in sonarr_tagged if sonarr_prot_id in s.get("tags", [])}
         return build_media_state(
             radarr_movies=radarr_movies,
             sonarr_series=sonarr_tagged,
             sync_entries=sync_log.get_entries(),
-            grace_periods=sync_log.get_grace_periods(),
-            protected_set=tautulli_prot | manual_prot,
-            tautulli_protected=tautulli_prot,
             manual_protected=manual_prot,
             movie_retention_days=int(settings.get("movie_retention_days", 30)),
             series_retention_days=int(settings.get("series_retention_days", 30)),
-            grace_period_days=int(settings.get("grace_period_days", 7)),
+            last_watched=sync_log.get_last_watched_all(),
         )
 
     def _fmt_timestamp(ts: str) -> str:
@@ -100,21 +103,30 @@ def create_app(
         last_sync = sync_log.get_last_sync()
         if last_sync and "timestamp" in last_sync:
             last_sync = {**last_sync, "timestamp": _fmt_timestamp(last_sync["timestamp"])}
-        manual = manual_overrides.to_set()
-        tautulli_protected = set(last_sync.get("protected", [])) if last_sync else set()
-        all_protected = sorted(tautulli_protected | manual)
         return render_template(
             "index.html",
             settings=settings.to_dict(),
             last_sync=last_sync,
-            protected_titles=all_protected,
-            tautulli_protected=tautulli_protected,
-            manual_protected=manual,
         )
 
     @app.route("/settings")
     def settings_page():
-        return render_template("settings.html", settings=settings.to_dict(), country_options=COUNTRY_OPTIONS)
+        fp_country = settings.get("flixpatrol_country", "United Kingdom")
+        fp_cache_hours = int(settings.get("flixpatrol_cache_hours", 6))
+        fp_cache = get_flixpatrol_cache_info(fp_country, fp_cache_hours)
+        if fp_cache.get("cached_at"):
+            fp_cache["cached_at_fmt"] = datetime.datetime.fromtimestamp(
+                fp_cache["cached_at"]
+            ).strftime("%H:%M %d/%m/%Y")
+        else:
+            fp_cache["cached_at_fmt"] = None
+        return render_template(
+            "settings.html",
+            settings=settings.to_dict(),
+            country_options=COUNTRY_OPTIONS,
+            flixpatrol_countries=sorted(FLIXPATROL_COUNTRIES.keys()),
+            flixpatrol_cache=fp_cache,
+        )
 
     @app.route("/api/settings", methods=["GET"])
     def get_settings():
@@ -130,9 +142,10 @@ def create_app(
             payload = request.json or {}
         else:
             payload = {
-                **{k: v for k, v in request.form.items() if k not in ("netflix_top_countries", "sources")},
+                **{k: v for k, v in request.form.items() if k not in ("netflix_top_countries", "sources", "flixpatrol_services")},
                 "netflix_top_countries": request.form.getlist("netflix_top_countries"),
                 "sources": request.form.getlist("sources"),
+                "flixpatrol_services": request.form.getlist("flixpatrol_services"),
             }
 
         def safe_int(value, default):
@@ -163,7 +176,30 @@ def create_app(
             sources_raw = [s.strip() for s in sources_raw if isinstance(s, str) and s.strip()]
         else:
             sources_raw = []
-        sources = [s for s in sources_raw if s in ("trakt", "netflix")]
+        sources = [s for s in sources_raw if s in ("trakt", "flixpatrol")]
+
+        fp_country = payload.get("flixpatrol_country", "").strip()
+        if fp_country not in FLIXPATROL_COUNTRIES:
+            fp_country = settings.get("flixpatrol_country", "United Kingdom")
+
+        fp_services_raw = payload.get("flixpatrol_services")
+        if isinstance(fp_services_raw, str):
+            fp_services_raw = [fp_services_raw.strip()] if fp_services_raw.strip() else []
+        elif isinstance(fp_services_raw, list):
+            fp_services_raw = [s.strip() for s in fp_services_raw if isinstance(s, str) and s.strip()]
+        else:
+            fp_services_raw = []
+        fp_services = fp_services_raw
+
+        fp_service_types_raw = payload.get("flixpatrol_service_types")
+        if isinstance(fp_service_types_raw, dict):
+            fp_service_types = {
+                k: [t for t in v if t in ("movie", "series")]
+                for k, v in fp_service_types_raw.items()
+                if isinstance(k, str) and isinstance(v, list)
+            }
+        else:
+            fp_service_types = settings.get("flixpatrol_service_types", {})
 
         normalized = {
             "radarr_url": payload.get("radarr_url", "").strip(),
@@ -192,7 +228,11 @@ def create_app(
             "pushover_user_key": sensitive("pushover_user_key"),
             "pushover_api_token": sensitive("pushover_api_token"),
             "deletion_enabled": to_bool(payload.get("deletion_enabled")),
-            "grace_period_days": safe_int(payload.get("grace_period_days"), 7),
+            "flixpatrol_country": fp_country,
+            "flixpatrol_services": fp_services,
+            "flixpatrol_service_types": fp_service_types,
+            "flixpatrol_cache_hours": safe_int(payload.get("flixpatrol_cache_hours"), 6),
+            "simulation_mode": to_bool(payload.get("simulation_mode")),
         }
         settings.update(normalized)
         return jsonify({"status": "saved"})
@@ -208,11 +248,27 @@ def create_app(
     def post_overrides():
         payload = request.json or {}
         title = payload.get("title", "").strip()
+        media_type = payload.get("type", "").strip()
         if not title:
             return jsonify({"error": "title required"}), 400
+        if media_type not in ("movie", "series"):
+            return jsonify({"error": "type must be 'movie' or 'series'"}), 400
         protected = bool(payload.get("protected", False))
-        manual_overrides.set_override(title, protected)
-        return jsonify({"status": "ok", "title": title, "protected": protected})
+        if media_type == "movie":
+            all_movies = sync_service.radarr.get_all_movies()
+            match = next((m for m in all_movies if m.get("title", "").lower() == title.lower()), None)
+            if not match:
+                return jsonify({"error": f"'{title}' not found in Radarr"}), 404
+            ok = sync_service.radarr.set_movie_protection(match["id"], protected)
+        else:
+            all_series = sync_service.sonarr.get_all_series()
+            match = next((s for s in all_series if s.get("title", "").lower() == title.lower()), None)
+            if not match:
+                return jsonify({"error": f"'{title}' not found in Sonarr"}), 404
+            ok = sync_service.sonarr.set_series_protection(match["id"], protected)
+        if not ok:
+            return jsonify({"error": "Failed to update protection"}), 500
+        return jsonify({"status": "ok", "title": title, "type": media_type, "protected": protected})
 
     @app.route("/api/removal-schedule")
     def removal_schedule():
@@ -234,7 +290,8 @@ def create_app(
             title = e.get("title", "")
             if e.get("date_added", "") >= cutoff and title and title not in seen:
                 seen.add(title)
-                recent.append(e)
+                sources = e.get("sources") or [e.get("source", "trakt")]
+                recent.append({**e, "sources": sources})
         return jsonify({"additions": recent})
 
     @app.route("/api/protection-state")
@@ -259,6 +316,35 @@ def create_app(
         protected.sort(key=lambda x: x["title"].lower())
         unprotected.sort(key=lambda x: x["title"].lower())
         return jsonify({"protected": protected, "unprotected": unprotected})
+
+    @app.route("/api/dismiss", methods=["POST"])
+    def post_dismiss():
+        payload = request.json or {}
+        title = payload.get("title", "").strip()
+        media_type = payload.get("type", "").strip()
+        in_library = payload.get("in_library")
+        if not title:
+            return jsonify({"error": "title required"}), 400
+        if media_type not in ("movie", "series"):
+            return jsonify({"error": "type must be 'movie' or 'series'"}), 400
+        if not isinstance(in_library, bool):
+            return jsonify({"error": "in_library must be a boolean"}), 400
+        dismissed.dismiss(title, media_type, in_library)
+        entry = dismissed.get_all()[title]
+        undo_until = (
+            datetime.datetime.fromisoformat(entry["dismissed_at"])
+            + datetime.timedelta(minutes=15)
+        ).isoformat() + "Z"
+        return jsonify({"status": "ok", "title": title, "in_library": in_library, "undo_until": undo_until})
+
+    @app.route("/api/dismiss", methods=["DELETE"])
+    def delete_dismiss():
+        payload = request.json or {}
+        title = payload.get("title", "").strip()
+        if not title:
+            return jsonify({"error": "title required"}), 400
+        dismissed.undismiss(title)
+        return jsonify({"status": "ok", "title": title})
 
     @app.route("/api/top10-status")
     def top10_status():
@@ -292,10 +378,25 @@ def create_app(
             except Exception:
                 pass
 
+        dismissed_all = dismissed.get_all()
+
+        def _dismissed_fields(title: str) -> tuple[bool, str | None]:
+            entry = dismissed_all.get(title)
+            if not entry:
+                return False, None
+            try:
+                dismissed_at = datetime.datetime.fromisoformat(entry["dismissed_at"])
+                undo_dt = dismissed_at + datetime.timedelta(minutes=15)
+                undo_until = (undo_dt.isoformat() + "Z") if datetime.datetime.now() < undo_dt else None
+            except (KeyError, ValueError):
+                undo_until = None
+            return True, undo_until
+
         movie_statuses: dict[str, dict] = {}
         for title in top_movies:
+            is_dismissed, undo_until = _dismissed_fields(title)
             if radarr_mode == "disabled":
-                movie_statuses[title] = {"status": "disabled", "poster": None}
+                movie_statuses[title] = {"status": "disabled", "poster": None, "type": "movie", "dismissed": is_dismissed, "undo_until": undo_until}
                 continue
             rec = movie_lib.get(title.lower())
             if rec and rec.get("id"):
@@ -303,13 +404,15 @@ def create_app(
                 poster = _extract_poster(rec.get("images", []))
             else:
                 status = "will_add"
-                poster = None
-            movie_statuses[title] = {"status": status, "poster": poster}
+                lookup = sync_service.radarr.lookup_movie(title)
+                poster = _extract_poster(lookup.get("images", [])) if lookup else None
+            movie_statuses[title] = {"status": status, "poster": poster, "type": "movie", "dismissed": is_dismissed, "undo_until": undo_until}
 
         series_statuses: dict[str, dict] = {}
         for title in top_series:
+            is_dismissed, undo_until = _dismissed_fields(title)
             if sonarr_mode == "disabled":
-                series_statuses[title] = {"status": "disabled", "poster": None}
+                series_statuses[title] = {"status": "disabled", "poster": None, "type": "series", "dismissed": is_dismissed, "undo_until": undo_until}
                 continue
             rec = series_lib.get(title.lower())
             if rec and rec.get("id"):
@@ -318,8 +421,9 @@ def create_app(
                 poster = _extract_poster(rec.get("images", []))
             else:
                 status = "will_add"
-                poster = None
-            series_statuses[title] = {"status": status, "poster": poster}
+                lookup = sync_service.sonarr.lookup_series(title)
+                poster = _extract_poster(lookup.get("images", [])) if lookup else None
+            series_statuses[title] = {"status": status, "poster": poster, "type": "series", "dismissed": is_dismissed, "undo_until": undo_until}
 
         return jsonify({"movies": movie_statuses, "series": series_statuses})
 
@@ -377,8 +481,8 @@ def create_app(
                 data={
                     "token": api_token,
                     "user": user_key,
-                    "title": "Netflix Sync — Test",
-                    "message": "Test notification from Netflix Media Sync",
+                    "title": "Streamarr — Test",
+                    "message": "Test notification from Streamarr",
                     "priority": 0,
                 },
                 timeout=10,
@@ -391,6 +495,64 @@ def create_app(
             return jsonify({"status": "error", "message": errors})
         except Exception as exc:
             return jsonify({"status": "error", "message": _exc_msg(exc)})
+
+    @app.route("/api/flixpatrol/preview")
+    def flixpatrol_preview():
+        country = request.args.get("country", "").strip()
+        if not country or country not in FLIXPATROL_COUNTRIES:
+            country = settings.get("flixpatrol_country", "United Kingdom")
+        cache_hours = int(settings.get("flixpatrol_cache_hours", 6))
+        grouped, error = fetch_flixpatrol_fresh(country)
+        cache_info = get_flixpatrol_cache_info(country, cache_hours)
+        if error and not grouped:
+            return jsonify({
+                "error": "FlixPatrol data unavailable — check streaming-scraper repo for updates",
+                "country": country,
+                "services": [],
+                "cache": cache_info,
+            })
+        services = []
+        for service_key, types in sorted(grouped.items()):
+            movies = types.get("movie", [])
+            series = types.get("series", [])
+            services.append({
+                "key": service_key,
+                "label": service_key.replace("_", " ").title(),
+                "movie_count": len(movies),
+                "series_count": len(series),
+                "sample_movies": [m.title for m in movies[:3]],
+                "sample_series": [s.title for s in series[:3]],
+            })
+        return jsonify({"country": country, "services": services, "cache": cache_info})
+
+    @app.route("/api/flixpatrol/refresh", methods=["POST"])
+    def flixpatrol_refresh():
+        country = settings.get("flixpatrol_country", "United Kingdom")
+        cache_hours = int(settings.get("flixpatrol_cache_hours", 6))
+        bust_flixpatrol_cache()
+        grouped, error = fetch_flixpatrol_fresh(country)
+        cache_info = get_flixpatrol_cache_info(country, cache_hours)
+        services = []
+        for service_key, types in sorted(grouped.items()):
+            services.append({
+                "key": service_key,
+                "label": service_key.replace("_", " ").title(),
+                "movie_count": len(types.get("movie", [])),
+                "series_count": len(types.get("series", [])),
+            })
+        if error and not grouped:
+            status = "error"
+        elif error:
+            status = "stale"
+        else:
+            status = "ok"
+        return jsonify({
+            "status": status,
+            "error": error,
+            "country": country,
+            "services": services,
+            "cache": cache_info,
+        })
 
     @app.route("/api/logs")
     def get_logs():
@@ -464,5 +626,3 @@ def _extract_poster(images: list) -> str | None:
         if img.get("coverType") == "poster":
             return img.get("remoteUrl") or None
     return None
-
-

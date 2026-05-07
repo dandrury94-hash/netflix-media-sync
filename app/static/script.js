@@ -45,11 +45,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Sync button ──
   if (syncButton) {
+    const syncErrorBox = document.getElementById("syncErrorBox");
+    const syncErrorText = document.getElementById("syncErrorText");
+    const syncErrorClear = document.getElementById("syncErrorClear");
+
+    if (syncErrorClear && syncErrorBox) {
+      syncErrorClear.addEventListener("click", () => { syncErrorBox.hidden = true; });
+    }
+
     let syncEstimatedSeconds = parseInt(syncButton.dataset.estimated || "60", 10) || 60;
     const syncButtonLabel = syncButton.querySelector("span");
 
     syncButton.addEventListener("click", async () => {
-      syncButton.classList.remove("sync-error");
+      if (syncErrorBox) syncErrorBox.hidden = true;
       syncButton.disabled = true;
       syncButton.classList.add("syncing");
       syncButton.style.setProperty("--sync-pct", "0%");
@@ -67,6 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const response = await fetch("/api/sync", { method: "POST" });
         clearInterval(timer);
+        if (!response.ok) throw new Error(`Sync failed (HTTP ${response.status}) — check logs for details`);
         const data = await response.json();
         if (data.estimated_seconds) syncEstimatedSeconds = data.estimated_seconds;
         syncButton.style.setProperty("--sync-pct", "100%");
@@ -76,14 +85,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (syncButtonLabel) syncButtonLabel.textContent = "Trigger sync now";
         syncButton.disabled = false;
         window.location.reload();
-      } catch {
+      } catch (err) {
         clearInterval(timer);
         syncButton.classList.remove("syncing");
         syncButton.style.removeProperty("--sync-pct");
-        syncButton.classList.add("sync-error");
         if (syncButtonLabel) syncButtonLabel.textContent = "Trigger sync now";
         syncButton.disabled = false;
-        setTimeout(() => syncButton.classList.remove("sync-error"), 3000);
+        if (syncErrorBox) {
+          syncErrorBox.hidden = false;
+          if (syncErrorText) syncErrorText.textContent = err.message || "Sync failed — check logs for details";
+        }
       }
     });
   }
@@ -97,11 +108,27 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = {};
       payload.netflix_top_countries = formData.getAll("netflix_top_countries");
       payload.sources = formData.getAll("sources");
+      payload.flixpatrol_services = formData.getAll("flixpatrol_services");
       for (const [key, value] of formData.entries()) {
         if (key === "netflix_top_countries") continue;
         if (key === "sources") continue;
+        if (key === "flixpatrol_services") continue;
         payload[key] = value;
       }
+      const fpTypeContainer = document.getElementById("fpServiceList");
+      const fpServiceTypes = {};
+      if (fpTypeContainer) {
+        fpTypeContainer.querySelectorAll(".fp-type-cb[data-type='movie']").forEach((movieCb) => {
+          const key = movieCb.dataset.service;
+          const row = movieCb.closest(".fp-service-row");
+          const seriesCb = row && row.querySelector(".fp-type-cb[data-type='series']");
+          const types = [];
+          if (movieCb.checked) types.push("movie");
+          if (seriesCb && seriesCb.checked) types.push("series");
+          fpServiceTypes[key] = types;
+        });
+      }
+      payload.flixpatrol_service_types = fpServiceTypes;
       try {
         const response = await fetch("/api/settings", {
           method: "POST",
@@ -120,32 +147,89 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── Manual override checkboxes ──
-  document.querySelectorAll(".override-checkbox").forEach((cb) => {
-    cb.addEventListener("change", async () => {
-      const title = cb.dataset.title;
-      const wasChecked = cb.checked;
-      try {
-        const resp = await fetch("/api/overrides", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, protected: wasChecked }),
+  // ── FlixPatrol service preview ──
+  const fpLoadBtn = document.getElementById("fpLoadBtn");
+  const fpListEl = document.getElementById("fpServiceList");
+  if (fpLoadBtn) {
+    // Restore saved services on page load from data attributes embedded by Jinja
+    const savedServices = JSON.parse(fpListEl?.dataset.savedServices || "[]");
+    const savedServiceTypes = JSON.parse(fpListEl?.dataset.savedServiceTypes || "{}");
+    if (savedServices.length) {
+      renderFlixPatrolServices([], savedServices, savedServiceTypes);
+    }
+
+    fpLoadBtn.addEventListener("click", async () => {
+      const country = document.getElementById("flixpatrolCountry")?.value || "";
+      const statusEl = document.getElementById("fpLoadStatus");
+
+      // Preserve current UI state before re-rendering
+      const savedChecked = Array.from(
+        document.querySelectorAll('input[name="flixpatrol_services"]:checked')
+      ).map((el) => el.value);
+      const currentTypes = {};
+      if (fpListEl) {
+        fpListEl.querySelectorAll(".fp-type-cb[data-type='movie']").forEach((movieCb) => {
+          const key = movieCb.dataset.service;
+          const row = movieCb.closest(".fp-service-row");
+          const seriesCb = row && row.querySelector(".fp-type-cb[data-type='series']");
+          const types = [];
+          if (movieCb.checked) types.push("movie");
+          if (seriesCb && seriesCb.checked) types.push("series");
+          currentTypes[key] = types;
         });
-        if (!resp.ok) throw new Error("Request failed");
-        const badge = cb.closest(".protection-item").querySelector(".protect-badge--manual");
-        if (wasChecked && !badge) {
-          const span = document.createElement("span");
-          span.className = "protect-badge protect-badge--manual";
-          span.textContent = "Override";
-          cb.closest(".protection-item").appendChild(span);
-        } else if (!wasChecked && badge) {
-          badge.remove();
+      }
+      // Merge: persisted base, overridden by current UI selections
+      const mergedTypes = { ...savedServiceTypes, ...currentTypes };
+
+      setTestResult(statusEl, "Loading…", "");
+      fpLoadBtn.disabled = true;
+
+      try {
+        const resp = await fetch(`/api/flixpatrol/preview?country=${encodeURIComponent(country)}`);
+        const data = await resp.json();
+        if (data.error) {
+          setTestResult(statusEl, `❌ ${data.error}`, "error");
+        } else {
+          setTestResult(statusEl, `✅ ${data.services.length} services found`, "success");
+          if (data.cache) updateFpCacheStatus(data.cache);
+          renderFlixPatrolServices(data.services, savedChecked, mergedTypes);
         }
-      } catch {
-        cb.checked = !wasChecked;
+      } catch (err) {
+        setTestResult(statusEl, `❌ ${err.message}`, "error");
+      } finally {
+        fpLoadBtn.disabled = false;
       }
     });
-  });
+  }
+
+  // ── FlixPatrol refresh button ──
+  const fpRefreshBtn = document.getElementById("fpRefreshBtn");
+  if (fpRefreshBtn) {
+    fpRefreshBtn.addEventListener("click", async () => {
+      const statusEl = document.getElementById("fpLoadStatus");
+      setTestResult(statusEl, "Refreshing…", "");
+      fpRefreshBtn.disabled = true;
+      if (fpLoadBtn) fpLoadBtn.disabled = true;
+      try {
+        const resp = await fetch("/api/flixpatrol/refresh", { method: "POST" });
+        const data = await resp.json();
+        if (data.cache) updateFpCacheStatus(data.cache);
+        if (data.status === "ok") {
+          setTestResult(statusEl, `✅ Refreshed — ${data.services.length} service(s) found`, "success");
+        } else if (data.status === "stale") {
+          setTestResult(statusEl, `⚠ Using stale data — ${data.error}`, "error");
+        } else {
+          setTestResult(statusEl, `❌ ${data.error || "Refresh failed"}`, "error");
+        }
+      } catch (err) {
+        setTestResult(statusEl, `❌ ${err.message}`, "error");
+      } finally {
+        fpRefreshBtn.disabled = false;
+        if (fpLoadBtn) fpLoadBtn.disabled = false;
+      }
+    });
+  }
+
 
   // ── Test connection buttons ──
   document.querySelectorAll(".test-conn-btn").forEach((btn) => {
@@ -246,6 +330,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Top 10 status icons ──
   const top10Items = document.querySelectorAll(".top10-item[data-title]");
   if (top10Items.length) {
+    try {
+      const cached = localStorage.getItem("top10-status-cache");
+      if (cached) _applyTop10Data(JSON.parse(cached));
+    } catch { /* ignore */ }
     loadTop10Status();
   }
 
@@ -299,7 +387,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `netflix-sync-${new Date().toISOString().slice(0, 10)}.log`;
+        a.download = `streamarr-${new Date().toISOString().slice(0, 10)}.log`;
         a.click();
         URL.revokeObjectURL(url);
       });
@@ -324,28 +412,80 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+function _applyTop10Data(all) {
+  document.querySelectorAll(".top10-item[data-title]").forEach((li) => {
+    const title = li.dataset.title;
+    const item = all[title];
+    if (!item) return;
+    const { status, poster } = item;
+
+    li.querySelectorAll(".top10-status, .top10-dismiss, .top10-undo").forEach((el) => el.remove());
+    li.classList.toggle("top10-item--dismissed", !!item.dismissed);
+    li.classList.toggle("top10-item--has-poster", !!poster);
+    li.classList.toggle("top10-item--no-poster", !poster);
+    if (poster) {
+      li.style.setProperty("--poster-url", `url(${poster})`);
+    } else {
+      li.style.removeProperty("--poster-url");
+    }
+
+    if (item.dismissed) {
+      if (item.undo_until && Date.now() < Date.parse(item.undo_until)) {
+        const undo = document.createElement("button");
+        undo.className = "top10-undo";
+        undo.title = "Undo dismiss";
+        undo.textContent = "↩";
+        undo.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch("/api/dismiss", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title }),
+            });
+            await loadTop10Status();
+          } catch { /* ignore */ }
+        });
+        li.appendChild(undo);
+      }
+      return;
+    }
+
+    const dismiss = document.createElement("button");
+    dismiss.className = "top10-dismiss";
+    dismiss.title = "Dismiss — skip on future syncs and remove from library";
+    dismiss.textContent = "×";
+    dismiss.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const in_library = status !== "will_add" && status !== "disabled";
+      try {
+        await fetch("/api/dismiss", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, type: item.type, in_library }),
+        });
+        await loadTop10Status();
+      } catch { /* ignore */ }
+    });
+    li.prepend(dismiss);
+
+    if (!STATUS_ICONS[status]) return;
+    const span = document.createElement("span");
+    span.className = "top10-status";
+    span.title = STATUS_LABELS[status] || "";
+    span.textContent = STATUS_ICONS[status];
+    li.appendChild(span);
+
+  });
+}
+
 async function loadTop10Status() {
   try {
     const resp = await fetch("/api/top10-status");
     const data = await resp.json();
     const all = { ...data.movies, ...data.series };
-    document.querySelectorAll(".top10-item[data-title]").forEach((li) => {
-      const title = li.dataset.title;
-      const item = all[title];
-      if (!item) return;
-      const status = item.status;
-      const poster = item.poster;
-      if (!STATUS_ICONS[status]) return;
-      const span = document.createElement("span");
-      span.className = "top10-status";
-      span.title = STATUS_LABELS[status] || "";
-      span.textContent = STATUS_ICONS[status];
-      li.appendChild(span);
-      if (poster) {
-        li.style.setProperty("--poster-url", `url(${poster})`);
-        li.classList.add("top10-item--has-poster");
-      }
-    });
+    try { localStorage.setItem("top10-status-cache", JSON.stringify(all)); } catch { /* ignore */ }
+    _applyTop10Data(all);
   } catch { /* ignore */ }
 }
 
@@ -355,7 +495,7 @@ async function loadRemovalSchedule(tbody) {
     const data = await resp.json();
     renderSchedule(tbody, data.schedule || []);
   } catch {
-    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Failed to load removal schedule.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Failed to load removal schedule.</td></tr>';
   }
 }
 
@@ -369,17 +509,24 @@ async function loadAdditionHistory(tbody) {
   }
 }
 
+function fmtSource(key) {
+  return key === "flixpatrol" ? "FlixPatrol" : key.charAt(0).toUpperCase() + key.slice(1);
+}
+
 function renderAdditionHistory(tbody, additions) {
   if (!additions.length) {
     tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No titles added in the last 7 days.</td></tr>';
     return;
   }
-  tbody.innerHTML = additions.map((item) => `<tr>
+  tbody.innerHTML = additions.map((item) => {
+    const srcs = (item.sources || [item.source || "trakt"]).map(fmtSource).join(" + ");
+    return `<tr>
     <td>${escHtml(item.title)}</td>
     <td style="text-transform:capitalize">${escHtml(item.type)}</td>
     <td>${escHtml(item.date_added)}</td>
-    <td>${escHtml(item.source || "trakt")}</td>
-  </tr>`).join("");
+    <td>${escHtml(srcs)}</td>
+  </tr>`;
+  }).join("");
 }
 
 async function loadRemovalHistory(tbody) {
@@ -394,7 +541,7 @@ async function loadRemovalHistory(tbody) {
 
 function renderSchedule(tbody, schedule) {
   if (!schedule.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No <code>netflix-sync</code> tagged titles found in Radarr / Sonarr.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No <code>streamarr</code> tagged titles found in Radarr / Sonarr.</td></tr>';
     return;
   }
   tbody.innerHTML = schedule.map((item) => {
@@ -406,31 +553,47 @@ function renderSchedule(tbody, schedule) {
     const statusCell = item.protected
       ? '<span class="protected-badge">Protected</span>'
       : '<span style="color:var(--muted)">—</span>';
-    const graceCell = item.in_grace && item.grace_expires
-      ? escHtml(item.grace_expires)
-      : '<span style="color:var(--muted)">—</span>';
-    let deleteCell = '<span style="color:var(--muted)">—</span>';
-    if (item.in_grace && item.days_until_deletion != null) {
-      const dc =
-        item.days_until_deletion <= 2 ? "days-urgent" :
-        item.days_until_deletion <= 5 ? "days-warning" : "days-ok";
-      const dl = item.days_until_deletion <= 0 ? "Due" : `${item.days_until_deletion}d`;
-      deleteCell = `<span class="${dc}">${dl}</span>`;
+    let actionCell;
+    const src = item.protection_source;
+    if (src === "tautulli" || src === "both") {
+      actionCell = '<span class="prot-lock-label">Tautulli</span>';
+    } else if (item.protected) {
+      actionCell = `<button class="button button-secondary button-sm sched-prot-btn" data-title="${escHtml(item.title)}" data-type="${escHtml(item.type)}" data-protect="false">Unprotect</button>`;
+    } else {
+      actionCell = `<button class="button button-secondary button-sm sched-prot-btn sched-prot-btn--protect" data-title="${escHtml(item.title)}" data-type="${escHtml(item.type)}" data-protect="true">Protect</button>`;
     }
-    const reasonHtml = item.reason
-      ? `<div class="entry-reason">${escHtml(item.reason)}</div>`
-      : "";
     return `<tr>
-      <td>${escHtml(item.title)}${reasonHtml}</td>
+      <td>${escHtml(item.title)}</td>
       <td style="text-transform:capitalize">${escHtml(item.type)}</td>
       <td>${item.date_added}</td>
       <td>${item.removal_date}</td>
       <td>${statusCell}</td>
       <td><span class="${daysClass}">${daysLabel}</span></td>
-      <td>${graceCell}</td>
-      <td>${deleteCell}</td>
+      <td>${actionCell}</td>
     </tr>`;
   }).join("");
+  tbody.querySelectorAll(".sched-prot-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const protecting = btn.dataset.protect === "true";
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      try {
+        const resp = await fetch("/api/overrides", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: btn.dataset.title, type: btn.dataset.type, protected: protecting }),
+        });
+        if (!resp.ok) throw new Error("Request failed");
+        loadRemovalSchedule(tbody);
+        const pp = document.getElementById("protectionPanel");
+        if (pp) loadProtectionState(pp);
+      } catch {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 function renderHistory(tbody, history) {
@@ -463,7 +626,7 @@ function renderProtectionState(container, data) {
   const unprotectedItems = data.unprotected || [];
 
   if (!protectedItems.length && !unprotectedItems.length) {
-    container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">No <code>netflix-sync</code> tagged titles found. Run a sync to populate.</p>';
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">No <code>streamarr</code> tagged titles found. Run a sync to populate.</p>';
     return;
   }
 
@@ -523,7 +686,7 @@ function renderProtectionState(container, data) {
       await fetch("/api/overrides", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: cb.value, protected: false }),
+        body: JSON.stringify({ title: cb.dataset.title, type: cb.dataset.type, protected: false }),
       });
     }
     await loadProtectionState(container);
@@ -537,7 +700,7 @@ function renderProtectionState(container, data) {
       await fetch("/api/overrides", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: cb.value, protected: true }),
+        body: JSON.stringify({ title: cb.dataset.title, type: cb.dataset.type, protected: true }),
       });
     }
     await loadProtectionState(container);
@@ -554,6 +717,8 @@ function renderProtectionState(container, data) {
     cb.type = "checkbox";
     cb.className = "prot-entry-cb";
     cb.value = item.title;
+    cb.dataset.title = item.title;
+    cb.dataset.type = item.type;
     if (isProtected) cb.disabled = isTautulli;
     li.appendChild(cb);
 
@@ -597,14 +762,14 @@ function renderProtectionState(container, data) {
         const btn = document.createElement("button");
         btn.className = "button button-secondary button-sm prot-action-btn";
         btn.textContent = "Unprotect";
-        btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, false, container));
+        btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, item.type, false, container));
         li.appendChild(btn);
       }
     } else {
       const btn = document.createElement("button");
       btn.className = "button button-secondary button-sm prot-action-btn prot-action-btn--protect";
       btn.textContent = "Protect";
-      btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, true, container));
+      btn.addEventListener("click", () => handleProtectionToggle(btn, item.title, item.type, true, container));
       li.appendChild(btn);
     }
 
@@ -618,13 +783,13 @@ function renderProtectionState(container, data) {
   unprotectedItems.forEach((item) => unprotList.appendChild(_makeEntry(item, false)));
 }
 
-async function handleProtectionToggle(btn, title, protect, container) {
+async function handleProtectionToggle(btn, title, type, protect, container) {
   btn.disabled = true;
   try {
     const resp = await fetch("/api/overrides", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, protected: protect }),
+      body: JSON.stringify({ title, type, protected: protect }),
     });
     if (!resp.ok) throw new Error("Request failed");
     await loadProtectionState(container);
@@ -682,4 +847,157 @@ function renderLogs(container, lines) {
     .map((l) => `<div class="log-line ${logLineClass(l)}">${escHtml(l)}</div>`)
     .join("");
   if (atBottom) container.scrollTop = container.scrollHeight;
+}
+
+function updateFpCacheStatus(cache) {
+  const el = document.getElementById("fpCacheStatus");
+  if (!el || !cache) return;
+  let html = "";
+  if (cache.cached_at) {
+    const ts = new Date(cache.cached_at * 1000);
+    const timePart = ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const datePart = ts.toLocaleDateString([], { day: "2-digit", month: "2-digit", year: "numeric" });
+    html += `<p class="field-help">Last fetched: ${escHtml(timePart + " " + datePart)}`;
+    if (cache.is_stale) html += ' <span class="fp-stale-badge">Stale</span>';
+    html += "</p>";
+  }
+  if (cache.error) {
+    html += `<p class="field-help fp-stale-msg">⚠ ${escHtml(cache.error)}</p>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderFlixPatrolServices(services, checkedKeys = [], serviceTypes = {}) {
+  const container = document.getElementById("fpServiceList");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (!services.length && !checkedKeys.length) return;
+
+  const divider = document.createElement("div");
+  divider.className = "setting-divider";
+  container.appendChild(divider);
+
+  const heading = document.createElement("p");
+  heading.className = "field-help";
+  heading.style.marginBottom = "10px";
+  heading.textContent = "Select which services to import from:";
+  container.appendChild(heading);
+
+  // If we have no live services data (page load with saved prefs),
+  // render minimal checkboxes from saved keys only
+  const rows = services.length
+    ? services
+    : checkedKeys.map((k) => ({
+        key: k,
+        label: k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        movie_count: null,
+        series_count: null,
+        sample_movies: [],
+        sample_series: [],
+      }));
+
+  const grid = document.createElement("div");
+  grid.className = "fp-service-grid";
+
+  rows.forEach((svc) => {
+    const isChecked = checkedKeys.includes(svc.key);
+    const savedTypes = serviceTypes[svc.key];
+    const movieChecked = !savedTypes || savedTypes.includes("movie");
+    const seriesChecked = !savedTypes || savedTypes.includes("series");
+
+    const row = document.createElement("div");
+    row.className = "fp-service-row";
+
+    // Service enable label
+    const item = document.createElement("label");
+    item.className = "fp-service-item";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.name = "flixpatrol_services";
+    cb.value = svc.key;
+    cb.checked = isChecked;
+    cb.className = "fp-service-cb";
+
+    const meta = document.createElement("div");
+    meta.className = "fp-service-meta";
+
+    const nameRow = document.createElement("div");
+    nameRow.className = "fp-service-name";
+    nameRow.textContent = svc.label;
+    meta.appendChild(nameRow);
+
+    if (svc.movie_count !== null) {
+      const counts = document.createElement("div");
+      counts.className = "fp-service-counts";
+      if (svc.movie_count > 0) {
+        const mc = document.createElement("span");
+        mc.className = "fp-count-badge fp-count-badge--movie";
+        mc.textContent = `${svc.movie_count} movies`;
+        counts.appendChild(mc);
+      }
+      if (svc.series_count > 0) {
+        const sc = document.createElement("span");
+        sc.className = "fp-count-badge fp-count-badge--series";
+        sc.textContent = `${svc.series_count} series`;
+        counts.appendChild(sc);
+      }
+      meta.appendChild(counts);
+    }
+
+    item.appendChild(cb);
+    item.appendChild(meta);
+    row.appendChild(item);
+
+    // Per-service type toggles
+    const typeToggles = document.createElement("div");
+    typeToggles.className = "fp-type-toggles";
+
+    [["movie", "Movies"], ["series", "TV"]].forEach(([type, label]) => {
+      const typeLabel = document.createElement("label");
+      typeLabel.className = "fp-type-label";
+
+      const typeCb = document.createElement("input");
+      typeCb.type = "checkbox";
+      typeCb.className = "fp-type-cb";
+      typeCb.dataset.service = svc.key;
+      typeCb.dataset.type = type;
+      typeCb.checked = type === "movie" ? movieChecked : seriesChecked;
+
+      typeLabel.appendChild(typeCb);
+      typeLabel.appendChild(document.createTextNode(" " + label));
+      typeToggles.appendChild(typeLabel);
+    });
+
+    row.appendChild(typeToggles);
+    grid.appendChild(row);
+  });
+
+  container.appendChild(grid);
+
+  // Select all / none toggle
+  const toggleRow = document.createElement("div");
+  toggleRow.className = "fp-toggle-row";
+
+  const selAll = document.createElement("button");
+  selAll.type = "button";
+  selAll.className = "button button-secondary button-sm";
+  selAll.textContent = "Select all";
+  selAll.addEventListener("click", () => {
+    container.querySelectorAll(".fp-service-cb").forEach((cb) => { cb.checked = true; });
+  });
+
+  const selNone = document.createElement("button");
+  selNone.type = "button";
+  selNone.className = "button button-secondary button-sm";
+  selNone.textContent = "Select none";
+  selNone.addEventListener("click", () => {
+    container.querySelectorAll(".fp-service-cb").forEach((cb) => { cb.checked = false; });
+  });
+
+  toggleRow.appendChild(selAll);
+  toggleRow.appendChild(selNone);
+  container.appendChild(toggleRow);
 }

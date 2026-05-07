@@ -7,3 +7,8 @@
 - Never make per-item API calls inside loops — use a single bulk endpoint
 - Tab switching is client-side via data-tab-target — do not add page navigations
 - Active tab state is managed by JS, not Jinja
+
+# State After Mutations
+After any POST/DELETE that changes state (overrides, settings, manual sync),
+always reload the affected panel via its existing load function — never update
+DOM state manually to reflect the assumed result.

@@ -7,202 +7,181 @@
 
 {# ── Dashboard tab ── #}
 <div id="tab-dashboard" class="tab-panel active">
+{% if settings.simulation_mode %}
+<div class="sim-mode-banner">Simulation mode active — syncs fetch and evaluate but make no changes to Radarr, Sonarr, or history</div>
+{% endif %}
 <div class="grid">
 
     {# ── Status & Actions ── #}
-    <section class="card status-actions-card">
-        <div>
-            <h2>Status &amp; Actions</h2>
-            <div class="card-divider"></div>
-            <p class="sac-section-label">Integration status</p>
-            <ul class="integration-list">
-                {% for label, mode_key in [('Radarr', 'radarr_mode'), ('Sonarr', 'sonarr_mode'), ('Tautulli', 'tautulli_mode')] %}
-                {% set mode = settings[mode_key] %}
-                <li class="integration-item">
-                    <span class="dot dot--{{ mode }}"></span>
-                    <span class="integration-label">{{ label }}</span>
-                    <span class="mode-badge mode-badge--{{ mode }}">{{ mode | title }}</span>
+    <section class="card wide-card status-actions-card">
+        <h2>Status &amp; Actions</h2>
+        <div class="sac-grid">
+            <div class="sac-col">
+                <p class="sac-section-label">Integration status</p>
+                <ul class="integration-list">
+                    {% for label, mode_key in [('Radarr', 'radarr_mode'), ('Sonarr', 'sonarr_mode'), ('Tautulli', 'tautulli_mode')] %}
+                    {% set mode = settings[mode_key] %}
+                    <li class="integration-item">
+                        <span class="dot dot--{{ mode }}"></span>
+                        <span class="integration-label">{{ label }}</span>
+                        <span class="mode-badge mode-badge--{{ mode }}">{{ mode | title }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="sac-col">
+                <p class="sac-section-label">Last sync</p>
+                <div class="sync-stat">
+                    <span>Time</span>
+                    {% if last_sync %}
+                    <span class="sync-timestamp">{{ last_sync.timestamp }}</span>
+                    {% else %}
+                    <span style="color:var(--muted)">—</span>
+                    {% endif %}
+                </div>
+                {% set radarr_mode = settings.radarr_mode %}
+                {% set sonarr_mode = settings.sonarr_mode %}
+                {% set sim = settings.simulation_mode %}
+                {% if radarr_mode == 'enabled' %}
+                <div class="sync-stat">
+                    {% if sim %}
+                    <span>Movies to add <span class="sim-badge">sim</span></span>
+                    <span class="sync-count">{{ (last_sync.get('would_add_movies') or []) | length if last_sync else 0 }}</span>
+                    {% else %}
+                    <span>Movies Added</span>
+                    <span class="sync-count">{{ (last_sync.get('added_movies') or []) | length if last_sync else 0 }}</span>
+                    {% endif %}
+                </div>
+                {% elif radarr_mode == 'read' %}
+                <div class="sync-stat">
+                    <span>Movies to add</span>
+                    <span class="sync-count">{{ (last_sync.get('would_add_movies') or []) | length if last_sync else 0 }}</span>
+                </div>
+                {% endif %}
+                {% if sonarr_mode == 'enabled' %}
+                <div class="sync-stat">
+                    {% if sim %}
+                    <span>Series to add <span class="sim-badge">sim</span></span>
+                    <span class="sync-count">{{ (last_sync.get('would_add_series') or []) | length if last_sync else 0 }}</span>
+                    {% else %}
+                    <span>Series Added</span>
+                    <span class="sync-count">{{ (last_sync.get('added_series') or []) | length if last_sync else 0 }}</span>
+                    {% endif %}
+                </div>
+                {% elif sonarr_mode == 'read' %}
+                <div class="sync-stat">
+                    <span>Series to add</span>
+                    <span class="sync-count">{{ (last_sync.get('would_add_series') or []) | length if last_sync else 0 }}</span>
+                </div>
+                {% endif %}
+                <div class="sync-stat">
+                    <span>Protected Titles</span>
+                    <span class="sync-count">{{ (last_sync.get('protected') or []) | length if last_sync else 0 }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="card-divider"></div>
+        <p class="field-help" style="margin-bottom:12px">Runs immediately alongside the scheduled interval.</p>
+        <button id="syncButton" class="button button-primary" data-estimated="{{ (last_sync.get('duration_seconds') or 60) if last_sync else 60 }}"><span>Trigger sync now</span></button>
+        <div id="syncErrorBox" class="sync-error-box" hidden>
+            <p id="syncErrorText" class="sync-error-msg"></p>
+            <div class="sync-error-actions">
+                <button type="button" id="syncErrorClear" class="button button-secondary button-sm">Clear</button>
+            </div>
+        </div>
+    </section>
+
+    {# ── Top 10 — per source ── #}
+    {% set top_by_source = (last_sync.get('top_by_source') or {}) if last_sync else {} %}
+    {% if top_by_source %}
+    <div class="services-grid">
+        {% for source, types in top_by_source.items() %}
+        {% set movies = types.get('movie', []) %}
+        {% set series = types.get('series', []) %}
+        {% if movies or series %}
+        {% set has_both = movies and series %}
+        <section class="card{% if has_both %} source-card-dual{% endif %}">
+            <h2>{{ source | replace('_', ' ') | title }} — Top 10</h2>
+            {% if has_both %}
+            <div class="source-dual-grid">
+                <div class="source-subcard">
+                    <p class="source-subpanel-label">Movies</p>
+                    <ol class="top10-list">
+                        {% for title in movies %}
+                        <li class="top10-item" data-title="{{ title | e }}">
+                            <span class="top10-title">{{ title }}</span>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                </div>
+                <div class="source-subcard">
+                    <p class="source-subpanel-label">TV Shows</p>
+                    <ol class="top10-list">
+                        {% for title in series %}
+                        <li class="top10-item" data-title="{{ title | e }}">
+                            <span class="top10-title">{{ title }}</span>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            </div>
+            {% elif movies %}
+            <ol class="top10-list">
+                {% for title in movies %}
+                <li class="top10-item" data-title="{{ title | e }}">
+                    <span class="top10-title">{{ title }}</span>
                 </li>
                 {% endfor %}
-            </ul>
-        </div>
-        <div>
-            <div class="card-divider"></div>
-            <div class="sync-stat">
-                <span>Last Sync</span>
-                {% if last_sync %}
-                <span class="sync-timestamp">{{ last_sync.timestamp }}</span>
-                {% else %}
-                <span style="color:var(--muted)">—</span>
-                {% endif %}
-            </div>
-        </div>
-        <div>
-            {% set radarr_mode = settings.radarr_mode %}
-            {% set sonarr_mode = settings.sonarr_mode %}
-            <div class="card-divider"></div>
-            {% if radarr_mode == 'enabled' %}
-            <div class="sync-stat">
-                <span>Movies Added</span>
-                <span class="sync-count">{{ (last_sync.get('added_movies') or []) | length if last_sync else 0 }}</span>
-            </div>
-            {% elif radarr_mode == 'read' %}
-            <div class="sync-stat">
-                <span>Movies to add</span>
-                <span class="sync-count">{{ (last_sync.get('would_add_movies') or []) | length if last_sync else 0 }}</span>
-            </div>
+            </ol>
+            {% else %}
+            <ol class="top10-list">
+                {% for title in series %}
+                <li class="top10-item" data-title="{{ title | e }}">
+                    <span class="top10-title">{{ title }}</span>
+                </li>
+                {% endfor %}
+            </ol>
             {% endif %}
-            {% if sonarr_mode == 'enabled' %}
-            <div class="sync-stat">
-                <span>Series Added</span>
-                <span class="sync-count">{{ (last_sync.get('added_series') or []) | length if last_sync else 0 }}</span>
-            </div>
-            {% elif sonarr_mode == 'read' %}
-            <div class="sync-stat">
-                <span>Series to add</span>
-                <span class="sync-count">{{ (last_sync.get('would_add_series') or []) | length if last_sync else 0 }}</span>
-            </div>
-            {% endif %}
-            <div class="sync-stat">
-                <span>Protected Titles</span>
-                <span class="sync-count">{{ (last_sync.get('protected') or []) | length if last_sync else 0 }}</span>
-            </div>
-        </div>
-        <div>
-            <div class="card-divider"></div>
-            <p class="field-help" style="margin-bottom:12px">Runs immediately alongside the scheduled interval.</p>
-            <button id="syncButton" class="button button-primary" data-estimated="{{ (last_sync.get('duration_seconds') or 60) if last_sync else 60 }}"><span>Trigger sync now</span></button>
-        </div>
-    </section>
-
-    {# ── Trakt Top 10 — Movies ── #}
-    <section class="card">
-        <h2>Trakt Top 10 — Movies</h2>
-        {% set top_movies = (last_sync.get('top_movies') or []) if last_sync else [] %}
+        </section>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% elif last_sync %}
+        {# Fallback: old sync data without top_by_source #}
+        {% set top_movies = last_sync.get('top_movies') or [] %}
+        {% set top_series = last_sync.get('top_series') or [] %}
         {% if top_movies %}
-        <ol class="top10-list">
-            {% for title in top_movies %}
-            <li class="top10-item" data-title="{{ title | e }}">
-                <span class="top10-title">{{ title }}</span>
-            </li>
-            {% endfor %}
-        </ol>
-        {% else %}
-        <p style="color: var(--muted); font-size: 0.9rem">Run a sync to populate.</p>
+        <section class="card">
+            <h2>Top 10 — Movies</h2>
+            <ol class="top10-list">
+                {% for title in top_movies %}
+                <li class="top10-item" data-title="{{ title | e }}"><span class="top10-title">{{ title }}</span></li>
+                {% endfor %}
+            </ol>
+        </section>
         {% endif %}
-    </section>
-
-    {# ── Trakt Top 10 — Series ── #}
-    <section class="card">
-        <h2>Trakt Top 10 — Series</h2>
-        {% set top_series = (last_sync.get('top_series') or []) if last_sync else [] %}
         {% if top_series %}
-        <ol class="top10-list">
-            {% for title in top_series %}
-            <li class="top10-item" data-title="{{ title | e }}">
-                <span class="top10-title">{{ title }}</span>
-            </li>
-            {% endfor %}
-        </ol>
-        {% else %}
-        <p style="color: var(--muted); font-size: 0.9rem">Run a sync to populate.</p>
+        <section class="card">
+            <h2>Top 10 — TV Shows</h2>
+            <ol class="top10-list">
+                {% for title in top_series %}
+                <li class="top10-item" data-title="{{ title | e }}"><span class="top10-title">{{ title }}</span></li>
+                {% endfor %}
+            </ol>
+        </section>
         {% endif %}
-    </section>
-
-    {# ── Import preview ── #}
-    {% set radarr_mode = settings.radarr_mode %}
-    {% set sonarr_mode = settings.sonarr_mode %}
-    {% if last_sync and (radarr_mode != 'disabled' or sonarr_mode != 'disabled') %}
-    <section class="card wide-card">
-        <h2>Import Preview</h2>
-        <div class="import-columns">
-
-            {% if radarr_mode != 'disabled' %}
-            <div>
-                {% if radarr_mode == 'enabled' %}
-                <div class="import-section">
-                    <h3>Movies added</h3>
-                    <div class="import-chips">
-                        {% for t in (last_sync.get('added_movies') or []) %}
-                        <span class="chip chip--add">{{ t }}</span>
-                        {% else %}
-                        <span class="import-empty">None this sync</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% else %}
-                <div class="import-section">
-                    <h3>Movies — would add</h3>
-                    <div class="import-chips">
-                        {% for t in (last_sync.get('would_add_movies') or []) %}
-                        <span class="chip chip--add">{{ t }}</span>
-                        {% else %}
-                        <span class="import-empty">None this sync</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-                {% set in_radarr = last_sync.get('already_in_radarr') or [] %}
-                {% if in_radarr %}
-                <div class="import-section" style="margin-top: 16px">
-                    <h3>Already in Radarr</h3>
-                    <div class="import-chips">
-                        {% for t in in_radarr %}
-                        <span class="chip chip--exists">{{ t }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            {% if sonarr_mode != 'disabled' %}
-            <div>
-                {% if sonarr_mode == 'enabled' %}
-                <div class="import-section">
-                    <h3>Series added</h3>
-                    <div class="import-chips">
-                        {% for t in (last_sync.get('added_series') or []) %}
-                        <span class="chip chip--add">{{ t }}</span>
-                        {% else %}
-                        <span class="import-empty">None this sync</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% else %}
-                <div class="import-section">
-                    <h3>Series — would add</h3>
-                    <div class="import-chips">
-                        {% for t in (last_sync.get('would_add_series') or []) %}
-                        <span class="chip chip--add">{{ t }}</span>
-                        {% else %}
-                        <span class="import-empty">None this sync</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-                {% set in_sonarr = last_sync.get('already_in_sonarr') or [] %}
-                {% if in_sonarr %}
-                <div class="import-section" style="margin-top: 16px">
-                    <h3>Already in Sonarr</h3>
-                    <div class="import-chips">
-                        {% for t in in_sonarr %}
-                        <span class="chip chip--exists">{{ t }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
-
-        </div>
-    </section>
+    {% else %}
+        <section class="card">
+            <h2>Top 10</h2>
+            <p style="color: var(--muted); font-size: 0.9rem">Run a sync to populate.</p>
+        </section>
     {% endif %}
 
     {# ── Scheduled removals ── #}
     <section class="card wide-card">
         <h2>Scheduled Removals</h2>
-        <p class="field-help">Titles tagged <code>netflix-sync</code> in Radarr / Sonarr, ordered by days remaining until scheduled removal.</p>
+        <p class="field-help">Titles tagged <code>streamarr</code> in Radarr / Sonarr, ordered by days remaining until scheduled removal.</p>
+        <div class="removal-scroll">
         <table class="removal-table">
             <thead>
                 <tr>
@@ -212,14 +191,14 @@
                     <th>Removal date</th>
                     <th>Status</th>
                     <th>Days remaining</th>
-                    <th>Grace expires</th>
-                    <th>Days to delete</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="removalScheduleBody">
-                <tr><td colspan="8" class="table-empty">Loading…</td></tr>
+                <tr><td colspan="7" class="table-empty">Loading…</td></tr>
             </tbody>
         </table>
+        </div>
     </section>
 
 </div>
@@ -268,7 +247,7 @@
 <div id="tab-protection" class="tab-panel">
     <section class="card wide-card">
         <h2>Protection manager</h2>
-        <p class="field-help">Titles tagged <code>netflix-sync</code> in Radarr / Sonarr. Protect a title to prevent automatic deletion. Tautulli-protected titles cannot be unprotected here.</p>
+        <p class="field-help">Titles tagged <code>streamarr</code> in Radarr / Sonarr. Protect a title to prevent automatic deletion.</p>
         <div id="protectionPanel" style="margin-top:16px">
             <p style="color:var(--muted);font-size:0.9rem;margin:0">Loading…</p>
         </div>

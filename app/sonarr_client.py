@@ -1,11 +1,10 @@
 import logging
 
 import requests
+from app import tags as _tags
 from app.settings import SettingsStore
 
 logger = logging.getLogger(__name__)
-
-_TAG_NAME = "netflix-sync"
 
 
 class SonarrClient:
@@ -53,6 +52,27 @@ class SonarrClient:
         response.raise_for_status()
         return response.json()
 
+    def _put(self, path: str, json_data: dict):
+        response = requests.put(
+            f"{self.base_url}{path}",
+            headers=self._headers(),
+            json=json_data,
+            timeout=20,
+        )
+        if not response.ok:
+            logger.error("Sonarr PUT error %s: %s", response.status_code, response.text)
+        response.raise_for_status()
+        return response.json()
+
+    def _resolve_tag_ids(self, tag_names: list[str], title: str) -> list[int]:
+        ids = []
+        for name in tag_names:
+            try:
+                ids.append(self.ensure_tag(name))
+            except Exception:
+                logger.warning("Could not create '%s' tag for: %s", name, title)
+        return ids
+
     def ensure_tag(self, name: str) -> int:
         """Return the ID of an existing tag, creating it first if needed."""
         tags = self._get("/api/v3/tag")
@@ -62,11 +82,11 @@ class SonarrClient:
         result = self._post("/api/v3/tag", {"label": name})
         return result["id"]
 
-    def get_tagged_series(self, tag_name: str) -> list[dict]:
-        """Return all Sonarr series carrying the named tag."""
+    def get_tagged_series(self) -> list[dict]:
+        """Return all Sonarr series carrying the streamarr root tag."""
         try:
-            tags = self._get("/api/v3/tag")
-            tag_id = next((t["id"] for t in tags if t.get("label") == tag_name), None)
+            tag_list = self._get("/api/v3/tag")
+            tag_id = next((t["id"] for t in tag_list if t.get("label") == _tags.TAG_ROOT), None)
             if tag_id is None:
                 return []
             series = self._get("/api/v3/series")
@@ -89,8 +109,38 @@ class SonarrClient:
             logger.warning("Failed to fetch Sonarr series %d: %s", series_id, exc)
             return None
 
+    def get_state_protected_tag_id(self) -> int | None:
+        try:
+            tag_list = self._get("/api/v3/tag")
+            return next((t["id"] for t in tag_list if t.get("label") == _tags.TAG_STATE_PROTECTED), None)
+        except Exception as exc:
+            logger.warning("Failed to fetch state-protected tag id from Sonarr: %s", exc)
+            return None
+
+    def set_series_protection(self, series_id: int, protected: bool) -> bool:
+        try:
+            tag_id = self.ensure_tag(_tags.TAG_STATE_PROTECTED)
+            series = self._get(f"/api/v3/series/{series_id}")
+            current_tags = series.get("tags", [])
+            if protected:
+                if tag_id not in current_tags:
+                    current_tags = [*current_tags, tag_id]
+            else:
+                current_tags = [t for t in current_tags if t != tag_id]
+            series["tags"] = current_tags
+            self._put(f"/api/v3/series/{series_id}", series)
+            logger.info("Set protection=%s for series id=%d", protected, series_id)
+            return True
+        except Exception as exc:
+            logger.error("Failed to set protection for series id=%d: %s", series_id, exc)
+            return False
+
     def lookup_series(self, title: str) -> dict | None:
-        results = self._get("/api/v3/series/lookup", {"term": title})
+        try:
+            results = self._get("/api/v3/series/lookup", {"term": title})
+        except Exception as exc:
+            logger.warning("Sonarr lookup failed for series: %s (%s)", title, exc)
+            return None
         if isinstance(results, list) and results:
             return results[0]
         return None
@@ -110,11 +160,12 @@ class SonarrClient:
             logger.error("Failed to delete Sonarr series id=%d: %s", series_id, exc)
             return False
 
-    def add_series(self, title: str, library_cache: dict | None = None) -> bool:
+    def add_series(self, title: str, library_cache: dict | None = None, tags: list[str] | None = None) -> bool:
+        tag_names = tags if tags is not None else [_tags.TAG_ROOT]
+
         if library_cache is not None:
             cached = library_cache.get(title.lower())
             if cached and cached.get("id"):
-                logger.info("Series already exists in Sonarr (cache): %s", title)
                 return False
 
         details = self.lookup_series(title)
@@ -123,7 +174,6 @@ class SonarrClient:
             return False
 
         if details.get("id"):
-            logger.info("Series already exists in Sonarr: %s", title)
             return False
 
         tvdb_id = details.get("tvdbId")
@@ -131,13 +181,7 @@ class SonarrClient:
             logger.warning("Unable to add series without TVDB ID: %s", title)
             return False
 
-        try:
-            tag_id = self.ensure_tag(_TAG_NAME)
-            tags = [tag_id]
-        except Exception:
-            logger.warning("Could not create '%s' tag, adding series without tag: %s", _TAG_NAME, title)
-            tags = []
-
+        tag_ids = self._resolve_tag_ids(tag_names, title)
         self._post("/api/v3/series", {
             "title": details.get("title"),
             "tvdbId": tvdb_id,
@@ -146,7 +190,7 @@ class SonarrClient:
             "seasonFolder": True,
             "monitored": True,
             "addOptions": {"searchForMissingEpisodes": True},
-            "tags": tags,
+            "tags": tag_ids,
         })
         logger.info("Added series to Sonarr: %s", title)
         return True

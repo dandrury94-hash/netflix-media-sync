@@ -117,6 +117,44 @@
         </section>
 
         <section class="card">
+            <h2>FlixPatrol settings</h2>
+            <label class="setting-checkbox">
+                <input type="checkbox" name="sources" value="flixpatrol" id="flixpatrolEnabled" {% if 'flixpatrol' in (settings.sources or []) %}checked{% endif %} />
+                FlixPatrol (streaming Top 10)
+            </label>
+            <p class="field-help">Fetches Top 10 Movies and TV Shows per streaming service. Select which services to import before enabling.</p>
+            <div class="setting-divider"></div>
+            <label>Country
+                <select name="flixpatrol_country" id="flixpatrolCountry">
+                    {% for country in flixpatrol_countries %}
+                    <option value="{{ country }}" {% if settings.flixpatrol_country == country %}selected{% endif %}>{{ country }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Cache duration hours
+                <input type="number" name="flixpatrol_cache_hours" value="{{ settings.flixpatrol_cache_hours }}" min="1" max="48" />
+                <p class="field-help">How long to cache FlixPatrol data before re-fetching. FlixPatrol updates daily, so 6–12 h is recommended.</p>
+            </label>
+            <div id="fpCacheStatus" class="fp-cache-status"
+                 data-cached-at="{{ flixpatrol_cache.cached_at or '' }}">
+                {% if flixpatrol_cache.cached_at_fmt %}
+                <p class="field-help">Last fetched: {{ flixpatrol_cache.cached_at_fmt }}{% if flixpatrol_cache.is_stale %} <span class="fp-stale-badge">Stale</span>{% endif %}</p>
+                {% endif %}
+                {% if flixpatrol_cache.error %}
+                <p class="field-help fp-stale-msg">⚠ {{ flixpatrol_cache.error }}</p>
+                {% endif %}
+            </div>
+            <div class="fp-preview-row">
+                <button type="button" class="button button-secondary button-sm" id="fpLoadBtn">Load services</button>
+                <button type="button" class="button button-secondary button-sm" id="fpRefreshBtn">Refresh now</button>
+                <span id="fpLoadStatus" class="test-conn-result"></span>
+            </div>
+            <div id="fpServiceList"
+                 data-saved-services='{{ settings.flixpatrol_services | tojson }}'
+                 data-saved-service-types='{{ (settings.flixpatrol_service_types or {}) | tojson }}'></div>
+        </section>
+
+        <section class="card">
             <h2>Pushover notifications</h2>
             <label class="setting-checkbox">
                 <input type="checkbox" name="pushover_enabled" {% if settings.pushover_enabled %}checked{% endif %} />
@@ -173,11 +211,13 @@
                 <input type="checkbox" name="deletion_enabled" {% if settings.deletion_enabled %}checked{% endif %} />
                 Enable automatic deletion
             </label>
-            <p class="field-help">⚠️ When enabled, titles past their retention date and grace period will be permanently deleted from Radarr / Sonarr including media files. Only titles tagged <code>netflix-sync</code> are affected. Protected titles are never deleted.</p>
-            <label>Grace period days
-                <input type="number" name="grace_period_days" value="{{ settings.grace_period_days }}" />
-                <p class="field-help">Days to wait after the retention date before deleting.</p>
+            <p class="field-help">⚠️ When enabled, titles past their retention date will be permanently deleted from Radarr / Sonarr including media files. Only titles tagged <code>streamarr</code> are affected. A Pushover warning is sent when a title enters the 7-day deletion window. Protected titles are never deleted.</p>
+            <div class="setting-divider"></div>
+            <label class="setting-checkbox">
+                <input type="checkbox" name="simulation_mode" {% if settings.simulation_mode %}checked{% endif %} />
+                Simulation mode (dry-run)
             </label>
+            <p class="field-help">When enabled, syncs fetch and evaluate titles but make no changes to Radarr, Sonarr, or history. Useful for testing configuration before going live.</p>
         </section>
     </div>
 
