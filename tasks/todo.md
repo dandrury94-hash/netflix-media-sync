@@ -4,21 +4,21 @@ Current work tracking. Updated as tasks are completed.
 
 ---
 
-## Current Session — Session H (CHG-046/047/048/049)
+## Current Session — Session I (CHG-050–058)
 
 ### Completed this session
+- [x] P4-1 follow-up — Plex collection sort + remove (CHG-050)
+- [x] P4-1 follow-up — Plex settings save fix (CHG-051)
+- [x] P4-1 follow-up — Service collections for pre-Streamarr items (CHG-052–055)
+- [x] P4-1 follow-up — Streamarr collection includes all service-tagged items (CHG-056)
+- [x] CHG-057 — Batch protection endpoint; CHANGELOG separator cleanup
+- [x] CHG-058 — Verified removal history wiring and netflix source stub removal
+
+### Completed previous session (Session H)
 - [x] T-017 — Cross-card dismiss sync (confirmed already working, no change needed)
 - [x] T-019 — Tautulli filter to tagged items + active watches UI card (CHG-046)
 - [x] T-018 — FlixPatrol ban detection + rate limiting (CHG-047)
 - [x] P4-1 — Plex collections (CHG-049)
-
-### Completed previous session
-- [x] P3-1 — Rank tracking over time (CHG-044/045)
-- [x] T-015 — ID-based library matching / title mismatch fix (CHG-043)
-
-### Completed previous session
-- [x] P2-5 — Simulation / dry-run mode (CHG-042)
-- [x] T-016 — Default poster placeholder (CHG-041)
 
 ---
 
@@ -37,16 +37,22 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 `entry["reason"]` directly. No duplication exists.
 **Guardrail:** Do not move reason logic into `web.py` endpoints or frontend.
 
+### P4-1 — Plex collections
+**Status: Complete.** (CHG-049 through CHG-056)
+- Per-service collections (Netflix, Disney+, Amazon Prime, etc.) in both libraries
+- Main Streamarr collection covers all service-tagged items (root tag OR src tag)
+- Source attribution keyed by tmdbId/tvdbId (not title) — title-mismatch safe
+- Merge loop writes service tags to pre-Streamarr library items
+
 ---
 
-## Backlog — Session H+
+## Backlog
 
-*(empty — ready for once-over pass)*
+*(empty)*
 
 ---
 
 ## On Hold
-- P4-1 — Plex collections
 - P5-1 — Smart retention
 - P6-1 — Policy engine
 
