@@ -62,16 +62,6 @@ No settings change, no persistent state mutation.
 
 ---
 
-### F-002 — Next sync countdown in Status & Actions card
-**Effort: Low**
-
-Surface "Next sync in X min" (or "Overdue") beneath the last sync timestamp. The run interval already exists as `run_interval_seconds` in settings; the last sync timestamp is in SyncLog.
-
-- **`app/web.py`** — add `GET /api/sync-status` endpoint returning `{"last_sync_ts": float | null, "run_interval_seconds": int}` (reads `sync_log.get_last_sync()` for timestamp and `settings.get("run_interval_seconds")` for interval)
-- **`app/static/script.js`** — on page load, fetch `/api/sync-status`; compute `next_sync_ts = last_sync_ts + run_interval_seconds`; display relative time in the Status & Actions card; refresh the display after any manual sync completes
-
-No template changes needed — the display is JS-rendered.
-
 ---
 
 ### F-003 — Title search filter on scheduled removals table
