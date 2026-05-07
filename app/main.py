@@ -7,6 +7,7 @@ from waitress import serve
 
 from app.config import LOG_PATH
 from app.dismissed import DismissedTitles
+from app.rank_tracker import RankTracker
 from app.removal_history import RemovalHistory
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
@@ -156,7 +157,8 @@ def main() -> None:
     sync_log = SyncLog()
     removal_history = RemovalHistory()
     dismissed = DismissedTitles()
-    sync_service = SyncService(settings, sync_log, removal_history, dismissed)
+    rank_tracker = RankTracker()
+    sync_service = SyncService(settings, sync_log, removal_history, dismissed, rank_tracker)
     stop_event = Event()
 
     worker = Thread(target=run_worker, args=(stop_event, sync_service), daemon=True)

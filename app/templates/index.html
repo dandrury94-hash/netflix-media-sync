@@ -93,6 +93,7 @@
 
     {# ── Top 10 — per source ── #}
     {% set top_by_source = (last_sync.get('top_by_source') or {}) if last_sync else {} %}
+    {% set rank_data = (last_sync.get('rank_data') or {}) if last_sync else {} %}
     {% if top_by_source %}
     <div class="services-grid">
         {% for source, types in top_by_source.items() %}
@@ -108,7 +109,9 @@
                     <p class="source-subpanel-label">Movies</p>
                     <ol class="top10-list">
                         {% for title in movies %}
-                        <li class="top10-item" data-title="{{ title | e }}">
+                        {% set rk = rank_data.get(source, {}).get('movie', {}).get(title, {}) %}
+                        <li class="top10-item" data-title="{{ title | e }}"
+                            {% if rk %}data-rank="{{ rk.rank }}" data-prev-rank="{{ rk.previous_rank or '' }}" data-first-seen="{{ rk.first_seen or '' }}"{% endif %}>
                             <span class="top10-title">{{ title }}</span>
                         </li>
                         {% endfor %}
@@ -118,7 +121,9 @@
                     <p class="source-subpanel-label">TV Shows</p>
                     <ol class="top10-list">
                         {% for title in series %}
-                        <li class="top10-item" data-title="{{ title | e }}">
+                        {% set rk = rank_data.get(source, {}).get('series', {}).get(title, {}) %}
+                        <li class="top10-item" data-title="{{ title | e }}"
+                            {% if rk %}data-rank="{{ rk.rank }}" data-prev-rank="{{ rk.previous_rank or '' }}" data-first-seen="{{ rk.first_seen or '' }}"{% endif %}>
                             <span class="top10-title">{{ title }}</span>
                         </li>
                         {% endfor %}
@@ -128,7 +133,9 @@
             {% elif movies %}
             <ol class="top10-list">
                 {% for title in movies %}
-                <li class="top10-item" data-title="{{ title | e }}">
+                {% set rk = rank_data.get(source, {}).get('movie', {}).get(title, {}) %}
+                <li class="top10-item" data-title="{{ title | e }}"
+                    {% if rk %}data-rank="{{ rk.rank }}" data-prev-rank="{{ rk.previous_rank or '' }}" data-first-seen="{{ rk.first_seen or '' }}"{% endif %}>
                     <span class="top10-title">{{ title }}</span>
                 </li>
                 {% endfor %}
@@ -136,7 +143,9 @@
             {% else %}
             <ol class="top10-list">
                 {% for title in series %}
-                <li class="top10-item" data-title="{{ title | e }}">
+                {% set rk = rank_data.get(source, {}).get('series', {}).get(title, {}) %}
+                <li class="top10-item" data-title="{{ title | e }}"
+                    {% if rk %}data-rank="{{ rk.rank }}" data-prev-rank="{{ rk.previous_rank or '' }}" data-first-seen="{{ rk.first_seen or '' }}"{% endif %}>
                     <span class="top10-title">{{ title }}</span>
                 </li>
                 {% endfor %}

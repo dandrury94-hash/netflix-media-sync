@@ -1262,6 +1262,32 @@ body::before {
     margin-bottom: 16px;
 }
 
+/* ── Rank tracking ── */
+.rank-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 28px;
+    text-align: center;
+}
+
+.rank-badge--new {
+    color: rgba(255, 200, 60, 0.9);
+    font-size: 0.6rem;
+    letter-spacing: 0.04em;
+}
+
+.rank-badge--up { color: #4caf50; }
+
+.rank-badge--down { color: rgba(255, 255, 255, 0.25); }
+
+.rank-days {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.25);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
 .sim-badge {
     display: inline-block;
     font-size: 0.65rem;

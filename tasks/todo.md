@@ -7,6 +7,7 @@ Current work tracking. Updated as tasks are completed.
 ## Current Session — Session G (CHG-043)
 
 ### Completed this session
+- [x] P3-1 — Rank tracking over time (CHG-044)
 - [x] T-015 — ID-based library matching / title mismatch fix (CHG-043)
 
 ### Completed previous session
@@ -36,9 +37,44 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 
 ---
 
-## Blocked — Phase 3 (after P1 + P2 complete)
-- P3-1 — Rank tracking over time
+## Backlog — Session H+
 - P3-2 — Cross-source aggregation
+
+### T-017 — Cross-card dismiss sync
+When a title is dismissed in one Top 10 source card, the dismissed state should
+immediately reflect in all other cards showing the same title. Currently the
+dismiss button is applied per-card via `_applyTop10Data()` which reads the
+shared `dismissed.json` store — but the UI only refreshes the card the user
+interacted with. Fix: after a dismiss or undo, call `loadTop10Status()` which
+re-applies to all `.top10-item` elements across all cards.
+
+### T-019 — Tautulli: filter to tagged items only + active watches UI card
+Two parts:
+
+**Part 1 — Filter:** Tautulli currently fetches all recently-watched titles and
+calls `set_last_watched()` for everything. Only titles tagged `streamarr` in
+Radarr/Sonarr are managed by Streamarr — updating `last_watched` for unmanaged
+items is wasted work and could produce misleading retention state if a title
+later gets tagged. Fix: cross-reference the Tautulli result against the
+tagged-items list from Radarr/Sonarr before writing to SyncLog. The tagged
+item lists are already fetched in `_run()` — pass them through or fetch once
+and reuse.
+
+**Part 2 — UI card:** Add a card below the Protection Manager in the Protection
+tab showing Tautulli-watched items (streamarr-tagged titles that have a
+`last_watched` date in SyncLog). Label as "Active watches — retention extended"
+to be precise (Tautulli is not a protection source per D4 — it only extends
+the retention clock). Show title, type, and last watched date. Needs a new
+API endpoint or extension of the existing `/api/media-state` response.
+
+### T-018 — FlixPatrol scrape ban detection and rate limiting
+FlixPatrol occasionally temp-bans scrapers. Need to:
+- Detect ban signals (HTTP 429, 403, or empty/malformed response when content
+  was previously available) and surface them clearly in the UI / logs
+- Consider a per-hour sync cap for FlixPatrol fetches specifically (separate
+  from the global sync interval) so repeated manual syncs don't trigger a ban
+- Possibly expose last FlixPatrol fetch status in the Settings cache status
+  area that already exists (`fpCacheStatus`)
 
 ---
 

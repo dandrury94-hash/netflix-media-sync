@@ -8,6 +8,7 @@ from app.dismissed import DismissedTitles
 from app.netflix_fetcher import fetch_from_sources
 from app.pushover_client import PushoverClient
 from app.radarr_client import RadarrClient
+from app.rank_tracker import RankTracker
 from app.removal_history import RemovalHistory
 from app.settings import SettingsStore
 from app.sonarr_client import SonarrClient
@@ -44,11 +45,13 @@ class SyncService:
         sync_log: SyncLog,
         removal_history: RemovalHistory,
         dismissed: DismissedTitles,
+        rank_tracker: RankTracker,
     ) -> None:
         self.settings = settings
         self.sync_log = sync_log
         self.removal_history = removal_history
         self.dismissed = dismissed
+        self.rank_tracker = rank_tracker
         self.radarr = RadarrClient(settings)
         self.sonarr = SonarrClient(settings)
         self.tautulli = TautulliClient(settings)
@@ -145,6 +148,11 @@ class SyncService:
 
         logger.info("Top movies: %s", netflix_movies)
         logger.info("Top series: %s", netflix_series)
+
+        for source, types in top_by_source.items():
+            for media_type, titles in types.items():
+                self.rank_tracker.update(source, media_type, titles)
+        rank_data = self.rank_tracker.get_all()
 
         tautulli_mode = self.settings.get("tautulli_mode", "disabled")
         protected_titles: list[str] = []
@@ -259,6 +267,7 @@ class SyncService:
             "top_movies": netflix_movies,
             "top_series": netflix_series,
             "top_by_source": top_by_source,
+            "rank_data": rank_data,
             "simulation": simulation_mode,
         }
         if (added_movies or added_series) and not simulation_mode:
