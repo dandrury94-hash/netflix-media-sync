@@ -9,7 +9,7 @@ None in progress.
 
 ---
 
-## Up Next — Session F (CHG-039)
+## Up Next — Session F (CHG-040)
 
 ### Pre-flight checks before starting
 - [ ] Run `git status` — confirm clean working tree
