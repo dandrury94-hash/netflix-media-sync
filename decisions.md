@@ -282,6 +282,31 @@ These caused real production issues previously.
 
 ---
 
+## D16 — When to branch vs. commit directly to master
+
+**Decision:**  
+Branch for a change when any of the following apply:
+- Touches core logic files (`sync_service.py`, `media_state.py`, `config.py`, SyncLog schema)
+- Has a spec or design phase before implementation can begin
+- Risk of regression is non-trivial (multiple files, interconnected logic)
+- Could sit in progress across multiple sessions
+
+Commit directly to master when all of the following are true:
+- Isolated to UI, templates, or static assets with no logic changes
+- Scope is small and the full change lands in one session
+- No risk of leaving master in a broken intermediate state
+- No spec work required — the approach is already clear
+
+**Why:**  
+Feature branches provide isolation for iterative design and protect master from half-finished work. But unnecessary branching adds friction for changes that are clearly scoped and safe.
+
+**Introduced:** CHG-043 planning phase
+
+**Tiebreaker:**  
+If the change requires a spec phase before code can be written, always branch.
+
+---
+
 ## Future Clarifications (Open Questions)
 
 These are intentionally unresolved:

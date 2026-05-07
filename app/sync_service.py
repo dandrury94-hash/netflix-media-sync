@@ -55,6 +55,29 @@ class SyncService:
         self.pushover = PushoverClient(settings)
         self._lock = threading.Lock()
 
+    def _lookup_in_library(
+        self,
+        title: str,
+        title_cache: dict,
+        id_cache: dict,
+        lookup_fn,
+        id_field: str,
+        service: str,
+    ) -> dict | None:
+        entry = title_cache.get(title.lower())
+        if entry and entry.get("id"):
+            return entry
+        details = lookup_fn(title)
+        if details is None:
+            logger.warning("[id-match] No %s result for '%s' — treating as new", service, title)
+            return None
+        if details.get("id"):
+            return details
+        ext_id = details.get(id_field)
+        if ext_id:
+            return id_cache.get(ext_id)
+        return None
+
     def run_once(self) -> dict:
         with self._lock:
             _start = time.monotonic()
@@ -139,9 +162,12 @@ class SyncService:
         already_in_radarr: list[str] = []
         radarr_mode = self.settings.get("radarr_mode", "disabled")
         radarr_cache: dict = {}
+        radarr_tmdb_cache: dict = {}
         if radarr_mode != "disabled":
             _t = time.monotonic()
-            radarr_cache = {m["title"].lower(): m for m in self.radarr.get_all_movies()}
+            _radarr_all = self.radarr.get_all_movies()
+            radarr_cache = {m["title"].lower(): m for m in _radarr_all}
+            radarr_tmdb_cache = {m["tmdbId"]: m for m in _radarr_all if m.get("tmdbId")}
             logger.info("[timing] radarr_bulk_fetch: %.1fs (%d records)", time.monotonic() - _t, len(radarr_cache))
 
         if radarr_mode == "enabled" and not simulation_mode:
@@ -157,16 +183,16 @@ class SyncService:
             for item in movie_items:
                 if self.dismissed.is_dismissed(item["title"]):
                     continue
-                cached = radarr_cache.get(item["title"].lower())
-                if cached and cached.get("id"):
+                rec = self._lookup_in_library(item["title"], radarr_cache, radarr_tmdb_cache, self.radarr.lookup_movie, "tmdbId", "Radarr")
+                if rec and rec.get("id"):
                     already_in_radarr.append(item["title"])
                 else:
                     would_add_movies.append(item["title"])
             logger.info("[sim] Radarr would add: %s, already exists: %s", would_add_movies, already_in_radarr)
         elif radarr_mode == "read":
             for title in netflix_movies:
-                cached = radarr_cache.get(title.lower())
-                if cached and cached.get("id"):
+                rec = self._lookup_in_library(title, radarr_cache, radarr_tmdb_cache, self.radarr.lookup_movie, "tmdbId", "Radarr")
+                if rec and rec.get("id"):
                     already_in_radarr.append(title)
                 else:
                     would_add_movies.append(title)
@@ -179,9 +205,12 @@ class SyncService:
         already_in_sonarr: list[str] = []
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
         sonarr_cache: dict = {}
+        sonarr_tvdb_cache: dict = {}
         if sonarr_mode != "disabled":
             _t = time.monotonic()
-            sonarr_cache = {s["title"].lower(): s for s in self.sonarr.get_all_series()}
+            _sonarr_all = self.sonarr.get_all_series()
+            sonarr_cache = {s["title"].lower(): s for s in _sonarr_all}
+            sonarr_tvdb_cache = {s["tvdbId"]: s for s in _sonarr_all if s.get("tvdbId")}
             logger.info("[timing] sonarr_bulk_fetch: %.1fs (%d records)", time.monotonic() - _t, len(sonarr_cache))
 
         if sonarr_mode == "enabled" and not simulation_mode:
@@ -197,16 +226,16 @@ class SyncService:
             for item in series_items:
                 if self.dismissed.is_dismissed(item["title"]):
                     continue
-                cached = sonarr_cache.get(item["title"].lower())
-                if cached and cached.get("id"):
+                rec = self._lookup_in_library(item["title"], sonarr_cache, sonarr_tvdb_cache, self.sonarr.lookup_series, "tvdbId", "Sonarr")
+                if rec and rec.get("id"):
                     already_in_sonarr.append(item["title"])
                 else:
                     would_add_series.append(item["title"])
             logger.info("[sim] Sonarr would add: %s, already exists: %s", would_add_series, already_in_sonarr)
         elif sonarr_mode == "read":
             for title in netflix_series:
-                cached = sonarr_cache.get(title.lower())
-                if cached and cached.get("id"):
+                rec = self._lookup_in_library(title, sonarr_cache, sonarr_tvdb_cache, self.sonarr.lookup_series, "tvdbId", "Sonarr")
+                if rec and rec.get("id"):
                     already_in_sonarr.append(title)
                 else:
                     would_add_series.append(title)
@@ -397,22 +426,28 @@ class SyncService:
         radarr_mode = self.settings.get("radarr_mode", "disabled")
         sonarr_mode = self.settings.get("sonarr_mode", "disabled")
 
+        radarr_tmdb_cache: dict = {}
         if movie_entries and radarr_mode != "disabled":
             try:
-                all_movies = {m["title"].lower(): m for m in self.radarr.get_all_movies()}
+                _radarr_all = self.radarr.get_all_movies()
+                all_movies = {m["title"].lower(): m for m in _radarr_all}
+                radarr_tmdb_cache = {m["tmdbId"]: m for m in _radarr_all if m.get("tmdbId")}
             except Exception:
                 logger.warning("Dismissal: failed to fetch Radarr library", exc_info=True)
 
+        sonarr_tvdb_cache: dict = {}
         if series_entries and sonarr_mode != "disabled":
             try:
-                all_series = {s["title"].lower(): s for s in self.sonarr.get_all_series()}
+                _sonarr_all = self.sonarr.get_all_series()
+                all_series = {s["title"].lower(): s for s in _sonarr_all}
+                sonarr_tvdb_cache = {s["tvdbId"]: s for s in _sonarr_all if s.get("tvdbId")}
             except Exception:
                 logger.warning("Dismissal: failed to fetch Sonarr library", exc_info=True)
 
         for entry in movie_entries:
             title = entry["title"]
             try:
-                rec = all_movies.get(title.lower())
+                rec = self._lookup_in_library(title, all_movies, radarr_tmdb_cache, self.radarr.lookup_movie, "tmdbId", "Radarr")
                 if rec and rec.get("id") and self.radarr.delete_movie(rec["id"]):
                     deleted_movies.append(title)
                     was_watched = last_watched_all.get(title) is not None
@@ -426,7 +461,7 @@ class SyncService:
         for entry in series_entries:
             title = entry["title"]
             try:
-                rec = all_series.get(title.lower())
+                rec = self._lookup_in_library(title, all_series, sonarr_tvdb_cache, self.sonarr.lookup_series, "tvdbId", "Sonarr")
                 if rec and rec.get("id") and self.sonarr.delete_series(rec["id"]):
                     deleted_series.append(title)
                     was_watched = last_watched_all.get(title) is not None
