@@ -1250,3 +1250,28 @@ body::before {
     color: #f0b429;
     margin-top: 4px;
 }
+
+/* ── Simulation mode ── */
+.sim-mode-banner {
+    background: rgba(255, 180, 0, 0.07);
+    border: 1px solid rgba(255, 180, 0, 0.25);
+    border-radius: 6px;
+    color: rgba(255, 200, 60, 0.9);
+    font-size: 0.83rem;
+    padding: 9px 14px;
+    margin-bottom: 16px;
+}
+
+.sim-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(255, 180, 0, 0.15);
+    color: rgba(255, 200, 60, 0.85);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 4px;
+    vertical-align: middle;
+}

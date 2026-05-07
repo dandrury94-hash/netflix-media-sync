@@ -232,6 +232,7 @@ def create_app(
             "flixpatrol_services": fp_services,
             "flixpatrol_service_types": fp_service_types,
             "flixpatrol_cache_hours": safe_int(payload.get("flixpatrol_cache_hours"), 6),
+            "simulation_mode": to_bool(payload.get("simulation_mode")),
         }
         settings.update(normalized)
         return jsonify({"status": "saved"})

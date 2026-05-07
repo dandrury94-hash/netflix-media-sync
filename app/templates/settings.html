@@ -212,6 +212,12 @@
                 Enable automatic deletion
             </label>
             <p class="field-help">⚠️ When enabled, titles past their retention date will be permanently deleted from Radarr / Sonarr including media files. Only titles tagged <code>streamarr</code> are affected. A Pushover warning is sent when a title enters the 7-day deletion window. Protected titles are never deleted.</p>
+            <div class="setting-divider"></div>
+            <label class="setting-checkbox">
+                <input type="checkbox" name="simulation_mode" {% if settings.simulation_mode %}checked{% endif %} />
+                Simulation mode (dry-run)
+            </label>
+            <p class="field-help">When enabled, syncs fetch and evaluate titles but make no changes to Radarr, Sonarr, or history. Useful for testing configuration before going live.</p>
         </section>
     </div>
 

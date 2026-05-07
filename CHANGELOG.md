@@ -4,6 +4,33 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-042 — 2026-05-07 — P2-5: Simulation / dry-run mode
+
+### Additions
+- **`app/config.py`** — `simulation_mode: False` added to `DEFAULT_SETTINGS`
+- **`app/sync_service.py`** — simulation mode guard throughout:
+  - `_run()`: when `simulation_mode` is true and `radarr_mode`/`sonarr_mode` is
+    `"enabled"`, evaluates the title list against the library cache and populates
+    `would_add_movies` / `would_add_series` without calling `add_movie()`,
+    `add_series()`, or `sync_log.log_add()`; Tautulli `set_last_watched()` is also
+    skipped; Pushover add notification is suppressed; `"simulation": true` included
+    in result dict
+  - `run_deletions()`: adds `would_delete_movies` / `would_delete_series` lists;
+    skips `delete_movie()`, `delete_series()`, `log_removal()`,
+    `mark_pre_deletion_notified()`, `clear_pre_deletion_notified()`, and all
+    Pushover sends when simulation mode is active; logs `[sim]` lines instead
+  - `run_dismissal_deletions()`: returns early with empty result in simulation mode
+- **`app/web.py`** — `post_settings()`: `simulation_mode` added to normalized dict
+- **`app/templates/settings.html`** — simulation mode checkbox in Retention & sync section
+- **`app/templates/index.html`** — amber banner shown at top of Dashboard tab when
+  simulation mode is active; sync stat labels switch to "to add (sim)" when
+  `radarr_mode`/`sonarr_mode` is `enabled` and simulation mode is on
+- **`app/static/style.css`** — `.sim-mode-banner` (amber border, dark amber bg) and
+  `.sim-badge` (inline amber label tag) styles
+- **`app/templates/base.html`** — CSS version bumped to `?v=042`
+
+---
+
 ## CHG-041 — 2026-05-07 — T-016: Default poster placeholder for unresolved titles
 
 ### Additions

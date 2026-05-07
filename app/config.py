@@ -39,6 +39,7 @@ DEFAULT_SETTINGS = {
     "flixpatrol_services": [],
     "flixpatrol_service_types": {},
     "flixpatrol_cache_hours": 6,
+    "simulation_mode": False,
 }
 
 ENV_VAR_TO_SETTING = {

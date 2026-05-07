@@ -7,6 +7,9 @@
 
 {# ── Dashboard tab ── #}
 <div id="tab-dashboard" class="tab-panel active">
+{% if settings.simulation_mode %}
+<div class="sim-mode-banner">Simulation mode active — syncs fetch and evaluate but make no changes to Radarr, Sonarr, or history</div>
+{% endif %}
 <div class="grid">
 
     {# ── Status & Actions ── #}
@@ -38,10 +41,16 @@
                 </div>
                 {% set radarr_mode = settings.radarr_mode %}
                 {% set sonarr_mode = settings.sonarr_mode %}
+                {% set sim = settings.simulation_mode %}
                 {% if radarr_mode == 'enabled' %}
                 <div class="sync-stat">
+                    {% if sim %}
+                    <span>Movies to add <span class="sim-badge">sim</span></span>
+                    <span class="sync-count">{{ (last_sync.get('would_add_movies') or []) | length if last_sync else 0 }}</span>
+                    {% else %}
                     <span>Movies Added</span>
                     <span class="sync-count">{{ (last_sync.get('added_movies') or []) | length if last_sync else 0 }}</span>
+                    {% endif %}
                 </div>
                 {% elif radarr_mode == 'read' %}
                 <div class="sync-stat">
@@ -51,8 +60,13 @@
                 {% endif %}
                 {% if sonarr_mode == 'enabled' %}
                 <div class="sync-stat">
+                    {% if sim %}
+                    <span>Series to add <span class="sim-badge">sim</span></span>
+                    <span class="sync-count">{{ (last_sync.get('would_add_series') or []) | length if last_sync else 0 }}</span>
+                    {% else %}
                     <span>Series Added</span>
                     <span class="sync-count">{{ (last_sync.get('added_series') or []) | length if last_sync else 0 }}</span>
+                    {% endif %}
                 </div>
                 {% elif sonarr_mode == 'read' %}
                 <div class="sync-stat">

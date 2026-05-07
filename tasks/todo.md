@@ -4,11 +4,11 @@ Current work tracking. Updated as tasks are completed.
 
 ---
 
-## Current Session — Session F (CHG-041)
+## Current Session — Session F (CHG-042)
 
-### In progress
-- [ ] P2-5 — Simulation / dry-run mode
-- [ ] T-016 — Default poster placeholder
+### Completed this session
+- [x] P2-5 — Simulation / dry-run mode (CHG-042)
+- [x] T-016 — Default poster placeholder (CHG-041)
 
 ---
 
@@ -30,27 +30,6 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 ---
 
 ## Backlog — Session G+
-### P2-5 — Simulation / dry-run mode
-- [ ] New `simulation_mode` setting (bool, default false)
-- [ ] When enabled: fetch + evaluate + log what would happen
-- [ ] No writes to Radarr/Sonarr/SyncLog in simulation mode
-- [ ] UI indicator when simulation mode is active
-
-### T-016 — Default poster placeholder for unresolved titles
-
-**Context:** When a Top 10 title has no poster (not in library, not found via
-Radarr/Sonarr lookup, or not yet indexed in TMDB/TVDb), the poster area is
-blank. This looks broken, especially for new/promotional Disney+ content.
-
-**Desired outcome:** Show a styled placeholder in the poster slot when
-`poster === null` — e.g. a dark card with "TBA" or "Coming Soon" text, using
-the same 36×54px dimensions as the poster thumbnail. Pure CSS/SVG solution
-preferred — no external image dependency.
-
-- [ ] Design placeholder (CSS-only or inline SVG)
-- [ ] Apply in `script.js` `_applyTop10Data()` when `poster` is null
-- [ ] Ensure it degrades gracefully if the item later gets a poster on re-fetch
-
 ### T-015 — ID-based title matching (Radarr/Sonarr)
 
 **Context:** Library lookups currently use exact lowercased title matching

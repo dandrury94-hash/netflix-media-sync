@@ -92,6 +92,9 @@ class SyncService:
             flixpatrol_service_types = {}
         flixpatrol_cache_hours = int(self.settings.get("flixpatrol_cache_hours", 6))
 
+        simulation_mode = self.settings.get("simulation_mode", False)
+        if simulation_mode:
+            logger.info("[sim] Simulation mode active — no writes will be made")
         logger.info("Fetching top titles from sources: %s (countries: %s)", sources, countries or ["global"])
         _t = time.monotonic()
         trending = fetch_from_sources(
@@ -127,8 +130,9 @@ class SyncService:
             protected_titles = list(self.tautulli.fetch_protected_titles())
             logger.info("[timing] tautulli_fetch: %.1fs", time.monotonic() - _t)
             today_iso = datetime.date.today().isoformat()
-            for title in protected_titles:
-                self.sync_log.set_last_watched(title, today_iso)
+            if not simulation_mode:
+                for title in protected_titles:
+                    self.sync_log.set_last_watched(title, today_iso)
 
         added_movies: list[str] = []
         would_add_movies: list[str] = []
@@ -140,7 +144,7 @@ class SyncService:
             radarr_cache = {m["title"].lower(): m for m in self.radarr.get_all_movies()}
             logger.info("[timing] radarr_bulk_fetch: %.1fs (%d records)", time.monotonic() - _t, len(radarr_cache))
 
-        if radarr_mode == "enabled":
+        if radarr_mode == "enabled" and not simulation_mode:
             _t = time.monotonic()
             for item in movie_items:
                 if self.dismissed.is_dismissed(item["title"]):
@@ -149,6 +153,16 @@ class SyncService:
                     added_movies.append(item["title"])
                     self.sync_log.log_add(item["title"], "movie", item["sources"])
             logger.info("[timing] radarr_add_loop: %.1fs", time.monotonic() - _t)
+        elif radarr_mode == "enabled" and simulation_mode:
+            for item in movie_items:
+                if self.dismissed.is_dismissed(item["title"]):
+                    continue
+                cached = radarr_cache.get(item["title"].lower())
+                if cached and cached.get("id"):
+                    already_in_radarr.append(item["title"])
+                else:
+                    would_add_movies.append(item["title"])
+            logger.info("[sim] Radarr would add: %s, already exists: %s", would_add_movies, already_in_radarr)
         elif radarr_mode == "read":
             for title in netflix_movies:
                 cached = radarr_cache.get(title.lower())
@@ -170,7 +184,7 @@ class SyncService:
             sonarr_cache = {s["title"].lower(): s for s in self.sonarr.get_all_series()}
             logger.info("[timing] sonarr_bulk_fetch: %.1fs (%d records)", time.monotonic() - _t, len(sonarr_cache))
 
-        if sonarr_mode == "enabled":
+        if sonarr_mode == "enabled" and not simulation_mode:
             _t = time.monotonic()
             for item in series_items:
                 if self.dismissed.is_dismissed(item["title"]):
@@ -179,6 +193,16 @@ class SyncService:
                     added_series.append(item["title"])
                     self.sync_log.log_add(item["title"], "series", item["sources"])
             logger.info("[timing] sonarr_add_loop: %.1fs", time.monotonic() - _t)
+        elif sonarr_mode == "enabled" and simulation_mode:
+            for item in series_items:
+                if self.dismissed.is_dismissed(item["title"]):
+                    continue
+                cached = sonarr_cache.get(item["title"].lower())
+                if cached and cached.get("id"):
+                    already_in_sonarr.append(item["title"])
+                else:
+                    would_add_series.append(item["title"])
+            logger.info("[sim] Sonarr would add: %s, already exists: %s", would_add_series, already_in_sonarr)
         elif sonarr_mode == "read":
             for title in netflix_series:
                 cached = sonarr_cache.get(title.lower())
@@ -206,16 +230,20 @@ class SyncService:
             "top_movies": netflix_movies,
             "top_series": netflix_series,
             "top_by_source": top_by_source,
+            "simulation": simulation_mode,
         }
-        if added_movies or added_series:
+        if (added_movies or added_series) and not simulation_mode:
             lines = [f"🎬 {t}" for t in added_movies] + [f"📺 {t}" for t in added_series]
             self.pushover.send("Streamarr — Added", "\n".join(lines))
+        elif simulation_mode and (would_add_movies or would_add_series):
+            logger.info("[sim] Would notify Pushover: %d movies, %d series to add", len(would_add_movies), len(would_add_series))
 
         return result
 
     def run_deletions(self) -> dict:
+        simulation_mode = self.settings.get("simulation_mode", False)
         if not self.settings.get("deletion_enabled", False):
-            return {"deleted_movies": [], "deleted_series": []}
+            return {"deleted_movies": [], "deleted_series": [], "would_delete_movies": [], "would_delete_series": []}
 
         movie_retention = int(self.settings.get("movie_retention_days", 30))
         series_retention = int(self.settings.get("series_retention_days", 30))
@@ -225,6 +253,8 @@ class SyncService:
         today = datetime.date.today()
         deleted_movies: list[str] = []
         deleted_series: list[str] = []
+        would_delete_movies: list[str] = []
+        would_delete_series: list[str] = []
         pre_deletion_warnings: list[str] = []
 
         # Deletion eligibility is determined solely by the presence of the streamarr tag.
@@ -258,13 +288,17 @@ class SyncService:
 
                 if 0 < days_remaining <= 7 and title not in pre_notified:
                     pre_deletion_warnings.append(f"🎬 {title} ({days_remaining}d)")
-                    self.sync_log.mark_pre_deletion_notified(title)
+                    if not simulation_mode:
+                        self.sync_log.mark_pre_deletion_notified(title)
 
                 if days_remaining > 0:
                     continue
 
                 was_watched = last_watched_all.get(title) is not None
-                if self.radarr.delete_movie(movie_id):
+                if simulation_mode:
+                    would_delete_movies.append(title)
+                    logger.info("[sim] Would delete movie: %s", title)
+                elif self.radarr.delete_movie(movie_id):
                     deleted_movies.append(title)
                     self.removal_history.log_removal(title, "movie", reason="retention", was_watched=was_watched)
                     self.sync_log.clear_pre_deletion_notified(title)
@@ -298,34 +332,54 @@ class SyncService:
 
                 if 0 < days_remaining <= 7 and title not in pre_notified:
                     pre_deletion_warnings.append(f"📺 {title} ({days_remaining}d)")
-                    self.sync_log.mark_pre_deletion_notified(title)
+                    if not simulation_mode:
+                        self.sync_log.mark_pre_deletion_notified(title)
 
                 if days_remaining > 0:
                     continue
 
                 was_watched = last_watched_all.get(title) is not None
-                if self.sonarr.delete_series(series_id):
+                if simulation_mode:
+                    would_delete_series.append(title)
+                    logger.info("[sim] Would delete series: %s", title)
+                elif self.sonarr.delete_series(series_id):
                     deleted_series.append(title)
                     self.removal_history.log_removal(title, "series", reason="retention", was_watched=was_watched)
                     self.sync_log.clear_pre_deletion_notified(title)
                     self.pushover.send("Streamarr — Deleted", f"📺 {title}")
 
-        if pre_deletion_warnings:
+        if pre_deletion_warnings and not simulation_mode:
             self.pushover.send(
                 "Streamarr — Deletion warning",
                 "Titles due for removal soon:\n" + "\n".join(pre_deletion_warnings),
             )
+        elif pre_deletion_warnings and simulation_mode:
+            logger.info("[sim] Would send pre-deletion warning for: %s", pre_deletion_warnings)
 
-        if deleted_movies or deleted_series:
+        if simulation_mode and (would_delete_movies or would_delete_series):
+            logger.info(
+                "[sim] Would delete — movies: %s, series: %s",
+                would_delete_movies,
+                would_delete_series,
+            )
+        elif deleted_movies or deleted_series:
             logger.info(
                 "Deletions complete — movies: %s, series: %s",
                 deleted_movies,
                 deleted_series,
             )
 
-        return {"deleted_movies": deleted_movies, "deleted_series": deleted_series}
+        return {
+            "deleted_movies": deleted_movies,
+            "deleted_series": deleted_series,
+            "would_delete_movies": would_delete_movies,
+            "would_delete_series": would_delete_series,
+        }
 
     def run_dismissal_deletions(self) -> dict:
+        if self.settings.get("simulation_mode", False):
+            logger.info("[sim] Skipping dismissal deletions in simulation mode")
+            return {"dismissed_deleted_movies": [], "dismissed_deleted_series": []}
         pending = self.dismissed.get_pending_deletion()
         if not pending:
             return {"dismissed_deleted_movies": [], "dismissed_deleted_series": []}
