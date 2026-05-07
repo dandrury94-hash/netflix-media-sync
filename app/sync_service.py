@@ -160,10 +160,6 @@ class SyncService:
             _t = time.monotonic()
             protected_titles = list(self.tautulli.fetch_protected_titles())
             logger.info("[timing] tautulli_fetch: %.1fs", time.monotonic() - _t)
-            today_iso = datetime.date.today().isoformat()
-            if not simulation_mode:
-                for title in protected_titles:
-                    self.sync_log.set_last_watched(title, today_iso)
 
         added_movies: list[str] = []
         would_add_movies: list[str] = []
@@ -252,7 +248,16 @@ class SyncService:
             logger.info("Sonarr mode is %s, skipping series import", sonarr_mode)
 
         if tautulli_mode in ("read", "enabled"):
-            logger.info("Tautulli %s — protected media count: %d", tautulli_mode, len(protected_titles))
+            today_iso = datetime.date.today().isoformat()
+            watched_count = 0
+            if not simulation_mode:
+                for title in protected_titles:
+                    if title.lower() in radarr_cache or title.lower() in sonarr_cache:
+                        self.sync_log.set_last_watched(title, today_iso)
+                        watched_count += 1
+                    else:
+                        logger.debug("Tautulli: skipping unmanaged title: %s", title)
+            logger.info("Tautulli %s — updated last_watched for %d/%d titles (filtered to library)", tautulli_mode, watched_count, len(protected_titles))
         else:
             logger.info("Tautulli disabled, skipping protection check")
 

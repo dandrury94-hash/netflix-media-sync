@@ -4,6 +4,32 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-046 — 2026-05-07 — T-017/T-019: Dismiss sync + Tautulli accuracy + active watches
+
+### Fixes
+- **T-017** — Cross-card dismiss sync: already working via existing
+  `loadTop10Status()` call in dismiss/undo handlers — confirmed resolved,
+  no code change required
+- **T-019 Part 1** — `app/sync_service.py`: `set_last_watched()` now only
+  called for Tautulli-watched titles that are present in the Radarr or
+  Sonarr library cache; unmanaged titles are skipped with a debug log;
+  filtered count logged as `updated last_watched for N/M titles`
+
+### Additions
+- **T-019 Part 2** — `app/web.py`: `/api/active-watches` endpoint returns
+  `last_watched` entries filtered to streamarr-tagged titles only (uses
+  `get_tagged_movies()` / `get_tagged_series()`)
+- **`app/templates/index.html`** — "Active watches — retention extended"
+  card added to Protection tab below Protection Manager; loads via async
+  JS call on tab render
+- **`app/static/script.js`** — `loadActiveWatches()` and
+  `renderActiveWatches()` functions; renders a table of title / type /
+  last watched date
+- **`app/static/style.css`** — `.prot-subtitle` muted inline label style
+- **`app/templates/base.html`** — CSS version bumped to `?v=046`
+
+---
+
 ## CHG-045 — 2026-05-07 — Rank tracking: NEW badge persists for 48 hours
 
 ### Fixes
