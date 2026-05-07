@@ -4,18 +4,11 @@ Current work tracking. Updated as tasks are completed.
 
 ---
 
-## Current Session
-None in progress.
+## Current Session — Session F (CHG-041)
 
----
-
-## Up Next — Session F (CHG-040)
-
-### Pre-flight checks before starting
-- [ ] Run `git status` — confirm clean working tree
-- [ ] Run `git branch` — confirm on feature/flixpatrol-integration
-- [ ] Grep CHANGELOG.md for last CHG number — confirm next is CHG-040
-- [ ] Read all CLAUDE.md files before writing any code
+### In progress
+- [ ] P2-5 — Simulation / dry-run mode
+- [ ] T-016 — Default poster placeholder
 
 ---
 
@@ -36,7 +29,7 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 
 ---
 
-## Backlog — Session F (CHG-040)
+## Backlog — Session G+
 ### P2-5 — Simulation / dry-run mode
 - [ ] New `simulation_mode` setting (bool, default false)
 - [ ] When enabled: fetch + evaluate + log what would happen
@@ -75,16 +68,6 @@ title. Needs spec before implementation — to be fleshed out in a future sessio
 - [ ] Spec: how IDs are stored (SyncLog entry? in-memory only?)
 - [ ] Spec: impact on sync service, status endpoint, removal history
 
-### Repo hygiene (low-priority, batch into one commit)
-- [ ] T-012 — Remove `config/manual_overrides.json` if it still exists on disk;
-      confirm no remaining codebase references (CHG-034 removed the Python module
-      but the runtime JSON may still be present)
-- [ ] T-013 — Verify `__pycache__/` is in `.gitignore`; add if missing
-- [ ] T-014 — Remove `streamarrtree.txt` from repo root (non-production artifact;
-      confirm no references before deleting)
-- [ ] T-010 — Add a minimal smoke-test for `sources` list integrity in
-      `fetch_from_sources()` output (assert all items have `sources` as a
-      non-empty list); requires deciding on a test runner first
 
 ---
 
@@ -102,6 +85,12 @@ title. Needs spec before implementation — to be fleshed out in a future sessio
 ---
 
 ## Completed
+
+### Session F hygiene (CHG-040)
+- [x] T-012 — `config/manual_overrides.json` deleted; stale `.gitignore` entry removed
+- [x] T-013 — `__pycache__/` confirmed in `.gitignore`
+- [x] T-014 — `streamarrtree.txt` confirmed absent from repo
+- [x] T-010 — 3 smoke tests added in `tests/test_netflix_fetcher.py` (pytest, all passing)
 
 ### Session E (CHG-038)
 - [x] Fix `run_weekly_preview` tautulli_protected regression
