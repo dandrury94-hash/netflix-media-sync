@@ -403,7 +403,8 @@ def create_app(
                 poster = _extract_poster(rec.get("images", []))
             else:
                 status = "will_add"
-                poster = None
+                lookup = sync_service.radarr.lookup_movie(title)
+                poster = _extract_poster(lookup.get("images", [])) if lookup else None
             movie_statuses[title] = {"status": status, "poster": poster, "type": "movie", "dismissed": is_dismissed, "undo_until": undo_until}
 
         series_statuses: dict[str, dict] = {}
@@ -419,7 +420,8 @@ def create_app(
                 poster = _extract_poster(rec.get("images", []))
             else:
                 status = "will_add"
-                poster = None
+                lookup = sync_service.sonarr.lookup_series(title)
+                poster = _extract_poster(lookup.get("images", [])) if lookup else None
             series_statuses[title] = {"status": status, "poster": poster, "type": "series", "dismissed": is_dismissed, "undo_until": undo_until}
 
         return jsonify({"movies": movie_statuses, "series": series_statuses})

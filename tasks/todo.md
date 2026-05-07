@@ -14,7 +14,7 @@ None in progress.
 ### Pre-flight checks before starting
 - [ ] Run `git status` — confirm clean working tree
 - [ ] Run `git branch` — confirm on feature/flixpatrol-integration
-- [ ] Grep CHANGELOG.md for last CHG number — confirm next is CHG-039
+- [ ] Grep CHANGELOG.md for last CHG number — confirm next is CHG-040
 - [ ] Read all CLAUDE.md files before writing any code
 
 ---
@@ -36,12 +36,44 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 
 ---
 
-## Backlog — Session F (CHG-039)
+## Backlog — Session F (CHG-040)
 ### P2-5 — Simulation / dry-run mode
 - [ ] New `simulation_mode` setting (bool, default false)
 - [ ] When enabled: fetch + evaluate + log what would happen
 - [ ] No writes to Radarr/Sonarr/SyncLog in simulation mode
 - [ ] UI indicator when simulation mode is active
+
+### T-016 — Default poster placeholder for unresolved titles
+
+**Context:** When a Top 10 title has no poster (not in library, not found via
+Radarr/Sonarr lookup, or not yet indexed in TMDB/TVDb), the poster area is
+blank. This looks broken, especially for new/promotional Disney+ content.
+
+**Desired outcome:** Show a styled placeholder in the poster slot when
+`poster === null` — e.g. a dark card with "TBA" or "Coming Soon" text, using
+the same 36×54px dimensions as the poster thumbnail. Pure CSS/SVG solution
+preferred — no external image dependency.
+
+- [ ] Design placeholder (CSS-only or inline SVG)
+- [ ] Apply in `script.js` `_applyTop10Data()` when `poster` is null
+- [ ] Ensure it degrades gracefully if the item later gets a poster on re-fetch
+
+### T-015 — ID-based title matching (Radarr/Sonarr)
+
+**Context:** Library lookups currently use exact lowercased title matching
+(`movie_lib.get(title.lower())`). This breaks when the Top 10 source and the
+Radarr/Sonarr library title differ slightly (e.g. `"Run, Fatboy, Run"` vs
+`"Run Fatboy Run"`). The poster lookup workaround (CHG-038) gets posters for
+missing titles but the status still shows `will_add` for items already in the
+library under a different name. The sync service also uses title matching to
+determine "already in library", so mismatched titles could be re-added.
+
+**Desired outcome:** Match by TMDB ID (movies) / TVDb ID (series) instead of
+title. Needs spec before implementation — to be fleshed out in a future session.
+
+- [ ] Spec: where IDs come from (lookup at add-time vs fetched from library)
+- [ ] Spec: how IDs are stored (SyncLog entry? in-memory only?)
+- [ ] Spec: impact on sync service, status endpoint, removal history
 
 ### Repo hygiene (low-priority, batch into one commit)
 - [ ] T-012 — Remove `config/manual_overrides.json` if it still exists on disk;

@@ -4,6 +4,25 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-039 — 2026-05-07 — Poster lookup fallback for unresolved Top 10 titles
+
+### Fixes
+- **`app/web.py`** — `top10_status()`: titles not found in the Radarr/Sonarr library
+  now fall back to `lookup_movie(title)` / `lookup_series(title)` to fetch a poster
+  from the Radarr/Sonarr TMDB/TVDb index; poster is extracted from the lookup result's
+  `images` array using the existing `_extract_poster()` helper; status remains
+  `will_add`; lookup is bounded to at most 10 titles per service so it is not an
+  unbounded N+1 pattern; titles with no TMDB/TVDb entry (promotional content, very
+  new releases) correctly return `null` poster
+
+### Backlog additions
+- **`tasks/todo.md`** — T-016: default placeholder poster for unresolved titles
+- **`tasks/todo.md`** — T-015: ID-based title matching (Radarr/Sonarr) to replace
+  exact lowercase title lookups; fixes status misclassification for library items
+  whose titles differ slightly from the Top 10 source title
+
+---
+
 ## CHG-038 — 2026-05-07 — CHG-037 regression fix + P3-0: Top 10 item dismissal
 
 ### Fixes
