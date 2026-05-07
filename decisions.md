@@ -307,6 +307,39 @@ If the change requires a spec phase before code can be written, always branch.
 
 ---
 
+## D17 — External signals stored under canonical library title
+
+**Decision:**
+Any external signal written to SyncLog (e.g. `last_watched`) must use the Radarr/Sonarr title as the key, not the title returned by the external service.
+
+**Why:**
+Tautulli (and other external services) may return titles with slightly different casing. If the external title is stored directly, lookups by Radarr/Sonarr title silently miss the record and the signal is lost.
+
+**Introduced:** CHG-048 (audit fix — Tautulli last_watched key)
+
+**Implications:**
+- Before writing to SyncLog, resolve the library canonical title from the Radarr/Sonarr cache
+- Use `cache[title.lower()]["title"]` to get the canonical form
+- Applies to any future external signal (not just last_watched)
+
+---
+
+## D18 — Retention date calculation must mirror build_media_state
+
+**Decision:**
+Any code that computes a removal date outside `build_media_state` must use the same fallback chain: SyncLog `date_added` → Radarr/Sonarr API `added` field → today.
+
+**Why:**
+`run_weekly_preview` previously defaulted to `today` when SyncLog had no entry, while `build_media_state` first tried the API `added` field. This caused the weekly Pushover preview to show different removal dates than the dashboard.
+
+**Introduced:** CHG-048 (audit fix — weekly preview date fallback)
+
+**Implications:**
+- If duplicating date resolution logic outside `build_media_state`, always include the API fallback
+- Prefer calling `build_media_state` directly where possible to avoid divergence
+
+---
+
 ## Future Clarifications (Open Questions)
 
 These are intentionally unresolved:
