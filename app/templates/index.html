@@ -39,6 +39,10 @@
                     <span style="color:var(--muted)">—</span>
                     {% endif %}
                 </div>
+                <div class="sync-stat">
+                    <span>Next sync</span>
+                    <span id="nextSyncDisplay" style="color:var(--muted)">—</span>
+                </div>
                 {% set radarr_mode = settings.radarr_mode %}
                 {% set sonarr_mode = settings.sonarr_mode %}
                 {% set sim = settings.simulation_mode %}

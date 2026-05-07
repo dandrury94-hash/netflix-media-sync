@@ -53,8 +53,10 @@ class SyncLog:
 
     def set_last_sync(self, result: dict) -> None:
         with self._lock:
+            now = datetime.datetime.now()
             self._data["last_sync"] = {
-                "timestamp": datetime.datetime.now().strftime("%H:%M %d/%m/%Y"),
+                "timestamp": now.strftime("%H:%M %d/%m/%Y"),
+                "timestamp_unix": now.timestamp(),
                 **{k: list(v) if isinstance(v, (set, list)) else v for k, v in result.items()},
             }
             self._save()

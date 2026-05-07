@@ -260,6 +260,14 @@ def create_app(
         result = sync_service.run_once()
         return jsonify({"status": "ok", "result": result, "estimated_seconds": estimated_seconds})
 
+    @app.route("/api/sync-status")
+    def get_sync_status():
+        last = sync_log.get_last_sync() or {}
+        return jsonify({
+            "last_sync_ts": last.get("timestamp_unix"),
+            "run_interval_seconds": int(settings.get("run_interval_seconds", 86400)),
+        })
+
     @app.route("/api/overrides", methods=["POST"])
     def post_overrides():
         payload = request.json or {}

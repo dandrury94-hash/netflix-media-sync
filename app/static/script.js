@@ -497,7 +497,36 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchLogs();
     setInterval(fetchLogs, 3000);
   }
+
+  updateNextSync();
 });
+
+async function updateNextSync() {
+  const el = document.getElementById("nextSyncDisplay");
+  if (!el) return;
+  try {
+    const resp = await fetch("/api/sync-status");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data.last_sync_ts || !data.run_interval_seconds) return;
+    const nextTs = data.last_sync_ts + data.run_interval_seconds;
+    function render() {
+      const diffSec = Math.round(nextTs - Date.now() / 1000);
+      if (diffSec <= 0) {
+        el.textContent = "Overdue";
+        el.style.color = "#e05252";
+      } else {
+        const totalMin = Math.floor(diffSec / 60);
+        const hrs = Math.floor(totalMin / 60);
+        const min = totalMin % 60;
+        el.textContent = hrs >= 1 ? `in ${hrs}h ${min}m` : `in ${totalMin}m`;
+        el.style.color = "";
+      }
+    }
+    render();
+    setInterval(render, 60_000);
+  } catch { /* ignore */ }
+}
 
 function _applyRankIndicators() {
   const today = new Date();

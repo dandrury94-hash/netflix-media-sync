@@ -4,6 +4,18 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-059 — 2026-05-07 — F-002: Next sync countdown in Status & Actions card
+
+### Additions
+- **`app/web.py`** — `GET /api/sync-status` endpoint: returns `{"last_sync_ts": float | null, "run_interval_seconds": int}`. Reads `timestamp_unix` from the last sync record and `run_interval_seconds` from settings. Falls back to `null` for `last_sync_ts` when no sync has run yet (backwards compatible with existing sync log files that predate this change).
+- **`app/static/script.js`** — `updateNextSync()` async function: fetches `/api/sync-status` once on page load, computes `next_sync_ts = last_sync_ts + run_interval_seconds`, and renders a relative label (`"in Xh Ym"`, `"in Xm"`, or `"Overdue"` in red) into `#nextSyncDisplay`. A `setInterval` refreshes the display text every 60 seconds without re-fetching. Called from the `DOMContentLoaded` handler.
+- **`app/templates/index.html`** — "Next sync" row added to the Last sync section of the Status & Actions card, containing `<span id="nextSyncDisplay">` populated by JS.
+
+### Changes
+- **`app/sync_log.py`** — `set_last_sync()` now stores `"timestamp_unix": now.timestamp()` alongside the existing formatted `"timestamp"` string. This gives the new endpoint a raw epoch value to return. Old sync log files without this field result in a `null` `last_sync_ts` in the API response — the frontend handles this gracefully by leaving the display as `—`.
+
+---
+
 ## CHG-058 — 2026-05-07 — Wire removal history table, remove netflix source stub
 
 ### Verified — no code changes required
