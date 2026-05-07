@@ -2,7 +2,6 @@ config/settings.json
 config/app.log
 config/app.log.*
 config/sync_log.json
-config/manual_overrides.json
 config/removal_history.json
 config/dismissed.json
 __pycache__/

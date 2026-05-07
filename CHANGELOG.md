@@ -4,6 +4,28 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-040 — 2026-05-07 — Repo hygiene
+
+### Fixes
+- **`.gitignore`** — removed stale `config/manual_overrides.json` entry (module
+  deleted in CHG-034; runtime file also deleted from disk)
+
+### Additions
+- **`requirements-dev.txt`** — new file; `pytest>=8.0` for local test runs;
+  kept separate from `requirements.txt` so it is not installed in the Docker image
+- **`conftest.py`** — project root conftest; enables `from app.xxx import ...`
+  in tests without installation
+- **`tests/test_netflix_fetcher.py`** — three smoke tests covering `fetch_from_sources()`:
+  all items carry a non-empty `sources` list; shared titles are deduplicated with
+  both sources merged; distinct titles each retain their own single-source list
+
+### Confirmed clean
+- `config/manual_overrides.json` — deleted (no code references remain)
+- `__pycache__/` — already in `.gitignore` (T-013)
+- `streamarrtree.txt` — does not exist in repo (T-014)
+
+---
+
 ## CHG-039 — 2026-05-07 — Poster lookup fallback for unresolved Top 10 titles
 
 ### Fixes
