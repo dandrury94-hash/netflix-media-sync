@@ -421,6 +421,13 @@ function _applyTop10Data(all) {
 
     li.querySelectorAll(".top10-status, .top10-dismiss, .top10-undo").forEach((el) => el.remove());
     li.classList.toggle("top10-item--dismissed", !!item.dismissed);
+    li.classList.toggle("top10-item--has-poster", !!poster);
+    li.classList.toggle("top10-item--no-poster", !poster);
+    if (poster) {
+      li.style.setProperty("--poster-url", `url(${poster})`);
+    } else {
+      li.style.removeProperty("--poster-url");
+    }
 
     if (item.dismissed) {
       if (item.undo_until && Date.now() < Date.parse(item.undo_until)) {
@@ -469,10 +476,6 @@ function _applyTop10Data(all) {
     span.textContent = STATUS_ICONS[status];
     li.appendChild(span);
 
-    if (poster) {
-      li.style.setProperty("--poster-url", `url(${poster})`);
-      li.classList.add("top10-item--has-poster");
-    }
   });
 }
 

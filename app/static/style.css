@@ -796,6 +796,33 @@ body::before {
     pointer-events: none;
 }
 
+/* ── Top 10 poster placeholder ── */
+.top10-item--no-poster {
+    position: relative;
+    overflow: hidden;
+    padding-left: 44px;
+}
+.top10-item--no-poster::before {
+    content: "TBA";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 54px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
 /* ── Top 10 dismiss button ── */
 .top10-dismiss {
     order: -1;

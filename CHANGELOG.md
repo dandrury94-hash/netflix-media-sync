@@ -4,6 +4,20 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-041 — 2026-05-07 — T-016: Default poster placeholder for unresolved titles
+
+### Additions
+- **`app/static/style.css`** — `.top10-item--no-poster` and `::before` rule: same
+  36×54px absolutely-positioned slot as `--has-poster`, dim background with subtle
+  border and "TBA" text; applied whenever `poster` is null
+- **`app/static/script.js`** — `_applyTop10Data()`: poster/placeholder logic moved
+  before the `dismissed` early return so dismissed items also show their poster or
+  placeholder; uses `classList.toggle` to mutually flip `--has-poster` /
+  `--no-poster` on every refresh; `--poster-url` CSS variable cleared when null
+- **`app/templates/base.html`** — CSS version bumped to `?v=041`
+
+---
+
 ## CHG-040 — 2026-05-07 — Repo hygiene
 
 ### Fixes
