@@ -1,7 +1,20 @@
+import logging
 import re
+import urllib.error
 import urllib.request
+
 from bs4 import BeautifulSoup
+
 from app.scraper.core.models import MediaItem
+
+logger = logging.getLogger(__name__)
+
+
+class FlixPatrolBanError(Exception):
+    """Raised when FlixPatrol returns a ban/rate-limit signal (HTTP 429 or 403)."""
+    def __init__(self, code: int):
+        self.code = code
+        super().__init__(f"FlixPatrol returned HTTP {code}")
 
 BASE_URL = "https://flixpatrol.com/top10/streaming/{country}/"
 
@@ -110,7 +123,7 @@ def fetch(country: str = "United Kingdom") -> list[MediaItem]:
     slug = COUNTRIES.get(country)
     if not slug:
         available = ", ".join(sorted(COUNTRIES.keys()))
-        print(f"[streaming] Unknown country '{country}'. Available: {available}")
+        logger.warning("[streaming] Unknown country '%s'. Available: %s", country, available)
         return []
 
     url = BASE_URL.format(country=slug)
@@ -119,8 +132,13 @@ def fetch(country: str = "United Kingdom") -> list[MediaItem]:
         req = urllib.request.Request(url, headers=HEADERS)
         with urllib.request.urlopen(req, timeout=10) as res:
             html = res.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        if e.code in (429, 403):
+            raise FlixPatrolBanError(e.code)
+        logger.warning("[streaming] HTTP %d fetching %s", e.code, url)
+        return []
     except Exception as e:
-        print(f"[streaming] Failed to fetch {url}: {e}")
+        logger.warning("[streaming] Failed to fetch %s: %s", url, e)
         return []
 
     soup = BeautifulSoup(html, "html.parser")

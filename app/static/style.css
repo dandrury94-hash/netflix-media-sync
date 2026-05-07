@@ -1258,6 +1258,11 @@ body::before {
     margin-top: 4px;
 }
 
+.fp-ban-msg {
+    color: #e05252;
+    margin-top: 4px;
+}
+
 /* ── Simulation mode ── */
 .sim-mode-banner {
     background: rgba(255, 180, 0, 0.07);

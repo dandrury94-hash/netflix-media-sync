@@ -140,7 +140,9 @@
                 {% if flixpatrol_cache.cached_at_fmt %}
                 <p class="field-help">Last fetched: {{ flixpatrol_cache.cached_at_fmt }}{% if flixpatrol_cache.is_stale %} <span class="fp-stale-badge">Stale</span>{% endif %}</p>
                 {% endif %}
-                {% if flixpatrol_cache.error %}
+                {% if flixpatrol_cache.banned %}
+                <p class="field-help fp-ban-msg">🚫 {{ flixpatrol_cache.error }}</p>
+                {% elif flixpatrol_cache.error %}
                 <p class="field-help fp-stale-msg">⚠ {{ flixpatrol_cache.error }}</p>
                 {% endif %}
             </div>

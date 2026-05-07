@@ -946,7 +946,9 @@ function updateFpCacheStatus(cache) {
     if (cache.is_stale) html += ' <span class="fp-stale-badge">Stale</span>';
     html += "</p>";
   }
-  if (cache.error) {
+  if (cache.banned) {
+    html += `<p class="field-help fp-ban-msg">🚫 ${escHtml(cache.error)}</p>`;
+  } else if (cache.error) {
     html += `<p class="field-help fp-stale-msg">⚠ ${escHtml(cache.error)}</p>`;
   }
   el.innerHTML = html;

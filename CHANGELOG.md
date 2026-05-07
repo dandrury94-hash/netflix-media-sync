@@ -4,6 +4,33 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-047 — 2026-05-07 — T-018: FlixPatrol ban detection and rate limiting
+
+### Fixes / Additions
+- **`app/scraper/sources/streaming.py`** — `FlixPatrolBanError` exception class added;
+  `fetch()` now catches `urllib.error.HTTPError` specifically: HTTP 429 or 403 raises
+  `FlixPatrolBanError` (rather than silently returning empty list); other HTTP errors
+  log a warning and return `[]`; all `print()` calls replaced with `logger.warning()`
+- **`app/netflix_fetcher.py`**:
+  - `FP_MIN_FETCH_INTERVAL = 3600` constant — minimum seconds between network fetches
+  - `fetch_flixpatrol_fresh()` — checks `ban_until` before hitting the network;
+    catches `FlixPatrolBanError`, stores `ban_until = now + 3600` and a clear error
+    message; successful fetch resets `ban_until = 0`
+  - `_fetch_flixpatrol_items()` — checks active ban window first (skips network,
+    uses cached data); applies rate-limit floor (`FP_MIN_FETCH_INTERVAL`) to prevent
+    re-fetching more often than once per hour even when cache is stale
+  - `bust_flixpatrol_cache()` — preserves `ban_until` and `attempt_ts` so a manual
+    cache bust cannot bypass an active scraping ban
+  - `get_flixpatrol_cache_info()` — now returns `banned` (bool) and
+    `ban_minutes_remaining` (int|None) alongside existing fields
+- **`app/templates/settings.html`** — ban state rendered with red `fp-ban-msg` style
+  (`🚫`) distinct from generic stale/error (`⚠`) messages
+- **`app/static/script.js`** — `updateFpCacheStatus()` handles `cache.banned` with
+  `fp-ban-msg` class; falls back to existing `fp-stale-msg` for non-ban errors
+- **`app/static/style.css`** — `.fp-ban-msg` style added (red, `#e05252`)
+
+---
+
 ## CHG-046 — 2026-05-07 — T-017/T-019: Dismiss sync + Tautulli accuracy + active watches
 
 ### Fixes
