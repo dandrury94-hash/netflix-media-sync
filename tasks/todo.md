@@ -4,7 +4,7 @@ Current work tracking. Updated as tasks are completed.
 
 ---
 
-## Current Session — Session I (CHG-050–058)
+## Current Session — Session I (CHG-050–061)
 
 ### Completed this session
 - [x] P4-1 follow-up — Plex collection sort + remove (CHG-050)
@@ -13,6 +13,11 @@ Current work tracking. Updated as tasks are completed.
 - [x] P4-1 follow-up — Streamarr collection includes all service-tagged items (CHG-056)
 - [x] CHG-057 — Batch protection endpoint; CHANGELOG separator cleanup
 - [x] CHG-058 — Verified removal history wiring and netflix source stub removal
+- [x] F-002 — Next sync countdown in Status & Actions card (CHG-059)
+- [x] F-001 — One-shot preview sync button; Sync Now rename + alignment (CHG-060)
+- [x] F-003 — Title search filter on scheduled removals table (CHG-060)
+- [x] Connection status indicators + Plex in integration list (CHG-061)
+- [x] Sync time fallback — countdown works after rebuild without new sync (CHG-061)
 
 ### Completed previous session (Session H)
 - [x] T-017 — Cross-card dismiss sync (confirmed already working, no change needed)
@@ -48,30 +53,7 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 
 ## Backlog
 
-### F-001 — One-shot preview sync button
-**Effort: Medium**
-
-Add a "Preview" button to the Status & Actions card that runs a single simulation-mode sync without touching the persistent `simulation_mode` setting.
-
-- **`app/sync_service.py`** — add optional `simulate: bool | None = None` to `run_once()`; when provided, use it instead of `self.settings.get("simulation_mode")` for that call only
-- **`app/web.py`** — `POST /api/sync` reads optional `{"simulate": true}` from JSON body and passes it to `run_once()`
-- **`app/templates/index.html`** — add a "Preview" button alongside "Sync Now" in the Status & Actions card
-- **`app/static/script.js`** — Preview handler calls `POST /api/sync` with `{simulate: true}`; renders `would_add_movies` / `would_add_series` from the response in the same result area as a normal sync
-
-No settings change, no persistent state mutation.
-
----
-
----
-
-### F-003 — Title search filter on scheduled removals table
-**Effort: Low**
-
-The Protection Manager already has a live client-side search input (`#protSearchInput`, `keyup` listener at script.js:794). Apply the same pattern to the scheduled removals table.
-
-- **`app/templates/index.html`** — add `<input id="removalSearchInput" class="prot-search" placeholder="Search titles…">` above the scheduled removals table (match the Protection Manager layout)
-- **`app/static/script.js`** — add `keyup` listener on `#removalSearchInput` that shows/hides `<tr>` rows based on whether the title cell matches the input; same case-insensitive substring approach as the existing protection search
-- **`app/static/style.css`** — reuse existing `.prot-search` / `.prot-search-wrap`; add a wrapper div in the template if needed; no new CSS rules expected
+_No pending items._
 
 ---
 

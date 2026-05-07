@@ -145,6 +145,20 @@ Never rely on knowing which files are affected — search proves it.
 
 ---
 
+## New SyncLog schema fields need a backward-compatibility fallback
+
+**Context:** `timestamp_unix` was added to `set_last_sync()` in CHG-059. Existing `sync_log.json`
+entries written before that change had only the human-readable `"timestamp"` string. The
+`/api/sync-status` endpoint returned `null` for `last_sync_ts` on old entries, so the next-sync
+countdown disappeared after a rebuild — even though the data was on disk.
+
+**Rule:** Any new field added to the SyncLog last-sync record must be accompanied by a fallback
+reader in every endpoint that consumes it. If the field is derivable from existing stored fields
+(e.g. parsing the formatted timestamp string), implement that fallback immediately rather than
+waiting for a re-sync to populate the new field. Treat stored SyncLog entries as immutable history.
+
+---
+
 ## Keep README and CLAUDE.md current when the model changes
 
 **Context:** After CHG-034 through CHG-037 the README still described Tautulli

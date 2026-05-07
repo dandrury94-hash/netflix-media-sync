@@ -400,6 +400,13 @@ body::before {
 .mode-badge--read     { background: rgba(240, 180, 41, 0.14); color: #f0b429; }
 .mode-badge--enabled  { background: rgba(46, 207, 125, 0.14); color: #2ecf7d; }
 
+.conn-status {
+    font-size: 0.78rem;
+    color: var(--muted);
+    min-width: 4rem;
+    text-align: right;
+}
+
 /* ── Last sync summary ── */
 .sync-timestamp {
     font-size: 0.85rem;

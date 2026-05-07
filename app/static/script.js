@@ -82,19 +82,62 @@ document.addEventListener("DOMContentLoaded", () => {
         await new Promise((r) => setTimeout(r, 600));
         syncButton.classList.remove("syncing");
         syncButton.style.removeProperty("--sync-pct");
-        if (syncButtonLabel) syncButtonLabel.textContent = "Trigger sync now";
+        if (syncButtonLabel) syncButtonLabel.textContent = "Sync Now";
         syncButton.disabled = false;
         window.location.reload();
       } catch (err) {
         clearInterval(timer);
         syncButton.classList.remove("syncing");
         syncButton.style.removeProperty("--sync-pct");
-        if (syncButtonLabel) syncButtonLabel.textContent = "Trigger sync now";
+        if (syncButtonLabel) syncButtonLabel.textContent = "Sync Now";
         syncButton.disabled = false;
         if (syncErrorBox) {
           syncErrorBox.hidden = false;
           if (syncErrorText) syncErrorText.textContent = err.message || "Sync failed — check logs for details";
         }
+      }
+    });
+  }
+
+  // ── Preview sync ──
+  const previewButton = document.getElementById("previewButton");
+  const previewResult = document.getElementById("previewResult");
+  if (previewButton) {
+    previewButton.addEventListener("click", async () => {
+      previewButton.disabled = true;
+      previewButton.querySelector("span").textContent = "Previewing…";
+      if (previewResult) previewResult.hidden = true;
+      try {
+        const response = await fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ simulate: true }),
+        });
+        if (!response.ok) throw new Error(`Preview failed (HTTP ${response.status})`);
+        const data = await response.json();
+        const result = data.result || {};
+        const movies = (result.would_add_movies || []).length;
+        const series = (result.would_add_series || []).length;
+        if (previewResult) {
+          if (movies === 0 && series === 0) {
+            previewResult.textContent = "Preview: nothing new to add.";
+          } else {
+            const parts = [];
+            if (movies) parts.push(`${movies} movie${movies !== 1 ? "s" : ""}`);
+            if (series) parts.push(`${series} series`);
+            previewResult.textContent = `Preview: ${parts.join(" and ")} to add.`;
+          }
+          previewResult.hidden = false;
+        }
+      } catch (err) {
+        if (previewResult) {
+          previewResult.textContent = err.message || "Preview failed.";
+          previewResult.hidden = false;
+        }
+      } finally {
+        previewButton.disabled = false;
+        previewButton.querySelector("span").textContent = "Preview";
+        checkConnections();
       }
     });
   }
@@ -390,6 +433,17 @@ document.addEventListener("DOMContentLoaded", () => {
     loadRemovalSchedule(removalBody);
   }
 
+  const removalSearchInput = document.getElementById("removalSearchInput");
+  if (removalSearchInput) {
+    removalSearchInput.addEventListener("keyup", (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      document.querySelectorAll("#removalScheduleBody tr").forEach((row) => {
+        const title = row.querySelector("td")?.textContent.toLowerCase() || "";
+        row.style.display = !q || title.includes(q) ? "" : "none";
+      });
+    });
+  }
+
   // ── Removal history ──
   const historyBody = document.getElementById("removalHistoryBody");
   if (historyBody) {
@@ -499,7 +553,34 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   updateNextSync();
+  checkConnections();
 });
+
+async function checkConnections() {
+  const items = document.querySelectorAll(".integration-item[data-service]");
+  if (!items.length) return;
+  items.forEach((item) => {
+    const el = item.querySelector(".conn-status");
+    if (el && item.dataset.mode !== "disabled") el.textContent = "…";
+  });
+  try {
+    const resp = await fetch("/api/connection-status");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    items.forEach((item) => {
+      const service = item.dataset.service;
+      const el = item.querySelector(".conn-status");
+      if (!el || !(service in data)) return;
+      if (data[service].ok) {
+        el.textContent = "Connected";
+        el.style.color = "#2ecf7d";
+      } else {
+        el.textContent = "Error";
+        el.style.color = "#e05252";
+      }
+    });
+  } catch { /* ignore */ }
+}
 
 async function updateNextSync() {
   const el = document.getElementById("nextSyncDisplay");

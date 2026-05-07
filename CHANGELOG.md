@@ -4,6 +4,60 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-061 — 2026-05-07 — Connection status indicators; Plex in integration list; sync time fallback
+
+### Additions
+- **`app/web.py`** — `GET /api/connection-status` endpoint: tests each non-disabled service
+  using its stored credentials (timeout 5 s). Radarr/Sonarr hit `/api/v3/qualityprofile` with
+  the `X-Api-Key` header; Tautulli hits `/api/v2` and checks `response.result == "success"`;
+  Plex calls `PlexClient.test_connection()`. Returns `{service: {"ok": bool}}` for every
+  non-disabled service.
+- **`app/web.py`** — `GET /api/sync-status` now falls back to parsing the stored formatted
+  `timestamp` string (`"%H:%M %d/%m/%Y"`) as a unix epoch when `timestamp_unix` is absent.
+  This makes the next-sync countdown work for sync log entries written before CHG-059.
+
+### Changes
+- **`app/templates/index.html`** — Plex added to the Integration Status list alongside Radarr,
+  Sonarr, and Tautulli. Each list item carries `data-service`, `data-mode`, and a
+  `<span class="conn-status">` placeholder populated by JS.
+- **`app/static/script.js`** — `checkConnections()`: fetches `/api/connection-status` on page
+  load and after each sync or preview run. Sets each `.conn-status` span to `"Connected"` (green)
+  or `"Error"` (red) based on the response. Displays `"…"` while the request is in flight.
+- **`app/static/style.css`** — `.conn-status` rule: `font-size: 0.78rem; color: var(--muted);
+  min-width: 4rem; text-align: right;` — keeps the integration list visually consistent.
+
+---
+
+## CHG-060 — 2026-05-08 — F-001: Preview sync button; F-003: Removals table search filter
+
+### F-001 — One-shot preview sync button
+
+- **`app/sync_service.py`** — `run_once()` accepts an optional `simulate: bool | None = None`
+  parameter. When `True`, it overrides the persistent `simulation_mode` setting for that call
+  only. `_run()` gains the same parameter and uses it as the simulation flag. When `simulate`
+  is `True`, `run_once()` skips `set_last_sync()` (so the preview does not overwrite the last
+  real sync record), skips `run_deletions()`, and suppresses the Pushover error notification.
+- **`app/web.py`** — `POST /api/sync` reads optional `{"simulate": true}` from the JSON body
+  and passes it to `run_once()`. A non-boolean or absent value is treated as `None` (normal run).
+- **`app/templates/index.html`** — "Preview" button added inline with "Sync Now" (flex row,
+  Preview pinned to the far right); `#previewResult` div added below the buttons for the result
+  summary. "Trigger sync now" label renamed to "Sync Now".
+- **`app/static/script.js`** — Preview button handler: calls `POST /api/sync` with
+  `{simulate: true}`, reads `would_add_movies` and `would_add_series` from the response, and
+  renders a plain-English summary (`"Preview: 3 movies and 1 series to add."`) in
+  `#previewResult`. Does not reload the page. Restores button label on completion or error.
+  Both JS sites that restore the Sync Now label updated to `"Sync Now"` (was `"Trigger sync now"`).
+
+### F-003 — Title search filter on scheduled removals table
+
+- **`app/templates/index.html`** — Search input (`#removalSearchInput`) added above the
+  scheduled removals table, using the existing `.prot-search` / `.prot-search-wrap` classes.
+- **`app/static/script.js`** — `keyup` listener on `#removalSearchInput` filters visible
+  `<tr>` rows in `#removalScheduleBody` by case-insensitive substring match on the title
+  cell. Same pattern as the Protection Manager search.
+
+---
+
 ## CHG-059 — 2026-05-07 — F-002: Next sync countdown in Status & Actions card
 
 ### Additions

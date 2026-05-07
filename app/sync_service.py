@@ -81,26 +81,28 @@ class SyncService:
             return id_cache.get(ext_id)
         return None
 
-    def run_once(self) -> dict:
+    def run_once(self, simulate: bool | None = None) -> dict:
         with self._lock:
             _start = time.monotonic()
             try:
-                result = self._run()
+                result = self._run(simulate=simulate)
             except Exception as exc:
-                self.pushover.send(
-                    "Streamarr — Error",
-                    f"Sync failed: {exc}",
-                    priority=1,
-                )
+                if not simulate:
+                    self.pushover.send(
+                        "Streamarr — Error",
+                        f"Sync failed: {exc}",
+                        priority=1,
+                    )
                 raise
             result["duration_seconds"] = int(time.monotonic() - _start)
-            self.sync_log.set_last_sync(result)
-            _t = time.monotonic()
-            self.run_deletions()
-            logger.info("[timing] deletion_run: %.1fs", time.monotonic() - _t)
+            if not simulate:
+                self.sync_log.set_last_sync(result)
+                _t = time.monotonic()
+                self.run_deletions()
+                logger.info("[timing] deletion_run: %.1fs", time.monotonic() - _t)
             return result
 
-    def _run(self) -> dict:
+    def _run(self, simulate: bool | None = None) -> dict:
         countries = self.settings.get("netflix_top_countries", [])
         if isinstance(countries, str):
             countries = [countries.strip().lower()]
@@ -118,7 +120,7 @@ class SyncService:
             flixpatrol_service_types = {}
         flixpatrol_cache_hours = int(self.settings.get("flixpatrol_cache_hours", 6))
 
-        simulation_mode = self.settings.get("simulation_mode", False)
+        simulation_mode = simulate if simulate is not None else self.settings.get("simulation_mode", False)
         if simulation_mode:
             logger.info("[sim] Simulation mode active — no writes will be made")
         logger.info("Fetching top titles from sources: %s (countries: %s)", sources, countries or ["global"])

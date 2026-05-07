@@ -19,12 +19,13 @@
             <div class="sac-col">
                 <p class="sac-section-label">Integration status</p>
                 <ul class="integration-list">
-                    {% for label, mode_key in [('Radarr', 'radarr_mode'), ('Sonarr', 'sonarr_mode'), ('Tautulli', 'tautulli_mode')] %}
+                    {% for label, mode_key in [('Radarr', 'radarr_mode'), ('Sonarr', 'sonarr_mode'), ('Tautulli', 'tautulli_mode'), ('Plex', 'plex_mode')] %}
                     {% set mode = settings[mode_key] %}
-                    <li class="integration-item">
+                    <li class="integration-item" data-service="{{ label | lower }}" data-mode="{{ mode }}">
                         <span class="dot dot--{{ mode }}"></span>
                         <span class="integration-label">{{ label }}</span>
                         <span class="mode-badge mode-badge--{{ mode }}">{{ mode | title }}</span>
+                        <span class="conn-status"></span>
                     </li>
                     {% endfor %}
                 </ul>
@@ -86,7 +87,11 @@
         </div>
         <div class="card-divider"></div>
         <p class="field-help" style="margin-bottom:12px">Runs immediately alongside the scheduled interval.</p>
-        <button id="syncButton" class="button button-primary" data-estimated="{{ (last_sync.get('duration_seconds') or 60) if last_sync else 60 }}"><span>Trigger sync now</span></button>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px">
+            <button id="syncButton" class="button button-primary" data-estimated="{{ (last_sync.get('duration_seconds') or 60) if last_sync else 60 }}"><span>Sync Now</span></button>
+            <button id="previewButton" class="button button-secondary"><span>Preview</span></button>
+        </div>
+        <div id="previewResult" class="field-help" style="margin-top:8px" hidden></div>
         <div id="syncErrorBox" class="sync-error-box" hidden>
             <p id="syncErrorText" class="sync-error-msg"></p>
             <div class="sync-error-actions">
@@ -194,6 +199,9 @@
     <section class="card wide-card">
         <h2>Scheduled Removals</h2>
         <p class="field-help">Titles tagged <code>streamarr</code> in Radarr / Sonarr, ordered by days remaining until scheduled removal.</p>
+        <div class="prot-search-wrap" style="margin-bottom:12px">
+            <input type="text" id="removalSearchInput" class="prot-search" placeholder="Search titles…">
+        </div>
         <div class="removal-scroll">
         <table class="removal-table">
             <thead>

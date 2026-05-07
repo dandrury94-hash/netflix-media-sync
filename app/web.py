@@ -257,16 +257,69 @@ def create_app(
     def trigger_sync():
         last = sync_log.get_last_sync() or {}
         estimated_seconds = int(last.get("duration_seconds") or 60)
-        result = sync_service.run_once()
+        payload = request.json or {}
+        simulate = True if payload.get("simulate") is True else None
+        result = sync_service.run_once(simulate=simulate)
         return jsonify({"status": "ok", "result": result, "estimated_seconds": estimated_seconds})
 
     @app.route("/api/sync-status")
     def get_sync_status():
+        import datetime as _dt
         last = sync_log.get_last_sync() or {}
+        last_sync_ts = last.get("timestamp_unix")
+        if last_sync_ts is None and last.get("timestamp"):
+            try:
+                last_sync_ts = _dt.datetime.strptime(last["timestamp"], "%H:%M %d/%m/%Y").timestamp()
+            except Exception:
+                pass
         return jsonify({
-            "last_sync_ts": last.get("timestamp_unix"),
+            "last_sync_ts": last_sync_ts,
             "run_interval_seconds": int(settings.get("run_interval_seconds", 86400)),
         })
+
+    @app.route("/api/connection-status")
+    def get_connection_status():
+        results = {}
+        if settings.get("radarr_mode", "disabled") != "disabled":
+            url = settings.get("radarr_url", "").rstrip("/")
+            key = settings.get("radarr_api_key", "")
+            ok = False
+            if url and key:
+                try:
+                    ok = _requests.get(f"{url}/api/v3/qualityprofile", headers={"X-Api-Key": key}, timeout=5).ok
+                except Exception:
+                    pass
+            results["radarr"] = {"ok": ok}
+        if settings.get("sonarr_mode", "disabled") != "disabled":
+            url = settings.get("sonarr_url", "").rstrip("/")
+            key = settings.get("sonarr_api_key", "")
+            ok = False
+            if url and key:
+                try:
+                    ok = _requests.get(f"{url}/api/v3/qualityprofile", headers={"X-Api-Key": key}, timeout=5).ok
+                except Exception:
+                    pass
+            results["sonarr"] = {"ok": ok}
+        if settings.get("tautulli_mode", "disabled") != "disabled":
+            url = settings.get("tautulli_url", "").rstrip("/")
+            key = settings.get("tautulli_api_key", "")
+            ok = False
+            if url and key:
+                try:
+                    r = _requests.get(f"{url}/api/v2", params={"apikey": key, "cmd": "get_server_info"}, timeout=5)
+                    ok = r.json().get("response", {}).get("result") == "success"
+                except Exception:
+                    pass
+            results["tautulli"] = {"ok": ok}
+        if settings.get("plex_mode", "disabled") != "disabled":
+            ok = False
+            try:
+                pc = PlexClient(settings.get("plex_url", ""), settings.get("plex_token", ""))
+                ok, _ = pc.test_connection()
+            except Exception:
+                pass
+            results["plex"] = {"ok": ok}
+        return jsonify(results)
 
     @app.route("/api/overrides", methods=["POST"])
     def post_overrides():

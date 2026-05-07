@@ -165,6 +165,24 @@ Fetch watch history
 
 ---
 
+### `app/plex_client.py`
+**Purpose:**  
+Manage Plex collections (per-service and main Streamarr collection)
+
+**Responsibilities:**
+- `sync_plex_collections()` — creates/updates one collection per source service plus a main
+  Streamarr collection covering all service-tagged items (root tag OR src tag)
+- `test_connection()` — verifies Plex reachability for connection status endpoint
+
+**Rules:**
+- ❌ No business logic — collection membership is driven entirely by Radarr/Sonarr tags
+- ✅ Streamarr collection = union of root-tagged items and source-tagged items
+- ✅ Service collections = source-tagged items only
+
+**Introduced:** CHG-049 (initial), CHG-052–056 (pre-Streamarr item handling)
+
+---
+
 ## 🌐 Source Aggregation
 
 ### `app/netflix_fetcher.py`
