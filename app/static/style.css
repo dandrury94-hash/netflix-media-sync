@@ -796,6 +796,59 @@ body::before {
     pointer-events: none;
 }
 
+/* ── Top 10 dismiss button ── */
+.top10-dismiss {
+    order: -1;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: rgba(255, 80, 80, 0.5);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+.top10-dismiss:hover {
+    color: #ff5050;
+    background: rgba(255, 80, 80, 0.12);
+}
+
+/* ── Top 10 title — grows to push status icon right ── */
+.top10-title {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Top 10 dismissed state ── */
+.top10-item--dismissed {
+    opacity: 0.4;
+}
+.top10-item--dismissed .top10-title {
+    text-decoration: line-through;
+}
+
+/* ── Top 10 undo button ── */
+.top10-undo {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: rgba(100, 180, 255, 0.6);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    opacity: 1;
+}
+.top10-undo:hover {
+    color: #64b4ff;
+    background: rgba(100, 180, 255, 0.12);
+}
+
 /* ── Log output — full height variant ── */
 .log-output--full {
     height: calc(100vh - 370px);

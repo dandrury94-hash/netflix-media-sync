@@ -4,6 +4,7 @@ import threading
 import time
 
 from app import tags as _tags
+from app.dismissed import DismissedTitles
 from app.netflix_fetcher import fetch_from_sources
 from app.pushover_client import PushoverClient
 from app.radarr_client import RadarrClient
@@ -42,10 +43,12 @@ class SyncService:
         settings: SettingsStore,
         sync_log: SyncLog,
         removal_history: RemovalHistory,
+        dismissed: DismissedTitles,
     ) -> None:
         self.settings = settings
         self.sync_log = sync_log
         self.removal_history = removal_history
+        self.dismissed = dismissed
         self.radarr = RadarrClient(settings)
         self.sonarr = SonarrClient(settings)
         self.tautulli = TautulliClient(settings)
@@ -140,6 +143,8 @@ class SyncService:
         if radarr_mode == "enabled":
             _t = time.monotonic()
             for item in movie_items:
+                if self.dismissed.is_dismissed(item["title"]):
+                    continue
                 if self.radarr.add_movie(item["title"], library_cache=radarr_cache, tags=_tags.all_tags_for(item["sources"], "movie")):
                     added_movies.append(item["title"])
                     self.sync_log.log_add(item["title"], "movie", item["sources"])
@@ -168,6 +173,8 @@ class SyncService:
         if sonarr_mode == "enabled":
             _t = time.monotonic()
             for item in series_items:
+                if self.dismissed.is_dismissed(item["title"]):
+                    continue
                 if self.sonarr.add_series(item["title"], library_cache=sonarr_cache, tags=_tags.all_tags_for(item["sources"], "series")):
                     added_series.append(item["title"])
                     self.sync_log.log_add(item["title"], "series", item["sources"])
@@ -317,3 +324,70 @@ class SyncService:
             )
 
         return {"deleted_movies": deleted_movies, "deleted_series": deleted_series}
+
+    def run_dismissal_deletions(self) -> dict:
+        pending = self.dismissed.get_pending_deletion()
+        if not pending:
+            return {"dismissed_deleted_movies": [], "dismissed_deleted_series": []}
+
+        last_watched_all = self.sync_log.get_last_watched_all()
+        deleted_movies: list[str] = []
+        deleted_series: list[str] = []
+
+        movie_entries = [e for e in pending if e["type"] == "movie"]
+        series_entries = [e for e in pending if e["type"] == "series"]
+
+        all_movies: dict[str, dict] = {}
+        all_series: dict[str, dict] = {}
+
+        radarr_mode = self.settings.get("radarr_mode", "disabled")
+        sonarr_mode = self.settings.get("sonarr_mode", "disabled")
+
+        if movie_entries and radarr_mode != "disabled":
+            try:
+                all_movies = {m["title"].lower(): m for m in self.radarr.get_all_movies()}
+            except Exception:
+                logger.warning("Dismissal: failed to fetch Radarr library", exc_info=True)
+
+        if series_entries and sonarr_mode != "disabled":
+            try:
+                all_series = {s["title"].lower(): s for s in self.sonarr.get_all_series()}
+            except Exception:
+                logger.warning("Dismissal: failed to fetch Sonarr library", exc_info=True)
+
+        for entry in movie_entries:
+            title = entry["title"]
+            try:
+                rec = all_movies.get(title.lower())
+                if rec and rec.get("id") and self.radarr.delete_movie(rec["id"]):
+                    deleted_movies.append(title)
+                    was_watched = last_watched_all.get(title) is not None
+                    self.removal_history.log_removal(title, "movie", reason="dismissed", was_watched=was_watched)
+                    self.pushover.send("Streamarr — Dismissed", f"🎬 {title} removed")
+            except Exception:
+                logger.warning("Dismissal: failed to delete movie '%s'", title, exc_info=True)
+            finally:
+                self.dismissed.mark_deleted(title)
+
+        for entry in series_entries:
+            title = entry["title"]
+            try:
+                rec = all_series.get(title.lower())
+                if rec and rec.get("id") and self.sonarr.delete_series(rec["id"]):
+                    deleted_series.append(title)
+                    was_watched = last_watched_all.get(title) is not None
+                    self.removal_history.log_removal(title, "series", reason="dismissed", was_watched=was_watched)
+                    self.pushover.send("Streamarr — Dismissed", f"📺 {title} removed")
+            except Exception:
+                logger.warning("Dismissal: failed to delete series '%s'", title, exc_info=True)
+            finally:
+                self.dismissed.mark_deleted(title)
+
+        if deleted_movies or deleted_series:
+            logger.info(
+                "Dismissal deletions complete — movies: %s, series: %s",
+                deleted_movies,
+                deleted_series,
+            )
+
+        return {"dismissed_deleted_movies": deleted_movies, "dismissed_deleted_series": deleted_series}

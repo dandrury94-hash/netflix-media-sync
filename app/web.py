@@ -4,6 +4,7 @@ import requests as _requests
 from flask import Flask, Response, jsonify, render_template, request
 
 from app.config import LOG_PATH
+from app.dismissed import DismissedTitles
 from app.media_state import build_media_state
 from app.netflix_fetcher import bust_flixpatrol_cache, fetch_flixpatrol_fresh, get_flixpatrol_cache_info
 from app.removal_history import RemovalHistory
@@ -46,6 +47,7 @@ def create_app(
     sync_service: SyncService,
     sync_log: SyncLog,
     removal_history: RemovalHistory,
+    dismissed: DismissedTitles,
 ) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
@@ -314,6 +316,35 @@ def create_app(
         unprotected.sort(key=lambda x: x["title"].lower())
         return jsonify({"protected": protected, "unprotected": unprotected})
 
+    @app.route("/api/dismiss", methods=["POST"])
+    def post_dismiss():
+        payload = request.json or {}
+        title = payload.get("title", "").strip()
+        media_type = payload.get("type", "").strip()
+        in_library = payload.get("in_library")
+        if not title:
+            return jsonify({"error": "title required"}), 400
+        if media_type not in ("movie", "series"):
+            return jsonify({"error": "type must be 'movie' or 'series'"}), 400
+        if not isinstance(in_library, bool):
+            return jsonify({"error": "in_library must be a boolean"}), 400
+        dismissed.dismiss(title, media_type, in_library)
+        entry = dismissed.get_all()[title]
+        undo_until = (
+            datetime.datetime.fromisoformat(entry["dismissed_at"])
+            + datetime.timedelta(minutes=15)
+        ).isoformat() + "Z"
+        return jsonify({"status": "ok", "title": title, "in_library": in_library, "undo_until": undo_until})
+
+    @app.route("/api/dismiss", methods=["DELETE"])
+    def delete_dismiss():
+        payload = request.json or {}
+        title = payload.get("title", "").strip()
+        if not title:
+            return jsonify({"error": "title required"}), 400
+        dismissed.undismiss(title)
+        return jsonify({"status": "ok", "title": title})
+
     @app.route("/api/top10-status")
     def top10_status():
         last = sync_log.get_last_sync() or {}
@@ -346,10 +377,25 @@ def create_app(
             except Exception:
                 pass
 
+        dismissed_all = dismissed.get_all()
+
+        def _dismissed_fields(title: str) -> tuple[bool, str | None]:
+            entry = dismissed_all.get(title)
+            if not entry:
+                return False, None
+            try:
+                dismissed_at = datetime.datetime.fromisoformat(entry["dismissed_at"])
+                undo_dt = dismissed_at + datetime.timedelta(minutes=15)
+                undo_until = (undo_dt.isoformat() + "Z") if datetime.datetime.now() < undo_dt else None
+            except (KeyError, ValueError):
+                undo_until = None
+            return True, undo_until
+
         movie_statuses: dict[str, dict] = {}
         for title in top_movies:
+            is_dismissed, undo_until = _dismissed_fields(title)
             if radarr_mode == "disabled":
-                movie_statuses[title] = {"status": "disabled", "poster": None}
+                movie_statuses[title] = {"status": "disabled", "poster": None, "type": "movie", "dismissed": is_dismissed, "undo_until": undo_until}
                 continue
             rec = movie_lib.get(title.lower())
             if rec and rec.get("id"):
@@ -358,12 +404,13 @@ def create_app(
             else:
                 status = "will_add"
                 poster = None
-            movie_statuses[title] = {"status": status, "poster": poster}
+            movie_statuses[title] = {"status": status, "poster": poster, "type": "movie", "dismissed": is_dismissed, "undo_until": undo_until}
 
         series_statuses: dict[str, dict] = {}
         for title in top_series:
+            is_dismissed, undo_until = _dismissed_fields(title)
             if sonarr_mode == "disabled":
-                series_statuses[title] = {"status": "disabled", "poster": None}
+                series_statuses[title] = {"status": "disabled", "poster": None, "type": "series", "dismissed": is_dismissed, "undo_until": undo_until}
                 continue
             rec = series_lib.get(title.lower())
             if rec and rec.get("id"):
@@ -373,7 +420,7 @@ def create_app(
             else:
                 status = "will_add"
                 poster = None
-            series_statuses[title] = {"status": status, "poster": poster}
+            series_statuses[title] = {"status": status, "poster": poster, "type": "series", "dismissed": is_dismissed, "undo_until": undo_until}
 
         return jsonify({"movies": movie_statuses, "series": series_statuses})
 

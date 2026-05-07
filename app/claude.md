@@ -5,7 +5,15 @@
 - web.py → API routes and request handling only
 - sync_service.py → sync orchestration and lifecycle logic
 - radarr_client.py / sonarr_client.py → external API calls only, no logic
-- sync_log.py, manual_overrides.py, removal_history.py → persistence only
+- sync_log.py, removal_history.py, dismissed.py → persistence only
+
+## Persistence stores
+
+Three persistent stores live in `/config`:
+- `sync_log.json` — addition history, last_watched dates, last sync result (`SyncLog`)
+- `removal_history.json` — automatic deletion records, 180-day rolling window (`RemovalHistory`)
+- `dismissed.json` — permanently dismissed Top 10 titles; entries persist after deletion so
+  dismissed items are never re-added by future syncs (`DismissedTitles`)
 
 ## Data Aggregation
 

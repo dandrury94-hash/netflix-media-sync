@@ -417,15 +417,58 @@ function _applyTop10Data(all) {
     const title = li.dataset.title;
     const item = all[title];
     if (!item) return;
-    const status = item.status;
-    const poster = item.poster;
-    li.querySelectorAll(".top10-status").forEach((s) => s.remove());
+    const { status, poster } = item;
+
+    li.querySelectorAll(".top10-status, .top10-dismiss, .top10-undo").forEach((el) => el.remove());
+    li.classList.toggle("top10-item--dismissed", !!item.dismissed);
+
+    if (item.dismissed) {
+      if (item.undo_until && Date.now() < Date.parse(item.undo_until)) {
+        const undo = document.createElement("button");
+        undo.className = "top10-undo";
+        undo.title = "Undo dismiss";
+        undo.textContent = "↩";
+        undo.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch("/api/dismiss", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title }),
+            });
+            await loadTop10Status();
+          } catch { /* ignore */ }
+        });
+        li.appendChild(undo);
+      }
+      return;
+    }
+
+    const dismiss = document.createElement("button");
+    dismiss.className = "top10-dismiss";
+    dismiss.title = "Dismiss — skip on future syncs and remove from library";
+    dismiss.textContent = "×";
+    dismiss.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const in_library = status !== "will_add" && status !== "disabled";
+      try {
+        await fetch("/api/dismiss", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, type: item.type, in_library }),
+        });
+        await loadTop10Status();
+      } catch { /* ignore */ }
+    });
+    li.prepend(dismiss);
+
     if (!STATUS_ICONS[status]) return;
     const span = document.createElement("span");
     span.className = "top10-status";
     span.title = STATUS_LABELS[status] || "";
     span.textContent = STATUS_ICONS[status];
     li.appendChild(span);
+
     if (poster) {
       li.style.setProperty("--poster-url", `url(${poster})`);
       li.classList.add("top10-item--has-poster");

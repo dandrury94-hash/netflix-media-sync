@@ -10,7 +10,7 @@ def tag_root() -> str:
 
 
 def tag_source(source: str) -> str:
-    return f"{TAG_SRC_PREFIX}{source}"
+    return f"{TAG_SRC_PREFIX}{source.replace('_', '-')}"
 
 
 def tag_category(media_type: str) -> str:

@@ -6,6 +6,7 @@ from threading import Event, Thread
 from waitress import serve
 
 from app.config import LOG_PATH
+from app.dismissed import DismissedTitles
 from app.removal_history import RemovalHistory
 from app.settings import SettingsStore
 from app.sync_log import SyncLog
@@ -75,8 +76,6 @@ def run_weekly_preview(
         movie_retention = int(settings.get("movie_retention_days", 30))
         series_retention = int(settings.get("series_retention_days", 30))
 
-        last_sync = sync_log.get_last_sync() or {}
-        tautulli_protected = set(last_sync.get("protected", []))
         last_watched_all = sync_log.get_last_watched_all()
 
         upcoming: list[str] = []
@@ -87,7 +86,7 @@ def run_weekly_preview(
             for movie in sync_service.radarr.get_tagged_movies():
                 title = movie.get("title", "")
                 manually_protected = radarr_prot_id is not None and radarr_prot_id in movie.get("tags", [])
-                if not title or title in tautulli_protected or manually_protected:
+                if not title or manually_protected:
                     continue
                 date_added_str = sync_log.get_date_added(title)
                 date_added = today
@@ -113,7 +112,7 @@ def run_weekly_preview(
             for series in sync_service.sonarr.get_tagged_series():
                 title = series.get("title", "")
                 manually_protected = sonarr_prot_id is not None and sonarr_prot_id in series.get("tags", [])
-                if not title or title in tautulli_protected or manually_protected:
+                if not title or manually_protected:
                     continue
                 date_added_str = sync_log.get_date_added(title)
                 date_added = today
@@ -140,13 +139,24 @@ def run_weekly_preview(
             )
 
 
+def _dismissal_loop(svc: SyncService) -> None:
+    import time as _time
+    while True:
+        _time.sleep(60)
+        try:
+            svc.run_dismissal_deletions()
+        except Exception:
+            logger.exception("Dismissal deletion loop error")
+
+
 def main() -> None:
     logger.info("Starting Streamarr service")
 
     settings = SettingsStore()
     sync_log = SyncLog()
     removal_history = RemovalHistory()
-    sync_service = SyncService(settings, sync_log, removal_history)
+    dismissed = DismissedTitles()
+    sync_service = SyncService(settings, sync_log, removal_history, dismissed)
     stop_event = Event()
 
     worker = Thread(target=run_worker, args=(stop_event, sync_service), daemon=True)
@@ -159,7 +169,9 @@ def main() -> None:
     )
     weekly.start()
 
-    app = create_app(settings, sync_service, sync_log, removal_history)
+    Thread(target=_dismissal_loop, args=(sync_service,), daemon=True).start()
+
+    app = create_app(settings, sync_service, sync_log, removal_history, dismissed)
     port = settings.get("web_port", 8080)
     logger.info("Opening web interface on port %s", port)
     serve(app, host="0.0.0.0", port=port)

@@ -4,6 +4,7 @@ from pathlib import Path
 SETTINGS_PATH = Path(os.getenv("SETTINGS_PATH", "/config/settings.json"))
 SYNC_LOG_PATH = Path(os.getenv("SYNC_LOG_PATH", "/config/sync_log.json"))
 REMOVAL_HISTORY_PATH = Path(os.getenv("REMOVAL_HISTORY_PATH", "/config/removal_history.json"))
+DISMISSED_PATH = Path(os.getenv("DISMISSED_PATH", "/config/dismissed.json"))
 LOG_PATH = Path(os.getenv("LOG_PATH", "/config/app.log"))
 
 DEFAULT_SETTINGS = {

@@ -4,6 +4,58 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-038 — 2026-05-07 — CHG-037 regression fix + P3-0: Top 10 item dismissal
+
+### Fixes
+- **`app/main.py`** — `run_weekly_preview`: removed stale `tautulli_protected` variable
+  (`last_sync.get("protected", [])`) and removed `title in tautulli_protected` from both
+  the Radarr and Sonarr skip conditions; protection check now uses only `manually_protected`
+  (the `streamarr-state-protected` tag), consistent with the P2-2 model
+- **`app/tags.py`** — `tag_source()`: replaces `_` with `-` in source names before building
+  the tag label; Radarr rejects tag labels containing underscores (`^[a-z0-9-]+$`); e.g.
+  `amazon_prime` → `streamarr-src-amazon-prime`
+- **`app/web.py`** — `undo_until` timestamps now carry a `Z` suffix (`isoformat() + "Z"`) in
+  both `POST /api/dismiss` and `_dismissed_fields()`; without `Z`, JavaScript's `Date.parse()`
+  treats the naive ISO string as local time — users ahead of UTC saw the undo window as already
+  expired immediately after dismissing
+
+### Additions
+- **`app/dismissed.py`** — new `DismissedTitles` class; persistent JSON store at
+  `DISMISSED_PATH` (`/config/dismissed.json`); thread-safe (`threading.Lock`); methods:
+  `dismiss(title, type, in_library)`, `undismiss(title)`, `get_all()`, `is_dismissed(title)`,
+  `get_pending_deletion()` (entries where `in_library=True` and ≥15 min have elapsed),
+  `mark_deleted(title)` (sets `in_library=False` to prevent re-deletion); entries are never
+  removed after deletion — they persist so dismissed titles are never re-added by future syncs
+- **`app/config.py`** — `DISMISSED_PATH` added
+- **`app/sync_service.py`** — `__init__` accepts `dismissed: DismissedTitles`; both enabled-mode
+  add loops (`movie_items`, `series_items`) skip titles where `self.dismissed.is_dismissed()` is
+  true; new `run_dismissal_deletions()` method: fetches pending-deletion entries, looks up items
+  in Radarr/Sonarr by title, calls `delete_movie`/`delete_series`, logs removal, sends Pushover,
+  always calls `mark_deleted()` regardless of outcome to prevent infinite retry
+- **`app/main.py`** — imports `DismissedTitles`; constructs instance and passes to `SyncService`
+  and `create_app`; launches a daemon thread (`_dismissal_loop`) that calls
+  `run_dismissal_deletions()` every 60 seconds
+- **`app/web.py`** — imports `DismissedTitles`; `create_app` accepts `dismissed` parameter;
+  `POST /api/dismiss`: validates `title`, `type`, `in_library` (bool), calls `dismissed.dismiss()`,
+  returns `{status, title, in_library, undo_until}`; `DELETE /api/dismiss`: calls
+  `dismissed.undismiss(title)`; `GET /api/top10-status`: each entry now includes `type`
+  (`"movie"` or `"series"`), `dismissed` (bool), and `undo_until` (UTC ISO string or null —
+  present only if dismissed and within the 15-min undo window)
+- **`app/static/script.js`** — `_applyTop10Data()` extended: dismissed items receive
+  `top10-item--dismissed` CSS class (greyed out, title struck through); dismissed items within
+  the 15-min undo window show a `↩` undo button that calls `DELETE /api/dismiss` then re-fetches
+  status; non-dismissed items show a red `×` dismiss button prepended to the list item (leftmost
+  position) that calls `POST /api/dismiss` (passing
+  `in_library = status !== "will_add" && status !== "disabled"`) then re-fetches status
+- **`app/static/style.css`** — `.top10-dismiss` (red `×`, `order: -1` to appear before
+  counter/poster), `.top10-title` (`flex: 1` to keep status icon right-aligned),
+  `.top10-item--dismissed` (opacity 0.4, title strikethrough), `.top10-undo` (blue `↩` arrow,
+  `margin-left: auto`, fully opaque on greyed row)
+- **`app/templates/base.html`** — CSS link versioned (`?v=038b`) to force cache invalidation
+- **`app/CLAUDE.md`** — persistence layer documented: three stores (`SyncLog`, `RemovalHistory`,
+  `DismissedTitles`) with paths and retention rules
+
+---
 
 ## CHG-037 — 2026-05-06 — P2-1 + P2-2: Multi-source addition history, Tautulli removed from protection model
 
