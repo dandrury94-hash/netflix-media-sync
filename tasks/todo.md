@@ -4,9 +4,12 @@ Current work tracking. Updated as tasks are completed.
 
 ---
 
-## Current Session — Session F (CHG-042)
+## Current Session — Session G (CHG-043)
 
 ### Completed this session
+- [x] T-015 — ID-based library matching / title mismatch fix (CHG-043)
+
+### Completed previous session
 - [x] P2-5 — Simulation / dry-run mode (CHG-042)
 - [x] T-016 — Default poster placeholder (CHG-041)
 
@@ -29,24 +32,7 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 
 ---
 
-## Backlog — Session G+
-### T-015 — ID-based title matching (Radarr/Sonarr)
-
-**Context:** Library lookups currently use exact lowercased title matching
-(`movie_lib.get(title.lower())`). This breaks when the Top 10 source and the
-Radarr/Sonarr library title differ slightly (e.g. `"Run, Fatboy, Run"` vs
-`"Run Fatboy Run"`). The poster lookup workaround (CHG-038) gets posters for
-missing titles but the status still shows `will_add` for items already in the
-library under a different name. The sync service also uses title matching to
-determine "already in library", so mismatched titles could be re-added.
-
-**Desired outcome:** Match by TMDB ID (movies) / TVDb ID (series) instead of
-title. Needs spec before implementation — to be fleshed out in a future session.
-
-- [ ] Spec: where IDs come from (lookup at add-time vs fetched from library)
-- [ ] Spec: how IDs are stored (SyncLog entry? in-memory only?)
-- [ ] Spec: impact on sync service, status endpoint, removal history
-
+## Backlog — Session H+
 
 ---
 

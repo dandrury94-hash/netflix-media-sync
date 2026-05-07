@@ -4,6 +4,29 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-043 — 2026-05-07 — T-015: ID-based library matching (title mismatch fix)
+
+### Fixes
+- **`app/sync_service.py`** — library presence checks in sim/read modes and dismissal
+  deletions now fall back to TMDB ID / TVDb ID matching when the title cache misses,
+  preventing false `would_add` entries for titles already in the library under a
+  slightly different name (e.g. `"Run, Fatboy, Run"` vs `"Run Fatboy Run"`)
+
+### Changes
+- **`app/sync_service.py`** — `_lookup_in_library()` private helper added: checks
+  title cache first; on miss calls `lookup_movie()` / `lookup_series()` to resolve
+  the external ID, then checks a secondary `tmdbId` / `tvdbId` keyed cache; logs
+  `[id-match]` warning when neither resolves (treats item as genuinely new)
+- **`app/sync_service.py`** — `_run()`: bulk fetches now build both a title-keyed
+  and ID-keyed cache from the same `get_all_movies()` / `get_all_series()` response
+  (no additional API calls); `_lookup_in_library()` used in all four
+  sim/read code paths (radarr sim, radarr read, sonarr sim, sonarr read)
+- **`app/sync_service.py`** — `run_dismissal_deletions()`: same dual-cache pattern
+  applied so title-mismatched dismissed items are correctly found and deleted
+- **`DECISIONS.md`** — D16 added: when to branch vs. commit to master
+
+---
+
 ## CHG-042 — 2026-05-07 — P2-5: Simulation / dry-run mode
 
 ### Additions
