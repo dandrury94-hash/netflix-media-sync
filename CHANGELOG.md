@@ -4,6 +4,42 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-045 — 2026-05-07 — Rank tracking: NEW badge persists for 48 hours
+
+### Fixes
+- **`app/static/script.js`** — `NEW` badge now shows for any title whose
+  `first_seen` is within the last 2 days, rather than only on the sync
+  immediately after first appearance; trend arrows (`↑`/`↓`) are suppressed
+  while a title is still showing `NEW` to avoid conflicting signals
+
+---
+
+## CHG-044 — 2026-05-07 — P3-1: Rank tracking over time
+
+### Additions
+- **`app/rank_tracker.py`** — new `RankTracker` store: tracks `rank`,
+  `previous_rank`, and `first_seen` per title per source per media type;
+  persisted to `config/rank_tracker.json`; titles that leave the list are
+  removed immediately (no dropped-off retention)
+- **`app/config.py`** — `RANK_TRACKER_PATH` added
+- **`app/main.py`** — `RankTracker` instantiated and passed to `SyncService`
+- **`app/sync_service.py`** — `RankTracker` injected; `_run()` calls
+  `rank_tracker.update()` for each source/type after `top_by_source` is built;
+  `rank_data` bundled into the `last_sync` result dict
+- **`app/templates/index.html`** — rank data attributes (`data-rank`,
+  `data-prev-rank`, `data-first-seen`) embedded on each `<li>` from
+  `last_sync.rank_data`; no extra API call required
+- **`app/static/script.js`** — `_applyRankIndicators()`: reads data attributes
+  on page load and prepends trend badges (`NEW` amber / `↑` green / `↓` dim)
+  and appends a days-in-list label (`Xd`) where applicable; runs once on
+  DOMContentLoaded, independent of the status/poster API fetch
+- **`app/static/style.css`** — `.rank-badge`, `.rank-badge--new`,
+  `.rank-badge--up`, `.rank-badge--down`, `.rank-days` styles
+- **`app/templates/base.html`** — CSS version bumped to `?v=044`
+- **`.gitignore`** — `config/rank_tracker.json` added
+
+---
+
 ## CHG-043 — 2026-05-07 — T-015: ID-based library matching (title mismatch fix)
 
 ### Fixes

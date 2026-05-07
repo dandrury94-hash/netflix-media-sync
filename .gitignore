@@ -4,6 +4,7 @@ config/app.log.*
 config/sync_log.json
 config/removal_history.json
 config/dismissed.json
+config/rank_tracker.json
 __pycache__/
 *.pyc
 *.pyo

@@ -327,9 +327,10 @@ document.addEventListener("DOMContentLoaded", () => {
     loadProtectionState(protectionPanel);
   }
 
-  // ── Top 10 status icons ──
+  // ── Top 10 rank indicators ──
   const top10Items = document.querySelectorAll(".top10-item[data-title]");
   if (top10Items.length) {
+    _applyRankIndicators();
     try {
       const cached = localStorage.getItem("top10-status-cache");
       if (cached) _applyTop10Data(JSON.parse(cached));
@@ -411,6 +412,54 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchLogs, 3000);
   }
 });
+
+function _applyRankIndicators() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  document.querySelectorAll(".top10-item[data-rank]").forEach((li) => {
+    if (li.querySelector(".rank-badge")) return;
+
+    const rank = parseInt(li.dataset.rank, 10);
+    const prevRank = li.dataset.prevRank ? parseInt(li.dataset.prevRank, 10) : null;
+    const firstSeen = li.dataset.firstSeen || null;
+
+    const seenDate = firstSeen ? new Date(firstSeen) : null;
+    seenDate && seenDate.setHours(0, 0, 0, 0);
+    const daysSinceSeen = seenDate ? Math.round((today - seenDate) / 86400000) : null;
+    const isNew = daysSinceSeen !== null && daysSinceSeen < 2;
+
+    if (isNew) {
+      const badge = document.createElement("span");
+      badge.className = "rank-badge rank-badge--new";
+      badge.textContent = "NEW";
+      li.prepend(badge);
+    } else if (prevRank !== null && rank < prevRank) {
+      const badge = document.createElement("span");
+      badge.className = "rank-badge rank-badge--up";
+      badge.textContent = "↑";
+      li.prepend(badge);
+    } else if (prevRank !== null && rank > prevRank) {
+      const badge = document.createElement("span");
+      badge.className = "rank-badge rank-badge--down";
+      badge.textContent = "↓";
+      li.prepend(badge);
+    }
+
+    if (firstSeen) {
+      const seenDate = new Date(firstSeen);
+      seenDate.setHours(0, 0, 0, 0);
+      const days = Math.round((today - seenDate) / 86400000);
+      if (days > 0) {
+        const daysEl = document.createElement("span");
+        daysEl.className = "rank-days";
+        daysEl.title = `In Top 10 for ${days} day${days === 1 ? "" : "s"}`;
+        daysEl.textContent = `${days}d`;
+        li.appendChild(daysEl);
+      }
+    }
+  });
+}
 
 function _applyTop10Data(all) {
   document.querySelectorAll(".top10-item[data-title]").forEach((li) => {
