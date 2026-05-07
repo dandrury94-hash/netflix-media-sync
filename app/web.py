@@ -317,6 +317,41 @@ def create_app(
         unprotected.sort(key=lambda x: x["title"].lower())
         return jsonify({"protected": protected, "unprotected": unprotected})
 
+    @app.route("/api/active-watches")
+    def active_watches():
+        last_watched_all = sync_log.get_last_watched_all()
+        if not last_watched_all:
+            return jsonify({"items": []})
+
+        radarr_mode = settings.get("radarr_mode", "disabled")
+        sonarr_mode = settings.get("sonarr_mode", "disabled")
+
+        tagged_movies: set[str] = set()
+        tagged_series: set[str] = set()
+
+        if radarr_mode != "disabled":
+            try:
+                tagged_movies = {m["title"].lower() for m in sync_service.radarr.get_tagged_movies() if m.get("title")}
+            except Exception:
+                pass
+
+        if sonarr_mode != "disabled":
+            try:
+                tagged_series = {s["title"].lower() for s in sync_service.sonarr.get_tagged_series() if s.get("title")}
+            except Exception:
+                pass
+
+        items = []
+        for title, last_watched in last_watched_all.items():
+            tl = title.lower()
+            if tl in tagged_movies:
+                items.append({"title": title, "type": "movie", "last_watched": last_watched})
+            elif tl in tagged_series:
+                items.append({"title": title, "type": "series", "last_watched": last_watched})
+
+        items.sort(key=lambda x: x["last_watched"], reverse=True)
+        return jsonify({"items": items})
+
     @app.route("/api/dismiss", methods=["POST"])
     def post_dismiss():
         payload = request.json or {}

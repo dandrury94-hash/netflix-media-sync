@@ -327,6 +327,11 @@ document.addEventListener("DOMContentLoaded", () => {
     loadProtectionState(protectionPanel);
   }
 
+  const activeWatchesPanel = document.getElementById("activeWatchesPanel");
+  if (activeWatchesPanel) {
+    loadActiveWatches(activeWatchesPanel);
+  }
+
   // ── Top 10 rank indicators ──
   const top10Items = document.querySelectorAll(".top10-item[data-title]");
   if (top10Items.length) {
@@ -845,6 +850,37 @@ async function handleProtectionToggle(btn, title, type, protect, container) {
   } catch {
     btn.disabled = false;
   }
+}
+
+async function loadActiveWatches(container) {
+  try {
+    const resp = await fetch("/api/active-watches");
+    const data = await resp.json();
+    renderActiveWatches(container, data);
+  } catch {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">Failed to load watch history.</p>';
+  }
+}
+
+function renderActiveWatches(container, data) {
+  const items = data.items || [];
+  if (!items.length) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin:0">No watch history found for managed titles.</p>';
+    return;
+  }
+  const rows = items.map(item => `
+    <tr>
+      <td>${escHtml(item.title)}</td>
+      <td>${item.type === "movie" ? "Movie" : "Series"}</td>
+      <td>${escHtml(item.last_watched)}</td>
+    </tr>`).join("");
+  container.innerHTML = `
+    <table class="removal-table">
+      <thead>
+        <tr><th>Title</th><th>Type</th><th>Last watched</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 function escHtml(str) {

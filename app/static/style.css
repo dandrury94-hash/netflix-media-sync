@@ -974,6 +974,13 @@ body::before {
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+.prot-subtitle {
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--muted);
+    margin-left: 8px;
+}
+
 .prot-col-header {
     display: flex;
     align-items: center;
