@@ -286,6 +286,39 @@ def create_app(
             return jsonify({"error": "Failed to update protection"}), 500
         return jsonify({"status": "ok", "title": title, "type": media_type, "protected": protected})
 
+    @app.route("/api/overrides/batch", methods=["POST"])
+    def post_overrides_batch():
+        payload = request.json or {}
+        items = payload.get("items")
+        protected = payload.get("protected")
+        if not isinstance(items, list) or not items:
+            return jsonify({"error": "items must be a non-empty list"}), 400
+        if not isinstance(protected, bool):
+            return jsonify({"error": "protected must be a boolean"}), 400
+        for item in items:
+            if not isinstance(item, dict) or not isinstance(item.get("title"), str) or not item["title"].strip():
+                return jsonify({"error": "each item must have a non-empty title"}), 400
+            if item.get("type") not in ("movie", "series"):
+                return jsonify({"error": "each item type must be 'movie' or 'series'"}), 400
+        movie_items = [i for i in items if i["type"] == "movie"]
+        series_items = [i for i in items if i["type"] == "series"]
+        all_movies = sync_service.radarr.get_all_movies() if movie_items else []
+        all_series = sync_service.sonarr.get_all_series() if series_items else []
+        movies_by_title = {m.get("title", "").lower(): m for m in all_movies}
+        series_by_title = {s.get("title", "").lower(): s for s in all_series}
+        updated = 0
+        for item in items:
+            title = item["title"].strip()
+            if item["type"] == "movie":
+                match = movies_by_title.get(title.lower())
+                if match and sync_service.radarr.set_movie_protection(match["id"], protected):
+                    updated += 1
+            else:
+                match = series_by_title.get(title.lower())
+                if match and sync_service.sonarr.set_series_protection(match["id"], protected):
+                    updated += 1
+        return jsonify({"status": "ok", "updated": updated})
+
     @app.route("/api/removal-schedule")
     def removal_schedule():
         state = _fetch_media_state()

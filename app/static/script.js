@@ -817,13 +817,14 @@ function renderProtectionState(container, data) {
   document.getElementById("protUnprotectSelected").addEventListener("click", async () => {
     const checked = [...document.querySelectorAll("#protMgrProtectedList .prot-entry-cb:checked:not(:disabled)")];
     if (!checked.length) return;
-    for (const cb of checked) {
-      await fetch("/api/overrides", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: cb.dataset.title, type: cb.dataset.type, protected: false }),
-      });
-    }
+    await fetch("/api/overrides/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: checked.map(cb => ({ title: cb.dataset.title, type: cb.dataset.type })),
+        protected: false,
+      }),
+    });
     await loadProtectionState(container);
   });
 
@@ -831,13 +832,14 @@ function renderProtectionState(container, data) {
   document.getElementById("protProtectSelected").addEventListener("click", async () => {
     const checked = [...document.querySelectorAll("#protMgrUnprotectedList .prot-entry-cb:checked")];
     if (!checked.length) return;
-    for (const cb of checked) {
-      await fetch("/api/overrides", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: cb.dataset.title, type: cb.dataset.type, protected: true }),
-      });
-    }
+    await fetch("/api/overrides/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: checked.map(cb => ({ title: cb.dataset.title, type: cb.dataset.type })),
+        protected: true,
+      }),
+    });
     await loadProtectionState(container);
   });
 

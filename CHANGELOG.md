@@ -4,6 +4,26 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-057 — 2026-05-07 — Batch protection endpoint, CHANGELOG separator cleanup
+
+### Additions
+- **`app/web.py`** — `POST /api/overrides/batch`: accepts `{"items": [{"title": "...", "type": "movie|series"}, ...], "protected": bool}`;
+  validates that `items` is a non-empty list of well-formed objects and `protected` is a boolean (400 on invalid input);
+  fetches the full Radarr and Sonarr libraries once (one call per service, only if items of that type exist);
+  calls `set_movie_protection` / `set_series_protection` per matched item; returns `{"status": "ok", "updated": <count>}`.
+
+### Changes
+- **`app/static/script.js`** — Batch protect and batch unprotect handlers replaced: the per-item `for...of` loops
+  that called `POST /api/overrides` once per checkbox are removed; each handler now collects all checked items into
+  an array and makes a single `POST /api/overrides/batch` call. Eliminates sequential N-request fan-out for batch
+  operations.
+
+### Housekeeping
+- **`CHANGELOG.md`** — Added missing `---` separators between CHG-037/036, CHG-024/023, CHG-023/022,
+  CHG-022/021, and CHG-021/020. Pattern is now consistent throughout.
+
+---
+
 ## CHG-056 — 2026-05-07 — Streamarr collection includes all service-tagged items
 
 ### Changes
@@ -448,6 +468,8 @@ source ("trakt") and never appeared in per-service Plex collections.
 - **`app/templates/index.html`** — removed stale "Tautulli-protected titles cannot be unprotected here" note from protection tab
 - **`app/CLAUDE.md`** — updated Protection section to reflect new model: `streamarr-state-protected` tag only; Tautulli = retention signal only; `protection_source` valid values: `"manual"` | `None`
 
+---
+
 ## CHG-036 — 2026-05-06 — P1-5 + P1-6 + P1-7: Tag-only deletion, grace period removal, pre-deletion warnings
 
 ### Changes
@@ -664,6 +686,7 @@ The `flixpatrol_country` setting, `FLIXPATROL_COUNTRIES` import, country dropdow
 - `post_settings()` in `app/web.py`: `"flixpatrol"` added to sources whitelist (replacing `"netflix"` stub); `flixpatrol_country` and `flixpatrol_services` normalised and persisted; `flixpatrol_services` excluded from scalar form loop
 - Form submit handler in `app/static/script.js`: `flixpatrol_services` collected with `getAll()` and skipped in scalar loop
 
+---
 
 ## CHG-023 — 2026-04-29 — Fix: lookup failures no longer crash the sync run
 
@@ -671,6 +694,7 @@ The `flixpatrol_country` setting, `FLIXPATROL_COUNTRIES` import, country dropdow
 - `lookup_movie()` in `app/radarr_client.py` — wrapped the `_get()` call in a try/except. A transient Radarr error (e.g. 503 Service Unavailable) now logs a warning and returns `None`, which `add_movie()` already handles by skipping that title. Previously the exception propagated up through `SyncService._run()` and aborted the entire sync mid-run, leaving the remaining titles unprocessed
 - `lookup_series()` in `app/sonarr_client.py` — identical fix applied for consistency. Same failure mode, same fix
 
+---
 
 ## CHG-022 — 2026-04-29 — Phase 2: FlixPatrol settings wiring and UI card
 
@@ -689,6 +713,7 @@ The `flixpatrol_country` setting, `FLIXPATROL_COUNTRIES` import, country dropdow
   - `payload.flixpatrol_services = formData.getAll("flixpatrol_services")` added alongside the existing `sources` and `netflix_top_countries` multi-value collection
   - `flixpatrol_services` skipped in the scalar `formData.entries()` loop to prevent double-submission
 
+---
 
 ## CHG-021 — 2026-04-29 — Phase 1: FlixPatrol scraper integration (streaming-scraper vendored)
 
@@ -712,6 +737,7 @@ The `flixpatrol_country` setting, `FLIXPATROL_COUNTRIES` import, country dropdow
 - `beautifulsoup4>=4.12.2` already present in `requirements.txt` — no new dependencies added
 - FlixPatrol source is opt-in: it activates only when `"flixpatrol"` is added to the `sources` list in settings. Default remains `["trakt"]`, so existing deployments are unaffected until explicitly configured
 
+---
 
 ## CHG-020 — 2026-04-28 — Multi-source trending fetch
 
