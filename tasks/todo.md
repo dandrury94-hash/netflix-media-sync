@@ -48,7 +48,40 @@ All reason logic lives in `media_state.py`. `web.py` endpoints pass through
 
 ## Backlog
 
-*(empty)*
+### F-001 — One-shot preview sync button
+**Effort: Medium**
+
+Add a "Preview" button to the Status & Actions card that runs a single simulation-mode sync without touching the persistent `simulation_mode` setting.
+
+- **`app/sync_service.py`** — add optional `simulate: bool | None = None` to `run_once()`; when provided, use it instead of `self.settings.get("simulation_mode")` for that call only
+- **`app/web.py`** — `POST /api/sync` reads optional `{"simulate": true}` from JSON body and passes it to `run_once()`
+- **`app/templates/index.html`** — add a "Preview" button alongside "Sync Now" in the Status & Actions card
+- **`app/static/script.js`** — Preview handler calls `POST /api/sync` with `{simulate: true}`; renders `would_add_movies` / `would_add_series` from the response in the same result area as a normal sync
+
+No settings change, no persistent state mutation.
+
+---
+
+### F-002 — Next sync countdown in Status & Actions card
+**Effort: Low**
+
+Surface "Next sync in X min" (or "Overdue") beneath the last sync timestamp. The run interval already exists as `run_interval_seconds` in settings; the last sync timestamp is in SyncLog.
+
+- **`app/web.py`** — add `GET /api/sync-status` endpoint returning `{"last_sync_ts": float | null, "run_interval_seconds": int}` (reads `sync_log.get_last_sync()` for timestamp and `settings.get("run_interval_seconds")` for interval)
+- **`app/static/script.js`** — on page load, fetch `/api/sync-status`; compute `next_sync_ts = last_sync_ts + run_interval_seconds`; display relative time in the Status & Actions card; refresh the display after any manual sync completes
+
+No template changes needed — the display is JS-rendered.
+
+---
+
+### F-003 — Title search filter on scheduled removals table
+**Effort: Low**
+
+The Protection Manager already has a live client-side search input (`#protSearchInput`, `keyup` listener at script.js:794). Apply the same pattern to the scheduled removals table.
+
+- **`app/templates/index.html`** — add `<input id="removalSearchInput" class="prot-search" placeholder="Search titles…">` above the scheduled removals table (match the Protection Manager layout)
+- **`app/static/script.js`** — add `keyup` listener on `#removalSearchInput` that shows/hides `<tr>` rows based on whether the title cell matches the input; same case-insensitive substring approach as the existing protection search
+- **`app/static/style.css`** — reuse existing `.prot-search` / `.prot-search-wrap`; add a wrapper div in the template if needed; no new CSS rules expected
 
 ---
 
