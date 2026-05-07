@@ -82,6 +82,50 @@ class RadarrClient:
         result = self._post("/api/v3/tag", {"label": name})
         return result["id"]
 
+    def get_source_tag_map(self) -> dict[int, str]:
+        """Return {tag_id: source_key} for all streamarr-src-* tags in Radarr."""
+        try:
+            prefix = _tags.TAG_SRC_PREFIX
+            return {
+                t["id"]: t["label"][len(prefix):].replace("-", "_")
+                for t in self._get("/api/v3/tag")
+                if t.get("id") is not None and t.get("label", "").startswith(prefix)
+            }
+        except Exception as exc:
+            logger.warning("Failed to fetch Radarr source tag map: %s", exc)
+            return {}
+
+    def get_source_tagged_movies(self) -> list[dict]:
+        """Return all Radarr movies carrying any streamarr-src-* tag (managed or not)."""
+        try:
+            tag_list = self._get("/api/v3/tag")
+            src_tag_ids = {
+                t["id"] for t in tag_list
+                if t.get("id") is not None and t.get("label", "").startswith(_tags.TAG_SRC_PREFIX)
+            }
+            if not src_tag_ids:
+                return []
+            movies = self._get("/api/v3/movie")
+            return [m for m in movies if src_tag_ids & set(m.get("tags", []))]
+        except Exception as exc:
+            logger.warning("Failed to fetch source-tagged movies from Radarr: %s", exc)
+            return []
+
+    def merge_movie_tags(self, movie_id: int, new_tag_names: list[str]) -> None:
+        """Add any new_tag_names not already on the movie, leaving existing tags intact."""
+        try:
+            movie = self._get(f"/api/v3/movie/{movie_id}")
+            current_ids = set(movie.get("tags", []))
+            to_add = set(self._resolve_tag_ids(new_tag_names, str(movie_id))) - current_ids
+            if not to_add:
+                logger.debug("merge_movie_tags: movie id=%d already has all tags %s", movie_id, new_tag_names)
+                return
+            movie["tags"] = list(current_ids | to_add)
+            self._put(f"/api/v3/movie/{movie_id}", movie)
+            logger.info("merge_movie_tags: added %s to movie id=%d ('%s')", new_tag_names, movie_id, movie.get("title"))
+        except Exception as exc:
+            logger.warning("Failed to merge tags for Radarr movie id=%d: %s", movie_id, exc)
+
     def get_tagged_movies(self) -> list[dict]:
         """Return all Radarr movies carrying the streamarr root tag."""
         try:

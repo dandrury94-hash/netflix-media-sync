@@ -96,6 +96,22 @@ class SyncLog:
         with self._lock:
             return dict(self._data.get("last_watched", {}))
 
+    def merge_sources(self, title: str, new_sources: list[str]) -> None:
+        """Add any new_sources not already recorded for this title across all its entries."""
+        with self._lock:
+            entries = self._data.get("entries", [])
+            changed = False
+            for entry in entries:
+                if not isinstance(entry, dict) or entry.get("title") != title:
+                    continue
+                existing = entry.get("sources") or []
+                to_add = [s for s in new_sources if s not in existing]
+                if to_add:
+                    entry["sources"] = existing + to_add
+                    changed = True
+            if changed:
+                self._save()
+
     def get_date_added(self, title: str) -> str | None:
         """Return the earliest date_added recorded for a title."""
         with self._lock:

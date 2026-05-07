@@ -4,6 +4,145 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-056 — 2026-05-07 — Streamarr collection includes all service-tagged items
+
+### Changes
+- **`app/plex_client.py`** — The main Streamarr collection is now built from the union of
+  root-tagged items (`streamarr`) and source-tagged items (`streamarr-src-*`), rather than
+  root-tagged only. Any movie or series that Streamarr has touched (added or service-tagged)
+  now appears in the Streamarr collection.
+
+### Reason
+Pre-Streamarr items that received service tags via the merge loop (CHG-053/054/055) were
+appearing in service-specific collections (Netflix, Disney+, etc.) but not in the main
+Streamarr collection, making the Streamarr count appear lower than the union of the service
+collections.
+
+---
+
+## CHG-055 — 2026-05-07 — Fix: Plex service collections include pre-Streamarr movies/series
+
+### Fixes
+- **`app/radarr_client.py`** — Added `get_source_tagged_movies()`: returns all Radarr movies
+  carrying any `streamarr-src-*` tag, regardless of whether they have the `streamarr` root tag.
+- **`app/sonarr_client.py`** — Added `get_source_tagged_series()`: same for Sonarr series.
+- **`app/plex_client.py`** — `sync_plex_collections` now accepts optional `source_tagged_movies`
+  and `source_tagged_series` parameters. The main Streamarr collection is still built from
+  root-tagged items only; service-specific collections (Netflix, Disney+, etc.) are built from
+  the wider source-tagged sets.
+- **`app/web.py`** — `plex_sync` endpoint now calls `get_source_tagged_movies()` /
+  `get_source_tagged_series()` and passes them to `sync_plex_collections`.
+
+### Root cause
+Movies and series added to Radarr/Sonarr before Streamarr was deployed never received the
+`streamarr` root tag (because `add_movie` / `add_series` return early when the item already
+exists). CHG-053/054 correctly wrote `streamarr-src-*` tags onto those items, but
+`sync_plex_collections` used `get_tagged_movies()` (root-tag filter) to build service
+collections, so the newly-tagged items were still excluded. Plex sync showed `+0/-0` even
+though Radarr confirmed the tags were present. The fix separates the two queries: root-tagged
+items for the Streamarr collection (owned items only), source-tagged items for service
+collections (any tagged item regardless of how it got there).
+
+---
+
+## CHG-054 — 2026-05-07 — Fix: merge loop uses full lookup to handle title mismatches
+
+### Fixes
+- **`app/sync_service.py`** — The movie and series source-merge loops now use
+  `_lookup_in_library` (which falls back to a TMDb/TVDb API search when the exact
+  title isn't in the local cache) instead of a plain `dict.get()` on the title cache.
+  This fixes the case where FlixPatrol returns a colloquial title (e.g. "Star Wars")
+  that differs from the official TMDb title stored in Radarr ("Star Wars: Episode IV
+  - A New Hope"), causing `merge_movie_tags` to silently skip the item.
+
+### Root cause
+CHG-053 added `merge_movie_tags` calls in the post-add merge loop, but the loop
+condition `item["title"].lower() in radarr_cache` used an exact-title dict lookup.
+Any item whose FlixPatrol search title doesn't exactly match the Radarr/TMDb title
+was never found, so its Radarr tag was never updated and the Plex service collection
+remained empty for those items despite them being in the library.
+
+---
+
+## CHG-053 — 2026-05-07 — Fix: Plex service collections built from Radarr/Sonarr tags (authoritative)
+
+### Fixes
+- **`app/radarr_client.py`** — Added `get_source_tag_map()`: returns `{tag_id: source_key}` for
+  all `streamarr-src-*` tags in Radarr. Added `merge_movie_tags(movie_id, new_tag_names)`: adds
+  any missing source tags to an existing Radarr movie without disturbing other tags.
+- **`app/sonarr_client.py`** — Same two methods added for Sonarr series.
+- **`app/sync_service.py`** — After calling `merge_sources`, also calls `merge_movie_tags` /
+  `merge_series_tags` for items already in the library that have non-trakt FlixPatrol sources.
+  This permanently records service attribution in Radarr/Sonarr tags, not just in SyncLog.
+- **`app/plex_client.py`** — `sync_plex_collections` now accepts optional `radarr_tag_map` and
+  `sonarr_tag_map` parameters. When provided, source attribution is keyed by `tmdbId` / `tvdbId`
+  (from Radarr/Sonarr tags), fixing the title-mismatch bug where FlixPatrol search titles differ
+  from the official TMDb/TVDb titles stored in Radarr/Sonarr. SyncLog title-based lookup is
+  retained as a fallback.
+- **`app/web.py`** — `plex_sync` endpoint now calls `get_source_tag_map()` on both clients and
+  passes the maps to `sync_plex_collections`.
+
+### Root cause
+Two compounding bugs:
+1. **Title mismatch**: `sync_plex_collections` looked up SyncLog sources by Radarr title, but
+   SyncLog stores the FlixPatrol/Trakt search title. Titles can differ (e.g. "Money Heist" vs
+   "La Casa de Papel"), silently dropping items from service collections even when the source
+   was correctly recorded.
+2. **Sources not persisted in Radarr/Sonarr**: `merge_sources` updated SyncLog only. If an item
+   appeared in FlixPatrol data during one sync but not the next, the Plex collection sync (which
+   runs independently) could still miss it. Now service sources are written into Radarr/Sonarr
+   tags on every sync, making them permanent.
+
+---
+
+## CHG-052 — 2026-05-07 — Fix: per-service Plex collections missing for old items
+
+### Fixes
+- **`app/sync_log.py`** — `merge_sources(title, new_sources)` added: finds all existing
+  SyncLog entries for a title and appends any sources not already recorded, then saves.
+  No-op when no entries exist (items added outside Streamarr).
+- **`app/sync_service.py`** — after each add loop (movies + series), calls `merge_sources`
+  for every trending item already present in the Radarr/Sonarr library cache. This ensures
+  items that were added via Trakt before FlixPatrol was enabled get their FlixPatrol service
+  source (e.g. "netflix", "disney_plus") merged in on the next sync, making them eligible
+  for per-service Plex collections.
+
+### Root cause
+`log_add()` only fires on first successful add. Items already in the library were never
+updated when a new source (FlixPatrol) was later enabled, so they kept only their original
+source ("trakt") and never appeared in per-service Plex collections.
+
+---
+
+## CHG-051 — 2026-05-07 — Fix: Plex settings not saved on settings form submit
+
+### Fixes
+- **`app/web.py`** — `post_settings()` was missing all Plex fields (`plex_mode`, `plex_url`,
+  `plex_token`, `plex_movie_library`, `plex_tv_library`, `plex_collection_sync_hours`) from
+  the `normalized` dict — they were never written to `settings.json`
+- **`app/config.py`** — `ENV_VAR_TO_SETTING` extended with `PLEX_MOVIE_LIBRARY`,
+  `PLEX_TV_LIBRARY`, `PLEX_COLLECTION_SYNC_HOURS` so all Plex settings can be injected via
+  Docker env vars
+
+---
+
+## CHG-050 — 2026-05-07 — Plex collection sort + remove
+
+### Changes
+- **`app/plex_client.py`** — `_set_collection_sort_title()` added; sets `titleSort` to
+  `!{title}` (e.g. `!Streamarr`, `!Netflix`) via `PUT /library/sections/{id}/all?type=18`
+  so Streamarr collections sort before all alphabetical entries in Plex's collection view.
+  Called from `_ensure_collection` on every sync (idempotent).
+- **`app/plex_client.py`** — `remove_collection()` method and `remove_plex_collections()`
+  function added; deletes all Streamarr-managed collections (main + per-service) from both
+  movie and TV libraries
+- **`app/web.py`** — `DELETE /api/plex/collections` endpoint added
+- **`app/templates/settings.html`** — "Remove collections" button added alongside sync button
+- **`app/static/script.js`** — Remove handler with confirmation dialog
+- **`app/static/style.css`** — `.button-danger` style for destructive actions
+
+---
+
 ## CHG-049 — 2026-05-07 — P4-1: Plex collections
 
 ### Additions

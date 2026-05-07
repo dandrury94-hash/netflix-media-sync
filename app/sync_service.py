@@ -183,6 +183,21 @@ class SyncService:
                     added_movies.append(item["title"])
                     self.sync_log.log_add(item["title"], "movie", item["sources"])
             logger.info("[timing] radarr_add_loop: %.1fs", time.monotonic() - _t)
+            for item in movie_items:
+                if self.dismissed.is_dismissed(item["title"]):
+                    continue
+                found = self._lookup_in_library(
+                    item["title"], radarr_cache, radarr_tmdb_cache,
+                    self.radarr.lookup_movie, "tmdbId", "Radarr",
+                )
+                if not (found and found.get("id")):
+                    logger.debug("[merge] movie '%s' not found in Radarr — skipping tag merge", item["title"])
+                    continue
+                self.sync_log.merge_sources(item["title"], item["sources"])
+                new_src_tags = [_tags.tag_source(s) for s in item["sources"] if s != "trakt"]
+                if new_src_tags:
+                    logger.info("[merge] movie '%s' (id=%s) ← adding tags: %s", item["title"], found["id"], new_src_tags)
+                    self.radarr.merge_movie_tags(found["id"], new_src_tags)
         elif radarr_mode == "enabled" and simulation_mode:
             for item in movie_items:
                 if self.dismissed.is_dismissed(item["title"]):
@@ -226,6 +241,21 @@ class SyncService:
                     added_series.append(item["title"])
                     self.sync_log.log_add(item["title"], "series", item["sources"])
             logger.info("[timing] sonarr_add_loop: %.1fs", time.monotonic() - _t)
+            for item in series_items:
+                if self.dismissed.is_dismissed(item["title"]):
+                    continue
+                found = self._lookup_in_library(
+                    item["title"], sonarr_cache, sonarr_tvdb_cache,
+                    self.sonarr.lookup_series, "tvdbId", "Sonarr",
+                )
+                if not (found and found.get("id")):
+                    logger.debug("[merge] series '%s' not found in Sonarr — skipping tag merge", item["title"])
+                    continue
+                self.sync_log.merge_sources(item["title"], item["sources"])
+                new_src_tags = [_tags.tag_source(s) for s in item["sources"] if s != "trakt"]
+                if new_src_tags:
+                    logger.info("[merge] series '%s' (id=%s) ← adding tags: %s", item["title"], found["id"], new_src_tags)
+                    self.sonarr.merge_series_tags(found["id"], new_src_tags)
         elif sonarr_mode == "enabled" and simulation_mode:
             for item in series_items:
                 if self.dismissed.is_dismissed(item["title"]):

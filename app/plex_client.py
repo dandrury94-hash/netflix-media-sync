@@ -149,13 +149,27 @@ class PlexClient:
         logger.info("Plex: created collection '%s' (key=%s) in section %s", title, rk, section_id)
         return rk
 
+    def _set_collection_sort_title(self, section_id: str, rk: str, sort_title: str) -> None:
+        """Set the titleSort on a collection so it appears before alphabetical entries."""
+        try:
+            self._put(f"/library/sections/{section_id}/all", {
+                "type": "18",
+                "id": rk,
+                "titleSort.value": sort_title,
+                "titleSort.locked": "1",
+            })
+        except PlexError as e:
+            logger.warning("Plex: could not set sort title for collection %s: %s", rk, e)
+
     def _ensure_collection(
         self, section_id: str, title: str, library_type: int, existing: dict[str, str]
     ) -> str:
         if title in existing:
-            return existing[title]
-        rk = self._create_collection(section_id, title, library_type)
-        existing[title] = rk
+            rk = existing[title]
+        else:
+            rk = self._create_collection(section_id, title, library_type)
+            existing[title] = rk
+        self._set_collection_sort_title(section_id, rk, f"!{title}")
         return rk
 
     def get_collection_items(self, collection_key: str) -> set[str]:
@@ -177,6 +191,9 @@ class PlexClient:
 
     def _remove_from_collection(self, collection_key: str, item_key: str) -> None:
         self._delete(f"/library/collections/{collection_key}/items/{item_key}")
+
+    def remove_collection(self, rk: str) -> None:
+        self._delete(f"/library/collections/{rk}")
 
     def sync_collection(
         self,
@@ -205,6 +222,31 @@ class PlexClient:
         return len(to_add), len(to_remove)
 
 
+def remove_plex_collections(
+    plex: PlexClient,
+    movie_library: str,
+    tv_library: str,
+) -> dict:
+    """Delete all Streamarr-managed collections from Plex.
+
+    Removes the main 'Streamarr' collection and all per-service collections
+    from both movie and TV libraries. Returns {removed: int}.
+    """
+    managed_titles = {MAIN_COLLECTION_NAME} | set(SERVICE_COLLECTION_NAMES.values())
+    removed = 0
+    for library_name in (movie_library, tv_library):
+        section_id = plex.get_library_section_id(library_name)
+        if not section_id:
+            continue
+        collections = plex.get_collections(section_id)
+        for title, rk in collections.items():
+            if title in managed_titles:
+                plex.remove_collection(rk)
+                logger.info("Plex: removed collection '%s' (key=%s) from '%s'", title, rk, library_name)
+                removed += 1
+    return {"removed": removed}
+
+
 def sync_plex_collections(
     plex: PlexClient,
     tagged_movies: list[dict],
@@ -212,12 +254,27 @@ def sync_plex_collections(
     sync_entries: list[dict],
     movie_library: str,
     tv_library: str,
+    radarr_tag_map: dict[int, str] | None = None,
+    sonarr_tag_map: dict[int, str] | None = None,
+    source_tagged_movies: list[dict] | None = None,
+    source_tagged_series: list[dict] | None = None,
 ) -> dict:
     """Sync Plex collections for all Streamarr-managed items.
 
     Creates/updates:
-    - One main 'Streamarr' collection per library
+    - One main 'Streamarr' collection per library (root-tagged items only)
     - One per-service collection per library for each non-trakt source
+
+    tagged_movies/tagged_series: items with the streamarr root tag.
+
+    source_tagged_movies/source_tagged_series: items with any streamarr-src-* tag
+    (regardless of root tag). Falls back to tagged_movies if not provided.
+
+    The main Streamarr collection is the union of both sets — anything Streamarr has
+    ever tagged belongs there. Service collections use source_tagged_* only.
+
+    radarr_tag_map / sonarr_tag_map: {tag_id: source_key} maps. When provided,
+    source attribution is keyed by tmdbId/tvdbId (authoritative, avoids title mismatches).
 
     Returns summary dict with counts.
     """
@@ -245,7 +302,11 @@ def sync_plex_collections(
         if tv_section_id:
             tv_tmdb_map, tv_tvdb_map = plex.get_library_items(tv_section_id)
 
-        # Build source attribution: title_lower → set of non-trakt sources
+        # Items used for service-specific collections (superset of root-tagged items)
+        svc_movies = source_tagged_movies if source_tagged_movies is not None else tagged_movies
+        svc_series = source_tagged_series if source_tagged_series is not None else tagged_series
+
+        # SyncLog fallback: title_lower → set of non-trakt sources
         title_sources: dict[str, set[str]] = {}
         for entry in sync_entries:
             tl = entry.get("title", "").lower()
@@ -253,27 +314,68 @@ def sync_plex_collections(
                 if src != "trakt":
                     title_sources.setdefault(tl, set()).add(src)
 
-        # Resolve movies to Plex ratingKeys
+        # Radarr tag map: tmdbId_str → set of non-trakt sources (authoritative)
+        movie_id_sources: dict[str, set[str]] = {}
+        if radarr_tag_map:
+            for movie in svc_movies:
+                tmdb_id = str(movie.get("tmdbId", ""))
+                if not tmdb_id:
+                    continue
+                for tag_id in movie.get("tags", []):
+                    src = radarr_tag_map.get(tag_id)
+                    if src and src != "trakt":
+                        movie_id_sources.setdefault(tmdb_id, set()).add(src)
+
+        # Sonarr tag map: tvdbId_str → set of non-trakt sources (authoritative)
+        series_id_sources: dict[str, set[str]] = {}
+        if sonarr_tag_map:
+            for series in svc_series:
+                tvdb_id = str(series.get("tvdbId", ""))
+                if not tvdb_id:
+                    continue
+                for tag_id in series.get("tags", []):
+                    src = sonarr_tag_map.get(tag_id)
+                    if src and src != "trakt":
+                        series_id_sources.setdefault(tvdb_id, set()).add(src)
+
+        # Resolve all streamarr-managed movies to Plex ratingKeys (main Streamarr collection)
+        # Union of root-tagged and source-tagged — anything Streamarr has touched belongs here
         all_movie_keys: set[str] = set()
+        for movie in (*tagged_movies, *svc_movies):
+            rk = movie_tmdb_map.get(str(movie.get("tmdbId", "")))
+            if rk:
+                all_movie_keys.add(rk)
+
+        # Resolve all source-tagged movies to Plex ratingKeys (service collections)
         source_movie_keys: dict[str, set[str]] = {}
-        for movie in tagged_movies:
+        for movie in svc_movies:
             rk = movie_tmdb_map.get(str(movie.get("tmdbId", "")))
             if not rk:
                 continue
-            all_movie_keys.add(rk)
-            for src in title_sources.get(movie.get("title", "").lower(), set()):
+            tmdb_id = str(movie.get("tmdbId", ""))
+            sources = movie_id_sources.get(tmdb_id) or title_sources.get(movie.get("title", "").lower(), set())
+            for src in sources:
                 source_movie_keys.setdefault(src, set()).add(rk)
 
-        # Resolve series to Plex ratingKeys (try TMDB first, then TVDB)
+        # Resolve all streamarr-managed series to Plex ratingKeys (main Streamarr collection)
+        # Union of root-tagged and source-tagged — anything Streamarr has touched belongs here
         all_tv_keys: set[str] = set()
+        for series in (*tagged_series, *svc_series):
+            rk = tv_tmdb_map.get(str(series.get("tmdbId", ""))) or \
+                 tv_tvdb_map.get(str(series.get("tvdbId", "")))
+            if rk:
+                all_tv_keys.add(rk)
+
+        # Resolve all source-tagged series to Plex ratingKeys (service collections)
         source_tv_keys: dict[str, set[str]] = {}
-        for series in tagged_series:
+        for series in svc_series:
             rk = tv_tmdb_map.get(str(series.get("tmdbId", ""))) or \
                  tv_tvdb_map.get(str(series.get("tvdbId", "")))
             if not rk:
                 continue
-            all_tv_keys.add(rk)
-            for src in title_sources.get(series.get("title", "").lower(), set()):
+            tvdb_id = str(series.get("tvdbId", ""))
+            sources = series_id_sources.get(tvdb_id) or title_sources.get(series.get("title", "").lower(), set())
+            for src in sources:
                 source_tv_keys.setdefault(src, set()).add(rk)
 
         total_added = 0

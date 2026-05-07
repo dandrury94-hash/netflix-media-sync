@@ -688,6 +688,16 @@ body::before {
     color: #fff;
 }
 
+.button-danger {
+    color: #e05252;
+    border-color: rgba(224, 82, 82, 0.35);
+}
+
+.button-danger:hover {
+    background: rgba(224, 82, 82, 0.15);
+    color: #e05252;
+}
+
 .button-sm {
     padding: 8px 14px;
     font-size: 0.85rem;

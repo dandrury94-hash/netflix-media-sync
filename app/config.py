@@ -74,4 +74,7 @@ ENV_VAR_TO_SETTING = {
     "PLEX_MODE": "plex_mode",
     "PLEX_URL": "plex_url",
     "PLEX_TOKEN": "plex_token",
+    "PLEX_MOVIE_LIBRARY": "plex_movie_library",
+    "PLEX_TV_LIBRARY": "plex_tv_library",
+    "PLEX_COLLECTION_SYNC_HOURS": "plex_collection_sync_hours",
 }

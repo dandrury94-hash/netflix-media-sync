@@ -7,7 +7,7 @@ from app.config import LOG_PATH
 from app.dismissed import DismissedTitles
 from app.media_state import build_media_state
 from app.netflix_fetcher import bust_flixpatrol_cache, fetch_flixpatrol_fresh, get_flixpatrol_cache_info
-from app.plex_client import PlexClient, PlexError, get_plex_sync_status, sync_plex_collections
+from app.plex_client import PlexClient, PlexError, get_plex_sync_status, remove_plex_collections, sync_plex_collections
 from app.removal_history import RemovalHistory
 from app.scraper.sources.streaming import COUNTRIES as FLIXPATROL_COUNTRIES
 from app.settings import SettingsStore
@@ -243,6 +243,12 @@ def create_app(
             "flixpatrol_service_types": fp_service_types,
             "flixpatrol_cache_hours": safe_int(payload.get("flixpatrol_cache_hours"), 6),
             "simulation_mode": to_bool(payload.get("simulation_mode")),
+            "plex_mode": payload.get("plex_mode", "disabled").strip(),
+            "plex_url": payload.get("plex_url", "").strip(),
+            "plex_token": sensitive("plex_token"),
+            "plex_movie_library": payload.get("plex_movie_library", "").strip(),
+            "plex_tv_library": payload.get("plex_tv_library", "").strip(),
+            "plex_collection_sync_hours": safe_int(payload.get("plex_collection_sync_hours"), 2),
         }
         settings.update(normalized)
         return jsonify({"status": "saved"})
@@ -563,11 +569,42 @@ def create_app(
             token=settings.get("plex_token", ""),
         )
         try:
+            tagged_movies = sync_service.radarr.get_tagged_movies()
+            tagged_series = sync_service.sonarr.get_tagged_series()
+            source_tagged_movies = sync_service.radarr.get_source_tagged_movies()
+            source_tagged_series = sync_service.sonarr.get_source_tagged_series()
+            radarr_tag_map = sync_service.radarr.get_source_tag_map()
+            sonarr_tag_map = sync_service.sonarr.get_source_tag_map()
             result = sync_plex_collections(
                 plex=plex,
-                tagged_movies=sync_service.radarr.get_tagged_movies(),
-                tagged_series=sync_service.sonarr.get_tagged_series(),
+                tagged_movies=tagged_movies,
+                tagged_series=tagged_series,
                 sync_entries=sync_log.get_entries(),
+                movie_library=settings.get("plex_movie_library", "Movies"),
+                tv_library=settings.get("plex_tv_library", "TV Shows"),
+                radarr_tag_map=radarr_tag_map,
+                sonarr_tag_map=sonarr_tag_map,
+                source_tagged_movies=source_tagged_movies,
+                source_tagged_series=source_tagged_series,
+            )
+            return jsonify({"ok": True, **result})
+        except PlexError as exc:
+            return jsonify({"error": str(exc)}), 500
+        except Exception as exc:
+            logger.exception("Plex manual sync error")
+            return jsonify({"error": str(exc)}), 500
+
+    @app.route("/api/plex/collections", methods=["DELETE"])
+    def plex_remove_collections():
+        if settings.get("plex_mode") != "enabled":
+            return jsonify({"error": "Plex is not enabled"}), 400
+        plex = PlexClient(
+            url=settings.get("plex_url", ""),
+            token=settings.get("plex_token", ""),
+        )
+        try:
+            result = remove_plex_collections(
+                plex=plex,
                 movie_library=settings.get("plex_movie_library", "Movies"),
                 tv_library=settings.get("plex_tv_library", "TV Shows"),
             )
@@ -575,7 +612,6 @@ def create_app(
         except PlexError as exc:
             return jsonify({"error": str(exc)}), 500
         except Exception as exc:
-            logger.exception("Plex manual sync error")
             return jsonify({"error": str(exc)}), 500
 
     @app.route("/api/flixpatrol/preview")

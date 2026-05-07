@@ -135,6 +135,7 @@
             <div class="setting-divider"></div>
             <div class="test-conn-row">
                 <button type="button" class="button button-secondary button-sm" id="plexSyncBtn">Sync collections now</button>
+                <button type="button" class="button button-secondary button-sm button-danger" id="plexRemoveBtn">Remove collections</button>
                 <span id="plexSyncStatus" class="test-conn-result">
                     {%- if plex_status.synced_at_fmt %}Last synced: {{ plex_status.synced_at_fmt }}{% endif -%}
                 </span>

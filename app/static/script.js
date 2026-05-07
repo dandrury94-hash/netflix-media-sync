@@ -288,6 +288,30 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ── Plex remove collections ──
+  const plexRemoveBtn = document.getElementById("plexRemoveBtn");
+  if (plexRemoveBtn) {
+    plexRemoveBtn.addEventListener("click", async () => {
+      if (!confirm("Remove all Streamarr collections from Plex?\n\nThis deletes the Streamarr, Netflix, Disney+, and other service collections. They can be recreated by syncing again.")) return;
+      const statusEl = document.getElementById("plexSyncStatus");
+      setTestResult(statusEl, "Removing…", "");
+      plexRemoveBtn.disabled = true;
+      try {
+        const resp = await fetch("/api/plex/collections", { method: "DELETE" });
+        const data = await resp.json();
+        if (data.ok) {
+          setTestResult(statusEl, `✅ Removed ${data.removed} collection${data.removed !== 1 ? "s" : ""}`, "success");
+        } else {
+          setTestResult(statusEl, `❌ ${data.error || "Remove failed"}`, "error");
+        }
+      } catch (err) {
+        setTestResult(statusEl, `❌ ${err.message}`, "error");
+      } finally {
+        plexRemoveBtn.disabled = false;
+      }
+    });
+  }
+
   // ── Test connection buttons ──
   document.querySelectorAll(".test-conn-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {

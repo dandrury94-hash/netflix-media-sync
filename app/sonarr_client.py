@@ -82,6 +82,48 @@ class SonarrClient:
         result = self._post("/api/v3/tag", {"label": name})
         return result["id"]
 
+    def get_source_tag_map(self) -> dict[int, str]:
+        """Return {tag_id: source_key} for all streamarr-src-* tags in Sonarr."""
+        try:
+            prefix = _tags.TAG_SRC_PREFIX
+            return {
+                t["id"]: t["label"][len(prefix):].replace("-", "_")
+                for t in self._get("/api/v3/tag")
+                if t.get("id") is not None and t.get("label", "").startswith(prefix)
+            }
+        except Exception as exc:
+            logger.warning("Failed to fetch Sonarr source tag map: %s", exc)
+            return {}
+
+    def get_source_tagged_series(self) -> list[dict]:
+        """Return all Sonarr series carrying any streamarr-src-* tag (managed or not)."""
+        try:
+            tag_list = self._get("/api/v3/tag")
+            src_tag_ids = {
+                t["id"] for t in tag_list
+                if t.get("id") is not None and t.get("label", "").startswith(_tags.TAG_SRC_PREFIX)
+            }
+            if not src_tag_ids:
+                return []
+            series = self._get("/api/v3/series")
+            return [s for s in series if src_tag_ids & set(s.get("tags", []))]
+        except Exception as exc:
+            logger.warning("Failed to fetch source-tagged series from Sonarr: %s", exc)
+            return []
+
+    def merge_series_tags(self, series_id: int, new_tag_names: list[str]) -> None:
+        """Add any new_tag_names not already on the series, leaving existing tags intact."""
+        try:
+            series = self._get(f"/api/v3/series/{series_id}")
+            current_ids = set(series.get("tags", []))
+            to_add = set(self._resolve_tag_ids(new_tag_names, str(series_id))) - current_ids
+            if not to_add:
+                return
+            series["tags"] = list(current_ids | to_add)
+            self._put(f"/api/v3/series/{series_id}", series)
+        except Exception as exc:
+            logger.warning("Failed to merge tags for Sonarr series id=%d: %s", series_id, exc)
+
     def get_tagged_series(self) -> list[dict]:
         """Return all Sonarr series carrying the streamarr root tag."""
         try:
