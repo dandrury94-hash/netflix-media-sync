@@ -4,6 +4,22 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-058 — 2026-05-07 — Wire removal history table, remove netflix source stub
+
+### Verified — no code changes required
+
+Both items were confirmed already implemented in the codebase:
+
+- **`app/static/script.js`** — `loadRemovalHistory(historyBody)` is already called in the
+  History tab reveal handler (line 396), before `loadAdditionHistory` (line 402). The
+  `removalHistoryBody` element is correctly targeted and the call is guarded by a null check.
+  No wiring change was needed.
+- **`app/web.py`** — The sources whitelist in `post_settings()` already reads
+  `("trakt", "flixpatrol")`. The `"netflix"` stub from CHG-020 was removed as part of
+  CHG-022/CHG-024 when FlixPatrol replaced it. No whitelist change was needed.
+
+---
+
 ## CHG-057 — 2026-05-07 — Batch protection endpoint, CHANGELOG separator cleanup
 
 ### Additions
