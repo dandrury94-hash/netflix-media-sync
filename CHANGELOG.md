@@ -4,6 +4,25 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-063 — 2026-05-08 — Fix browser-cached script.js breaking Next Sync countdown after rebuild
+
+### Root cause
+`style.css` was served with `?v=050` in `base.html` but `script.js` had no version parameter.
+Browsers cache versioned-query-string assets indefinitely; without a version string on `script.js`
+the browser served the stale pre-CHG-059 bundle after every Docker rebuild, silently omitting
+`updateNextSync()` and causing the Next Sync countdown to never appear.
+
+### Fix
+_File: `app/templates/base.html`_
+
+- Added `?v=062` to the `<script>` tag for `script.js`, matching the same pattern already used
+  for `style.css`. Version will be updated alongside `script.js` changes going forward.
+
+_Test: hard-reload the page after a Docker rebuild — the Next Sync countdown should appear
+without needing to clear the browser cache._
+
+---
+
 ## CHG-062 — 2026-05-08 — Performance optimisations (four groups)
 
 ### Group 1 — Client-layer: HTTP session reuse + tag list cache
