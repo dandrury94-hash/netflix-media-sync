@@ -4,6 +4,80 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-062 — 2026-05-08 — Performance optimisations (four groups)
+
+### Group 1 — Client-layer: HTTP session reuse + tag list cache
+_Files: `app/radarr_client.py`, `app/sonarr_client.py`_
+
+- **`requests.Session()`** — each client now holds a persistent `requests.Session` instance.
+  All `_get`, `_post`, `_put`, and new `_delete` methods use it, enabling TCP keep-alive and
+  connection reuse across the repeated calls that make up a sync run or page load.
+- **Tag list cache (30 s TTL)** — `_get_tag_list()` caches the `/api/v3/tag` response for
+  30 seconds. Every method that previously called `self._get("/api/v3/tag")` now calls
+  `_get_tag_list()` instead: `ensure_tag`, `get_source_tag_map`, `get_source_tagged_*`,
+  `get_tagged_*`, `get_state_protected_tag_id`. Within a sync run or page-load burst, this
+  collapses 4–6 redundant tag-list fetches per client down to one.
+- **Cache bust on tag creation** — `ensure_tag()` calls `_bust_tag_cache()` after a POST so
+  the next lookup reflects the new tag without waiting for the TTL.
+- **`_delete` helper** — replaces the inline `requests.delete()` calls in `delete_movie` and
+  `delete_series`, keeping all HTTP calls on the shared session.
+
+_Test: run a sync, toggle protection on a title, check the removal schedule — all should work
+identically. Watch the logs for `[timing]` lines; `radarr_bulk_fetch` and `sonarr_bulk_fetch`
+should be faster on repeated calls._
+
+---
+
+### Group 2 — Media-state result cache
+_File: `app/web.py`_
+
+- **15-second result cache on `_fetch_media_state()`** — result is stored in a closure-scoped
+  dict `_state_cache`. Subsequent calls within the TTL window return the cached dict without
+  hitting Radarr or Sonarr. Dashboard page load fires `/api/removal-schedule`,
+  `/api/protection-state`, and `/api/active-watches` within the same second; previously each
+  triggered a full independent library fetch (~6 HTTP calls each).
+- **Cache invalidated on mutations** — `_bust_state_cache()` is called at the end of
+  `POST /api/sync`, `POST /api/overrides`, and `POST /api/overrides/batch`, ensuring the UI
+  always reflects real state after any write.
+
+_Test: load the dashboard and check all three panels populate correctly. Toggle protection on
+a title — the panel should refresh immediately with the new state, not serve stale data._
+
+---
+
+### Group 3 — Parallel endpoints
+_File: `app/web.py`_
+
+- **`GET /api/connection-status` — parallel checks** — each service check (Radarr, Sonarr,
+  Tautulli, Plex) is submitted to a `ThreadPoolExecutor` and all run concurrently. Worst-case
+  latency drops from `4 × timeout` (up to 20 s) to `1 × timeout` (~5 s).
+- **`GET /api/top10-status` — parallel lookups** — titles not found in the local library cache
+  (status `will_add`) require an external lookup for their poster URL. These are now collected
+  upfront and submitted to a `ThreadPoolExecutor(max_workers=10)` so all missing-title lookups
+  run concurrently instead of sequentially.
+
+_Test: check the connection-status indicators appear correctly after a sync or preview. Verify
+Top 10 status icons and poster backgrounds load as before._
+
+---
+
+### Group 4 — Lazy log tab polling
+_File: `app/static/script.js`_
+
+- **Skip polling when logs tab is not active** — `fetchLogs()` now checks
+  `document.getElementById("tab-logs")?.classList.contains("active")` and returns immediately
+  if the tab is not visible. The `setInterval(fetchLogs, 3000)` ticker was already always
+  running — now it is a no-op on every other tab, eliminating ~20 `/api/logs` requests per
+  minute while the user is on the Dashboard, History, Protection, or Settings views.
+- **Immediate fetch on tab click** — a `click` listener on `.topnav a[data-tab-target='logs']`
+  calls `fetchLogs()` so logs appear instantly when navigating to the tab rather than waiting
+  up to 3 seconds for the next tick.
+
+_Test: open the dashboard and watch network requests — no `/api/logs` calls should appear.
+Click the Logs tab — one immediate fetch, then one every 3 seconds._
+
+---
+
 ## CHG-061 — 2026-05-07 — Connection status indicators; Plex in integration list; sync time fallback
 
 ### Additions

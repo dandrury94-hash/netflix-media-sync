@@ -1,4 +1,6 @@
 import datetime
+import time as _time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests as _requests
 from flask import Flask, Response, jsonify, render_template, request
@@ -53,6 +55,16 @@ def create_app(
 ) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
+    # ── Media-state result cache (15 s TTL) ────────────────────────────────
+    # Shared by /api/removal-schedule, /api/protection-state, /api/active-watches.
+    # All three fire within the same second on page load; caching avoids three
+    # independent round-trips to Radarr/Sonarr for the same library data.
+    _state_cache: dict = {"data": None, "ts": 0.0}
+    _STATE_TTL = 15.0
+
+    def _bust_state_cache() -> None:
+        _state_cache["data"] = None
+
     @app.before_request
     def check_auth():
         password = settings.get("web_password", "")
@@ -67,6 +79,10 @@ def create_app(
             )
 
     def _fetch_media_state() -> dict:
+        now = _time.monotonic()
+        if _state_cache["data"] is not None and (now - _state_cache["ts"]) < _STATE_TTL:
+            return _state_cache["data"]
+
         radarr_mode = settings.get("radarr_mode", "disabled")
         sonarr_mode = settings.get("sonarr_mode", "disabled")
         radarr_movies: list[dict] = []
@@ -75,6 +91,8 @@ def create_app(
             radarr_movies = sync_service.radarr.get_tagged_movies()
         if sonarr_mode != "disabled":
             sonarr_tagged = sync_service.sonarr.get_tagged_series()
+        # get_tagged_* already fetched the tag list via the client cache;
+        # get_state_protected_tag_id() reuses that same cache — no extra round-trip.
         radarr_prot_id = sync_service.radarr.get_state_protected_tag_id() if radarr_mode != "disabled" else None
         sonarr_prot_id = sync_service.sonarr.get_state_protected_tag_id() if sonarr_mode != "disabled" else None
         manual_prot: set[str] = set()
@@ -82,7 +100,7 @@ def create_app(
             manual_prot |= {m["title"] for m in radarr_movies if radarr_prot_id in m.get("tags", [])}
         if sonarr_prot_id is not None:
             manual_prot |= {s["title"] for s in sonarr_tagged if sonarr_prot_id in s.get("tags", [])}
-        return build_media_state(
+        result = build_media_state(
             radarr_movies=radarr_movies,
             sonarr_series=sonarr_tagged,
             sync_entries=sync_log.get_entries(),
@@ -91,6 +109,9 @@ def create_app(
             series_retention_days=int(settings.get("series_retention_days", 30)),
             last_watched=sync_log.get_last_watched_all(),
         )
+        _state_cache["data"] = result
+        _state_cache["ts"] = now
+        return result
 
     def _fmt_timestamp(ts: str) -> str:
         for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
@@ -260,6 +281,7 @@ def create_app(
         payload = request.json or {}
         simulate = True if payload.get("simulate") is True else None
         result = sync_service.run_once(simulate=simulate)
+        _bust_state_cache()
         return jsonify({"status": "ok", "result": result, "estimated_seconds": estimated_seconds})
 
     @app.route("/api/sync-status")
@@ -279,46 +301,67 @@ def create_app(
 
     @app.route("/api/connection-status")
     def get_connection_status():
-        results = {}
-        if settings.get("radarr_mode", "disabled") != "disabled":
+        def _check_radarr():
             url = settings.get("radarr_url", "").rstrip("/")
             key = settings.get("radarr_api_key", "")
-            ok = False
-            if url and key:
-                try:
-                    ok = _requests.get(f"{url}/api/v3/qualityprofile", headers={"X-Api-Key": key}, timeout=5).ok
-                except Exception:
-                    pass
-            results["radarr"] = {"ok": ok}
-        if settings.get("sonarr_mode", "disabled") != "disabled":
+            if not url or not key:
+                return False
+            try:
+                return _requests.get(f"{url}/api/v3/qualityprofile", headers={"X-Api-Key": key}, timeout=5).ok
+            except Exception:
+                return False
+
+        def _check_sonarr():
             url = settings.get("sonarr_url", "").rstrip("/")
             key = settings.get("sonarr_api_key", "")
-            ok = False
-            if url and key:
-                try:
-                    ok = _requests.get(f"{url}/api/v3/qualityprofile", headers={"X-Api-Key": key}, timeout=5).ok
-                except Exception:
-                    pass
-            results["sonarr"] = {"ok": ok}
-        if settings.get("tautulli_mode", "disabled") != "disabled":
+            if not url or not key:
+                return False
+            try:
+                return _requests.get(f"{url}/api/v3/qualityprofile", headers={"X-Api-Key": key}, timeout=5).ok
+            except Exception:
+                return False
+
+        def _check_tautulli():
             url = settings.get("tautulli_url", "").rstrip("/")
             key = settings.get("tautulli_api_key", "")
-            ok = False
-            if url and key:
-                try:
-                    r = _requests.get(f"{url}/api/v2", params={"apikey": key, "cmd": "get_server_info"}, timeout=5)
-                    ok = r.json().get("response", {}).get("result") == "success"
-                except Exception:
-                    pass
-            results["tautulli"] = {"ok": ok}
-        if settings.get("plex_mode", "disabled") != "disabled":
-            ok = False
+            if not url or not key:
+                return False
+            try:
+                r = _requests.get(f"{url}/api/v2", params={"apikey": key, "cmd": "get_server_info"}, timeout=5)
+                return r.json().get("response", {}).get("result") == "success"
+            except Exception:
+                return False
+
+        def _check_plex():
             try:
                 pc = PlexClient(settings.get("plex_url", ""), settings.get("plex_token", ""))
                 ok, _ = pc.test_connection()
+                return ok
             except Exception:
-                pass
-            results["plex"] = {"ok": ok}
+                return False
+
+        checks: dict[str, object] = {}
+        if settings.get("radarr_mode", "disabled") != "disabled":
+            checks["radarr"] = _check_radarr
+        if settings.get("sonarr_mode", "disabled") != "disabled":
+            checks["sonarr"] = _check_sonarr
+        if settings.get("tautulli_mode", "disabled") != "disabled":
+            checks["tautulli"] = _check_tautulli
+        if settings.get("plex_mode", "disabled") != "disabled":
+            checks["plex"] = _check_plex
+
+        if not checks:
+            return jsonify({})
+
+        results: dict[str, dict] = {}
+        with ThreadPoolExecutor(max_workers=len(checks)) as executor:
+            future_to_name = {executor.submit(fn): name for name, fn in checks.items()}
+            for future in as_completed(future_to_name):
+                name = future_to_name[future]
+                try:
+                    results[name] = {"ok": future.result()}
+                except Exception:
+                    results[name] = {"ok": False}
         return jsonify(results)
 
     @app.route("/api/overrides", methods=["POST"])
@@ -345,6 +388,7 @@ def create_app(
             ok = sync_service.sonarr.set_series_protection(match["id"], protected)
         if not ok:
             return jsonify({"error": "Failed to update protection"}), 500
+        _bust_state_cache()
         return jsonify({"status": "ok", "title": title, "type": media_type, "protected": protected})
 
     @app.route("/api/overrides/batch", methods=["POST"])
@@ -378,6 +422,7 @@ def create_app(
                 match = series_by_title.get(title.lower())
                 if match and sync_service.sonarr.set_series_protection(match["id"], protected):
                     updated += 1
+        _bust_state_cache()
         return jsonify({"status": "ok", "updated": updated})
 
     @app.route("/api/removal-schedule")
@@ -537,6 +582,44 @@ def create_app(
                 undo_until = None
             return True, undo_until
 
+        # Identify titles that aren't in the local library cache — they need an
+        # external lookup to get poster URLs. Collect and fire all lookups in
+        # parallel so N missing titles cost ~1 RTT instead of N sequential RTTs.
+        movie_lookup_needed = [
+            t for t in top_movies
+            if radarr_mode != "disabled" and not (movie_lib.get(t.lower()) or {}).get("id")
+        ]
+        series_lookup_needed = [
+            t for t in top_series
+            if sonarr_mode != "disabled" and not (series_lib.get(t.lower()) or {}).get("id")
+        ]
+
+        movie_lookup_results: dict[str, dict | None] = {}
+        series_lookup_results: dict[str, dict | None] = {}
+
+        lookup_work = (
+            [("movie", t) for t in movie_lookup_needed] +
+            [("series", t) for t in series_lookup_needed]
+        )
+        if lookup_work:
+            def _do_lookup(args: tuple[str, str]) -> tuple[str, str, dict | None]:
+                mtype, title = args
+                if mtype == "movie":
+                    return mtype, title, sync_service.radarr.lookup_movie(title)
+                return mtype, title, sync_service.sonarr.lookup_series(title)
+
+            with ThreadPoolExecutor(max_workers=min(10, len(lookup_work))) as executor:
+                future_to_args = {executor.submit(_do_lookup, w): w for w in lookup_work}
+                for future in as_completed(future_to_args):
+                    try:
+                        mtype, title, result = future.result()
+                        if mtype == "movie":
+                            movie_lookup_results[title] = result
+                        else:
+                            series_lookup_results[title] = result
+                    except Exception:
+                        pass
+
         movie_statuses: dict[str, dict] = {}
         for title in top_movies:
             is_dismissed, undo_until = _dismissed_fields(title)
@@ -549,7 +632,7 @@ def create_app(
                 poster = _extract_poster(rec.get("images", []))
             else:
                 status = "will_add"
-                lookup = sync_service.radarr.lookup_movie(title)
+                lookup = movie_lookup_results.get(title)
                 poster = _extract_poster(lookup.get("images", [])) if lookup else None
             movie_statuses[title] = {"status": status, "poster": poster, "type": "movie", "dismissed": is_dismissed, "undo_until": undo_until}
 
@@ -566,7 +649,7 @@ def create_app(
                 poster = _extract_poster(rec.get("images", []))
             else:
                 status = "will_add"
-                lookup = sync_service.sonarr.lookup_series(title)
+                lookup = series_lookup_results.get(title)
                 poster = _extract_poster(lookup.get("images", [])) if lookup else None
             series_statuses[title] = {"status": status, "poster": poster, "type": "series", "dismissed": is_dismissed, "undo_until": undo_until}
 

@@ -535,7 +535,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function fetchLogs() {
-      if (logPaused) return;
+      // Only poll when the logs tab is visible — skip silently otherwise.
+      const logTab = document.getElementById("tab-logs");
+      if (logPaused || !logTab?.classList.contains("active")) return;
       try {
         const resp = await fetch("/api/logs");
         const data = await resp.json();
@@ -548,7 +550,11 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch { /* ignore */ }
     }
 
-    fetchLogs();
+    // Trigger an immediate fetch when the user navigates to the logs tab.
+    document.querySelectorAll(".topnav a[data-tab-target='logs']").forEach((link) => {
+      link.addEventListener("click", () => fetchLogs());
+    });
+
     setInterval(fetchLogs, 3000);
   }
 

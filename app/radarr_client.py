@@ -1,4 +1,5 @@
 import logging
+import time
 
 import requests
 from app import tags as _tags
@@ -6,10 +7,15 @@ from app.settings import SettingsStore
 
 logger = logging.getLogger(__name__)
 
+_TAG_CACHE_TTL = 30.0  # seconds
+
 
 class RadarrClient:
     def __init__(self, settings: SettingsStore):
         self.settings = settings
+        self._session = requests.Session()
+        self._tag_cache: list | None = None
+        self._tag_cache_ts: float = 0.0
 
     @property
     def base_url(self) -> str:
@@ -31,7 +37,7 @@ class RadarrClient:
         return {"X-Api-Key": self.api_key}
 
     def _get(self, path: str, params: dict | None = None):
-        response = requests.get(
+        response = self._session.get(
             f"{self.base_url}{path}",
             params=params or {},
             headers=self._headers(),
@@ -41,7 +47,7 @@ class RadarrClient:
         return response.json()
 
     def _post(self, path: str, json_data: dict):
-        response = requests.post(
+        response = self._session.post(
             f"{self.base_url}{path}",
             headers=self._headers(),
             json=json_data,
@@ -53,7 +59,7 @@ class RadarrClient:
         return response.json()
 
     def _put(self, path: str, json_data: dict):
-        response = requests.put(
+        response = self._session.put(
             f"{self.base_url}{path}",
             headers=self._headers(),
             json=json_data,
@@ -63,6 +69,31 @@ class RadarrClient:
             logger.error("Radarr PUT error %s: %s", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
+
+    def _delete(self, path: str, params: dict | None = None):
+        response = self._session.delete(
+            f"{self.base_url}{path}",
+            params=params or {},
+            headers=self._headers(),
+            timeout=20,
+        )
+        response.raise_for_status()
+        return response
+
+    # ── Tag list cache ──────────────────────────────────────────────────────
+
+    def _get_tag_list(self) -> list:
+        now = time.monotonic()
+        if self._tag_cache is not None and (now - self._tag_cache_ts) < _TAG_CACHE_TTL:
+            return self._tag_cache
+        self._tag_cache = self._get("/api/v3/tag")
+        self._tag_cache_ts = now
+        return self._tag_cache
+
+    def _bust_tag_cache(self) -> None:
+        self._tag_cache = None
+
+    # ── Tag helpers ─────────────────────────────────────────────────────────
 
     def _resolve_tag_ids(self, tag_names: list[str], title: str) -> list[int]:
         ids = []
@@ -75,11 +106,11 @@ class RadarrClient:
 
     def ensure_tag(self, name: str) -> int:
         """Return the ID of an existing tag, creating it first if needed."""
-        tags = self._get("/api/v3/tag")
-        for tag in tags:
+        for tag in self._get_tag_list():
             if tag.get("label") == name:
                 return tag["id"]
         result = self._post("/api/v3/tag", {"label": name})
+        self._bust_tag_cache()
         return result["id"]
 
     def get_source_tag_map(self) -> dict[int, str]:
@@ -88,7 +119,7 @@ class RadarrClient:
             prefix = _tags.TAG_SRC_PREFIX
             return {
                 t["id"]: t["label"][len(prefix):].replace("-", "_")
-                for t in self._get("/api/v3/tag")
+                for t in self._get_tag_list()
                 if t.get("id") is not None and t.get("label", "").startswith(prefix)
             }
         except Exception as exc:
@@ -98,9 +129,8 @@ class RadarrClient:
     def get_source_tagged_movies(self) -> list[dict]:
         """Return all Radarr movies carrying any streamarr-src-* tag (managed or not)."""
         try:
-            tag_list = self._get("/api/v3/tag")
             src_tag_ids = {
-                t["id"] for t in tag_list
+                t["id"] for t in self._get_tag_list()
                 if t.get("id") is not None and t.get("label", "").startswith(_tags.TAG_SRC_PREFIX)
             }
             if not src_tag_ids:
@@ -129,8 +159,7 @@ class RadarrClient:
     def get_tagged_movies(self) -> list[dict]:
         """Return all Radarr movies carrying the streamarr root tag."""
         try:
-            tag_list = self._get("/api/v3/tag")
-            tag_id = next((t["id"] for t in tag_list if t.get("label") == _tags.TAG_ROOT), None)
+            tag_id = next((t["id"] for t in self._get_tag_list() if t.get("label") == _tags.TAG_ROOT), None)
             if tag_id is None:
                 return []
             movies = self._get("/api/v3/movie")
@@ -155,8 +184,7 @@ class RadarrClient:
 
     def get_state_protected_tag_id(self) -> int | None:
         try:
-            tag_list = self._get("/api/v3/tag")
-            return next((t["id"] for t in tag_list if t.get("label") == _tags.TAG_STATE_PROTECTED), None)
+            return next((t["id"] for t in self._get_tag_list() if t.get("label") == _tags.TAG_STATE_PROTECTED), None)
         except Exception as exc:
             logger.warning("Failed to fetch state-protected tag id from Radarr: %s", exc)
             return None
@@ -191,13 +219,10 @@ class RadarrClient:
 
     def delete_movie(self, movie_id: int, delete_files: bool = True) -> bool:
         try:
-            response = requests.delete(
-                f"{self.base_url}/api/v3/movie/{movie_id}",
+            self._delete(
+                f"/api/v3/movie/{movie_id}",
                 params={"deleteFiles": "true" if delete_files else "false"},
-                headers=self._headers(),
-                timeout=20,
             )
-            response.raise_for_status()
             logger.info("Deleted Radarr movie id=%d (deleteFiles=%s)", movie_id, delete_files)
             return True
         except Exception as exc:
