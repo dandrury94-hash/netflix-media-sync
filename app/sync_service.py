@@ -103,11 +103,7 @@ class SyncService:
             return result
 
     def _run(self, simulate: bool | None = None) -> dict:
-        countries = self.settings.get("netflix_top_countries", [])
-        if isinstance(countries, str):
-            countries = [countries.strip().lower()]
-
-        sources = self.settings.get("sources", ["trakt"])
+        sources = self.settings.get("sources", ["flixpatrol"])
         if isinstance(sources, str):
             sources = [sources]
 
@@ -123,12 +119,10 @@ class SyncService:
         simulation_mode = simulate if simulate is not None else self.settings.get("simulation_mode", False)
         if simulation_mode:
             logger.info("[sim] Simulation mode active — no writes will be made")
-        logger.info("Fetching top titles from sources: %s (countries: %s)", sources, countries or ["global"])
+        logger.info("Fetching top titles from sources: %s", sources)
         _t = time.monotonic()
         trending = fetch_from_sources(
             sources,
-            countries,
-            self.settings.get("trakt_client_id", ""),
             flixpatrol_country=flixpatrol_country,
             flixpatrol_services=flixpatrol_services,
             flixpatrol_service_types=flixpatrol_service_types,
@@ -196,7 +190,7 @@ class SyncService:
                     logger.debug("[merge] movie '%s' not found in Radarr — skipping tag merge", item["title"])
                     continue
                 self.sync_log.merge_sources(item["title"], item["sources"])
-                new_src_tags = [_tags.tag_source(s) for s in item["sources"] if s != "trakt"]
+                new_src_tags = [_tags.tag_source(s) for s in item["sources"]]
                 if new_src_tags:
                     logger.info("[merge] movie '%s' (id=%s) ← adding tags: %s", item["title"], found["id"], new_src_tags)
                     self.radarr.merge_movie_tags(found["id"], new_src_tags)
@@ -254,7 +248,7 @@ class SyncService:
                     logger.debug("[merge] series '%s' not found in Sonarr — skipping tag merge", item["title"])
                     continue
                 self.sync_log.merge_sources(item["title"], item["sources"])
-                new_src_tags = [_tags.tag_source(s) for s in item["sources"] if s != "trakt"]
+                new_src_tags = [_tags.tag_source(s) for s in item["sources"]]
                 if new_src_tags:
                     logger.info("[merge] series '%s' (id=%s) ← adding tags: %s", item["title"], found["id"], new_src_tags)
                     self.sonarr.merge_series_tags(found["id"], new_src_tags)

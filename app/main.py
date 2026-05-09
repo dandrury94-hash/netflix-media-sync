@@ -226,7 +226,7 @@ def main() -> None:
     app = create_app(settings, sync_service, sync_log, removal_history, dismissed)
     port = settings.get("web_port", 8080)
     logger.info("Opening web interface on port %s", port)
-    serve(app, host="0.0.0.0", port=port)
+    serve(app, host="0.0.0.0", port=port, threads=8)
 
 
 if __name__ == "__main__":

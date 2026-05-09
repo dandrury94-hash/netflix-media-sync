@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
-# FlixPatrol service key → Plex collection display name (excludes trakt)
+# FlixPatrol service key → Plex collection display name
 SERVICE_COLLECTION_NAMES: dict[str, str] = {
     "netflix":       "Netflix",
     "disney_plus":   "Disney+",
@@ -306,15 +306,14 @@ def sync_plex_collections(
         svc_movies = source_tagged_movies if source_tagged_movies is not None else tagged_movies
         svc_series = source_tagged_series if source_tagged_series is not None else tagged_series
 
-        # SyncLog fallback: title_lower → set of non-trakt sources
+        # SyncLog fallback: title_lower → set of sources
         title_sources: dict[str, set[str]] = {}
         for entry in sync_entries:
             tl = entry.get("title", "").lower()
             for src in (entry.get("sources") or []):
-                if src != "trakt":
-                    title_sources.setdefault(tl, set()).add(src)
+                title_sources.setdefault(tl, set()).add(src)
 
-        # Radarr tag map: tmdbId_str → set of non-trakt sources (authoritative)
+        # Radarr tag map: tmdbId_str → set of sources (authoritative)
         movie_id_sources: dict[str, set[str]] = {}
         if radarr_tag_map:
             for movie in svc_movies:
@@ -323,10 +322,10 @@ def sync_plex_collections(
                     continue
                 for tag_id in movie.get("tags", []):
                     src = radarr_tag_map.get(tag_id)
-                    if src and src != "trakt":
+                    if src:
                         movie_id_sources.setdefault(tmdb_id, set()).add(src)
 
-        # Sonarr tag map: tvdbId_str → set of non-trakt sources (authoritative)
+        # Sonarr tag map: tvdbId_str → set of sources (authoritative)
         series_id_sources: dict[str, set[str]] = {}
         if sonarr_tag_map:
             for series in svc_series:
@@ -335,7 +334,7 @@ def sync_plex_collections(
                     continue
                 for tag_id in series.get("tags", []):
                     src = sonarr_tag_map.get(tag_id)
-                    if src and src != "trakt":
+                    if src:
                         series_id_sources.setdefault(tvdb_id, set()).add(src)
 
         # Resolve all streamarr-managed movies to Plex ratingKeys (main Streamarr collection)

@@ -2,7 +2,6 @@
   "radarr_mode": "disabled",
   "sonarr_mode": "disabled",
   "tautulli_mode": "disabled",
-  "trakt_client_id": "",
   "radarr_url": "http://radarr:7878",
   "radarr_api_key": "",
   "sonarr_url": "http://sonarr:8989",
@@ -19,8 +18,8 @@
   "series_retention_days": 30,
   "web_port": 8080,
   "web_password": "",
-  "netflix_top_url": "https://top10.netflix.com/",
-  "netflix_top_countries": [
-    "us"
-  ]
+  "sources": ["flixpatrol"],
+  "flixpatrol_country": "United Kingdom",
+  "flixpatrol_services": [],
+  "flixpatrol_cache_hours": 6
 }

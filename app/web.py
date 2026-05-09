@@ -21,7 +21,6 @@ _SENSITIVE_KEYS = {
     "radarr_api_key",
     "sonarr_api_key",
     "tautulli_api_key",
-    "trakt_client_id",
     "web_password",
     "pushover_user_key",
     "pushover_api_token",
@@ -173,8 +172,7 @@ def create_app(
             payload = request.json or {}
         else:
             payload = {
-                **{k: v for k, v in request.form.items() if k not in ("netflix_top_countries", "sources", "flixpatrol_services")},
-                "netflix_top_countries": request.form.getlist("netflix_top_countries"),
+                **{k: v for k, v in request.form.items() if k not in ("sources", "flixpatrol_services")},
                 "sources": request.form.getlist("sources"),
                 "flixpatrol_services": request.form.getlist("flixpatrol_services"),
             }
@@ -192,14 +190,6 @@ def create_app(
             v = payload.get(key, "").strip()
             return settings.get(key, "") if v == _SENTINEL else v
 
-        countries = payload.get("netflix_top_countries")
-        if isinstance(countries, str):
-            countries = [c.strip().lower() for c in countries.split(",") if c.strip()]
-        elif isinstance(countries, list):
-            countries = [c.strip().lower() for c in countries if isinstance(c, str) and c.strip()]
-        else:
-            countries = []
-
         sources_raw = payload.get("sources")
         if isinstance(sources_raw, str):
             sources_raw = [sources_raw.strip()] if sources_raw.strip() else []
@@ -207,7 +197,7 @@ def create_app(
             sources_raw = [s.strip() for s in sources_raw if isinstance(s, str) and s.strip()]
         else:
             sources_raw = []
-        sources = [s for s in sources_raw if s in ("trakt", "flixpatrol")]
+        sources = [s for s in sources_raw if s in ("flixpatrol",)]
 
         fp_country = payload.get("flixpatrol_country", "").strip()
         if fp_country not in FLIXPATROL_COUNTRIES:
@@ -242,7 +232,6 @@ def create_app(
             "radarr_mode": payload.get("radarr_mode", "disabled").strip(),
             "sonarr_mode": payload.get("sonarr_mode", "disabled").strip(),
             "tautulli_mode": payload.get("tautulli_mode", "disabled").strip(),
-            "trakt_client_id": sensitive("trakt_client_id"),
             "root_folder_movies": payload.get("root_folder_movies", "").strip(),
             "root_folder_series": payload.get("root_folder_series", "").strip(),
             "radarr_quality_profile_id": safe_int(payload.get("radarr_quality_profile_id"), 1),
@@ -253,7 +242,6 @@ def create_app(
             "series_retention_days": safe_int(payload.get("series_retention_days"), 30),
             "web_port": safe_int(payload.get("web_port"), 8080),
             "web_password": sensitive("web_password"),
-            "netflix_top_countries": countries,
             "sources": sources,
             "pushover_enabled": to_bool(payload.get("pushover_enabled")),
             "pushover_user_key": sensitive("pushover_user_key"),
@@ -445,7 +433,7 @@ def create_app(
             title = e.get("title", "")
             if e.get("date_added", "") >= cutoff and title and title not in seen:
                 seen.add(title)
-                sources = e.get("sources") or [e.get("source", "trakt")]
+                sources = e.get("sources") or ([e.get("source")] if e.get("source") else [])
                 recent.append({**e, "sources": sources})
         return jsonify({"additions": recent})
 

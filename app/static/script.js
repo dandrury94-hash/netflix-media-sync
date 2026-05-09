@@ -774,7 +774,7 @@ function renderAdditionHistory(tbody, additions) {
     return;
   }
   tbody.innerHTML = additions.map((item) => {
-    const srcs = (item.sources || [item.source || "trakt"]).map(fmtSource).join(" + ");
+    const srcs = (item.sources || (item.source ? [item.source] : [])).map(fmtSource).join(" + ");
     return `<tr>
     <td>${escHtml(item.title)}</td>
     <td style="text-transform:capitalize">${escHtml(item.type)}</td>

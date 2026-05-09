@@ -6,10 +6,6 @@ def _fp(items):
     return patch("app.netflix_fetcher._fetch_flixpatrol_items", return_value=items)
 
 
-def _trakt(items):
-    return patch("app.netflix_fetcher._fetch_trakt_items", return_value=items)
-
-
 def test_all_items_have_non_empty_sources_list():
     """Every item returned by fetch_from_sources must carry a non-empty sources list."""
     mock_items = [
@@ -17,28 +13,11 @@ def test_all_items_have_non_empty_sources_list():
         {"title": "Show B", "type": "series", "source": "disney_plus"},
     ]
     with _fp(mock_items):
-        result = fetch_from_sources(sources=["flixpatrol"], country_codes=[], client_id="")
+        result = fetch_from_sources(sources=["flixpatrol"])
 
     for item in result:
         assert isinstance(item.get("sources"), list), f"sources missing on {item['title']!r}"
         assert len(item["sources"]) > 0, f"sources is empty on {item['title']!r}"
-
-
-def test_dedup_merges_sources_for_shared_title():
-    """A title appearing in both Trakt and FlixPatrol must appear once with both sources listed."""
-    trakt_items = [{"title": "Shared Film", "type": "movie", "source": "trakt"}]
-    fp_items = [{"title": "Shared Film", "type": "movie", "source": "netflix"}]
-
-    with _trakt(trakt_items), _fp(fp_items):
-        result = fetch_from_sources(
-            sources=["trakt", "flixpatrol"], country_codes=[], client_id=""
-        )
-
-    matches = [i for i in result if i["title"] == "Shared Film"]
-    assert len(matches) == 1, "Shared title must appear exactly once after dedup"
-    sources = matches[0]["sources"]
-    assert "trakt" in sources
-    assert "netflix" in sources
 
 
 def test_distinct_titles_each_get_their_own_source():
@@ -48,7 +27,7 @@ def test_distinct_titles_each_get_their_own_source():
         {"title": "Only On Disney", "type": "movie", "source": "disney_plus"},
     ]
     with _fp(fp_items):
-        result = fetch_from_sources(sources=["flixpatrol"], country_codes=[], client_id="")
+        result = fetch_from_sources(sources=["flixpatrol"])
 
     by_title = {i["title"]: i for i in result}
     assert by_title["Only On Netflix"]["sources"] == ["netflix"]

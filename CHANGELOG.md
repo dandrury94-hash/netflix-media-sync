@@ -4,6 +4,52 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-068 — 2026-05-09 — Increase waitress thread pool to 8
+
+_File: `app/main.py`_
+
+Default waitress thread count is 4. A synchronous "Sync Now" request blocks one thread for the
+entire sync duration (~25 s), leaving only 3 threads to serve concurrent browser polling. Added
+`threads=8` to `serve()`, giving the app enough headroom to handle polling requests without
+queuing during a sync run.
+
+_Test: click "Sync Now" and watch the log — waitress.queue warnings should no longer appear._
+
+---
+
+## CHG-067 — 2026-05-09 — Remove Trakt integration
+
+_Files: `app/netflix_fetcher.py`, `app/config.py`, `app/sync_service.py`, `app/web.py`,
+`app/plex_client.py`, `app/templates/settings.html`, `app/static/script.js`,
+`tests/test_netflix_fetcher.py`, `config/settings.json.example`_
+
+Trakt had been disabled and is now fully removed:
+
+- **`netflix_fetcher.py`** — removed `TRAKT_API_URL` constant, `_fetch_trakt_items()`,
+  `fetch_netflix_top_10_for_countries()`, `_dedup_fetch()`, `_fetch_trakt_titles()`, the
+  `if source == "trakt"` dispatch branch, and the now-unused `requests` import.
+  `fetch_from_sources()` signature simplified — `country_codes` and `client_id` params removed.
+- **`config.py`** — removed `trakt_client_id` and legacy `netflix_top_countries`/`netflix_top_url`
+  from `DEFAULT_SETTINGS`; changed `sources` default from `["trakt"]` to `["flixpatrol"]`;
+  removed `TRAKT_CLIENT_ID` from `ENV_VAR_TO_SETTING`.
+- **`sync_service.py`** — removed `trakt_client_id` and `countries` reads; updated
+  `fetch_from_sources()` call; removed `if s != "trakt"` tag filters (FlixPatrol titles always
+  have a service source tag, so the filter was only ever needed to exclude Trakt).
+- **`web.py`** — removed `trakt_client_id` from `_SENSITIVE_KEYS`; removed `"trakt"` from
+  sources whitelist; removed `trakt_client_id` and `netflix_top_countries` from settings save;
+  fixed addition-history source fallback.
+- **`plex_client.py`** — removed `if src != "trakt"` guards from SyncLog, Radarr, and Sonarr
+  source-resolution loops.
+- **`settings.html`** — removed entire Trakt settings card.
+- **`script.js`** — removed `"trakt"` default fallback in addition history renderer.
+- **`tests/test_netflix_fetcher.py`** — removed `_trakt()` mock and the dedup test that relied
+  on it; updated remaining tests to new `fetch_from_sources()` signature.
+- **`config/settings.json.example`** — removed `trakt_client_id` and legacy keys.
+
+_Test: run a sync — no Trakt references in logs. Check Settings page — no Trakt card._
+
+---
+
 ## CHG-066 — 2026-05-09 — Scrollable Recently Added and Removal History tables
 
 _Files: `app/templates/index.html`, `app/static/style.css`_

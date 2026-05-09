@@ -146,20 +146,6 @@
         </section>
 
         <section class="card">
-            <h2>Trakt settings</h2>
-            <label>Trakt Client ID
-                <input type="password" name="trakt_client_id"
-                    value="{{ '__REDACTED__' if settings.trakt_client_id else '' }}"
-                    placeholder="{{ 'Paste to replace' if settings.trakt_client_id else 'Paste Client ID' }}" />
-            </label>
-            <label>Enabled sources</label>
-            <label class="setting-checkbox">
-                <input type="checkbox" name="sources" value="trakt" {% if 'trakt' in (settings.sources or []) %}checked{% endif %} />
-                Trakt (trending)
-            </label>
-        </section>
-
-        <section class="card">
             <h2>FlixPatrol settings</h2>
             <label class="setting-checkbox">
                 <input type="checkbox" name="sources" value="flixpatrol" id="flixpatrolEnabled" {% if 'flixpatrol' in (settings.sources or []) %}checked{% endif %} />
