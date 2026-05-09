@@ -4,6 +4,18 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-071 — 2026-05-09 — Media tab: Test all connections button
+
+_Files: `app/templates/settings.html`, `app/static/script.js`, `app/static/style.css`_
+
+Added a "Test all connections" button above the Media 2×2 grid. Calls `GET /api/connection-status`
+(the same endpoint used by the dashboard connection indicators) and shows either
+"✅ All connected" or "❌ Failed: Radarr, Sonarr" listing whichever services reported `ok: false`.
+
+_Test: click the button — all passing services show success, any failing ones are named._
+
+---
+
 ## CHG-070 — 2026-05-09 — Settings page: refined layout
 
 _Files: `app/templates/settings.html`, `app/static/style.css`, `app/static/script.js`_

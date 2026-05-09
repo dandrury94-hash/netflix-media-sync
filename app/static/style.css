@@ -941,6 +941,14 @@ body::before {
     margin: 18px 0;
 }
 
+/* ── Test All row (Media tab) ── */
+.test-all-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
 /* ── Settings media 2×2 grid ── */
 .settings-media-grid {
     display: grid;

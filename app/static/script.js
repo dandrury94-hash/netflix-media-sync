@@ -442,6 +442,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // ── Test all connections ──
+  const testAllBtn = document.getElementById("testAllBtn");
+  if (testAllBtn) {
+    testAllBtn.addEventListener("click", async () => {
+      const resultEl = document.getElementById("testAllResult");
+      testAllBtn.disabled = true;
+      setTestResult(resultEl, "Testing…", "");
+      try {
+        const resp = await fetch("/api/connection-status");
+        const data = await resp.json();
+        const failed = Object.entries(data)
+          .filter(([, v]) => !v.ok)
+          .map(([svc]) => svc.charAt(0).toUpperCase() + svc.slice(1));
+        if (failed.length === 0) {
+          setTestResult(resultEl, "✅ All connected", "success");
+        } else {
+          setTestResult(resultEl, `❌ Failed: ${failed.join(", ")}`, "error");
+        }
+      } catch (err) {
+        setTestResult(resultEl, `❌ ${err.message}`, "error");
+      } finally {
+        testAllBtn.disabled = false;
+      }
+    });
+  }
+
   // ── Removal schedule ──
   const removalBody = document.getElementById("removalScheduleBody");
   if (removalBody) {
