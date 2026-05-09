@@ -73,7 +73,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 500);
 
       try {
-        const response = await fetch("/api/sync", { method: "POST" });
+        const response = await fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
         clearInterval(timer);
         if (!response.ok) throw new Error(`Sync failed (HTTP ${response.status}) — check logs for details`);
         const data = await response.json();

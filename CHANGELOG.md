@@ -4,6 +4,21 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-064 — 2026-05-09 — Fix HTTP 415 on "Sync Now" button
+
+_File: `app/static/script.js`_
+
+The "Sync Now" `fetch("/api/sync", { method: "POST" })` call sent no `Content-Type` header and
+no body. Newer Werkzeug returns HTTP 415 Unsupported Media Type when `request.json` is accessed
+on a request without `Content-Type: application/json`. The Preview button already sent the
+correct headers; the Sync Now call has been updated to match.
+
+Also bumped `script.js` version to `?v=064` in `base.html` to force cache refresh.
+
+_Test: click "Sync Now" — sync should run without the HTTP 415 error._
+
+---
+
 ## CHG-063 — 2026-05-08 — Fix browser-cached script.js breaking Next Sync countdown after rebuild
 
 ### Root cause
