@@ -34,21 +34,54 @@ class RankTracker:
             logger.warning("Failed to save rank tracker to %s", self.path, exc_info=True)
 
     def update(self, source: str, media_type: str, ranked_titles: list[str]) -> None:
+        """Update today's snapshot. Only rotates the baseline when the calendar date changes,
+        so multiple syncs on the same day always compare against the previous day's rankings."""
         today = datetime.date.today().isoformat()
         with self._lock:
-            source_data = self._data.setdefault(source, {})
-            prev_type_data: dict[str, dict] = source_data.get(media_type, {})
-            new_type_data: dict[str, dict] = {}
-            for idx, title in enumerate(ranked_titles):
-                prev = prev_type_data.get(title, {})
-                new_type_data[title] = {
-                    "rank": idx + 1,
-                    "previous_rank": prev.get("rank"),
-                    "first_seen": prev.get("first_seen") or today,
-                }
-            source_data[media_type] = new_type_data
+            src = self._data.setdefault(source, {})
+            bucket = src.get(media_type, {})
+
+            # Migrate old per-title format (no "today_ranks" key present)
+            if bucket and "today_ranks" not in bucket:
+                bucket = {}
+            src[media_type] = bucket
+
+            today_ranks: dict[str, int] = {t: idx + 1 for idx, t in enumerate(ranked_titles)}
+
+            if bucket.get("today") != today:
+                # New calendar day — rotate current snapshot → baseline
+                bucket["baseline_date"] = bucket.get("today")
+                bucket["baseline_ranks"] = bucket.get("today_ranks", {})
+                bucket["today"] = today
+
+            bucket["today_ranks"] = today_ranks
+
+            first_seen: dict[str, str] = bucket.get("first_seen", {})
+            for title in ranked_titles:
+                if title not in first_seen:
+                    first_seen[title] = today
+            bucket["first_seen"] = first_seen
+
             self._save()
 
     def get_all(self) -> dict:
+        """Return rank data in the same shape the rest of the app expects:
+        {source: {media_type: {title: {rank, previous_rank, first_seen}}}}"""
         with self._lock:
-            return dict(self._data)
+            result: dict = {}
+            for source, types in self._data.items():
+                result[source] = {}
+                for media_type, bucket in types.items():
+                    if not isinstance(bucket, dict) or "today_ranks" not in bucket:
+                        continue
+                    baseline = bucket.get("baseline_ranks", {})
+                    first_seen = bucket.get("first_seen", {})
+                    result[source][media_type] = {
+                        title: {
+                            "rank": rank,
+                            "previous_rank": baseline.get(title),
+                            "first_seen": first_seen.get(title),
+                        }
+                        for title, rank in bucket["today_ranks"].items()
+                    }
+            return result

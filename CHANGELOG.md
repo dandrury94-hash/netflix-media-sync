@@ -4,6 +4,30 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-065 — 2026-05-09 — Rank arrows use daily snapshot baseline
+
+_File: `app/rank_tracker.py`_
+
+Previously `previous_rank` was set from the immediately preceding sync, so multiple syncs on
+the same day (or a manual "Sync Now" with unchanged FlixPatrol data) caused all arrows to
+disappear because every title's rank equalled its previous rank.
+
+`RankTracker.update()` now maintains two snapshots per source/media-type bucket:
+- **`today_ranks`** — current rankings, updated on every sync
+- **`baseline_ranks`** / **`baseline_date`** — the rankings from the previous calendar day,
+  only rotated forward when the date changes
+
+Multiple syncs on the same day all compare against yesterday's baseline, so arrows remain
+stable throughout the day. `first_seen` tracking is unchanged.
+
+Old per-title format data in `rank_tracker.json` is detected and migrated to the new
+structure on the first sync after upgrade.
+
+_Test: run two syncs in quick succession — arrows from the first sync should still be visible
+after the second._
+
+---
+
 ## CHG-064 — 2026-05-09 — Fix HTTP 415 on "Sync Now" button
 
 _File: `app/static/script.js`_
