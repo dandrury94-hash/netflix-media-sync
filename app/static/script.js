@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (fpTypeContainer) {
         fpTypeContainer.querySelectorAll(".fp-type-cb[data-type='movie']").forEach((movieCb) => {
           const key = movieCb.dataset.service;
-          const row = movieCb.closest(".fp-service-row");
+          const row = movieCb.closest(".fp-service-card");
           const seriesCb = row && row.querySelector(".fp-type-cb[data-type='series']");
           const types = [];
           if (movieCb.checked) types.push("movie");
@@ -228,7 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (fpListEl) {
         fpListEl.querySelectorAll(".fp-type-cb[data-type='movie']").forEach((movieCb) => {
           const key = movieCb.dataset.service;
-          const row = movieCb.closest(".fp-service-row");
+          const row = movieCb.closest(".fp-service-card");
           const seriesCb = row && row.querySelector(".fp-type-cb[data-type='series']");
           const types = [];
           if (movieCb.checked) types.push("movie");
@@ -1176,18 +1176,6 @@ function renderFlixPatrolServices(services, checkedKeys = [], serviceTypes = {})
 
   if (!services.length && !checkedKeys.length) return;
 
-  const divider = document.createElement("div");
-  divider.className = "setting-divider";
-  container.appendChild(divider);
-
-  const heading = document.createElement("p");
-  heading.className = "field-help";
-  heading.style.marginBottom = "10px";
-  heading.textContent = "Select which services to import from:";
-  container.appendChild(heading);
-
-  // If we have no live services data (page load with saved prefs),
-  // render minimal checkboxes from saved keys only
   const rows = services.length
     ? services
     : checkedKeys.map((k) => ({
@@ -1195,8 +1183,6 @@ function renderFlixPatrolServices(services, checkedKeys = [], serviceTypes = {})
         label: k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
         movie_count: null,
         series_count: null,
-        sample_movies: [],
-        sample_series: [],
       }));
 
   const grid = document.createElement("div");
@@ -1208,12 +1194,16 @@ function renderFlixPatrolServices(services, checkedKeys = [], serviceTypes = {})
     const movieChecked = !savedTypes || savedTypes.includes("movie");
     const seriesChecked = !savedTypes || savedTypes.includes("series");
 
-    const row = document.createElement("div");
-    row.className = "fp-service-row";
+    const card = document.createElement("div");
+    card.className = "fp-service-card";
 
-    // Service enable label
-    const item = document.createElement("label");
-    item.className = "fp-service-item";
+    const name = document.createElement("div");
+    name.className = "fp-card-name";
+    name.textContent = svc.label;
+    card.appendChild(name);
+
+    const enableLabel = document.createElement("label");
+    enableLabel.className = "setting-checkbox";
 
     const cb = document.createElement("input");
     cb.type = "checkbox";
@@ -1222,39 +1212,12 @@ function renderFlixPatrolServices(services, checkedKeys = [], serviceTypes = {})
     cb.checked = isChecked;
     cb.className = "fp-service-cb";
 
-    const meta = document.createElement("div");
-    meta.className = "fp-service-meta";
+    enableLabel.appendChild(cb);
+    enableLabel.appendChild(document.createTextNode(" Enable"));
+    card.appendChild(enableLabel);
 
-    const nameRow = document.createElement("div");
-    nameRow.className = "fp-service-name";
-    nameRow.textContent = svc.label;
-    meta.appendChild(nameRow);
-
-    if (svc.movie_count !== null) {
-      const counts = document.createElement("div");
-      counts.className = "fp-service-counts";
-      if (svc.movie_count > 0) {
-        const mc = document.createElement("span");
-        mc.className = "fp-count-badge fp-count-badge--movie";
-        mc.textContent = `${svc.movie_count} movies`;
-        counts.appendChild(mc);
-      }
-      if (svc.series_count > 0) {
-        const sc = document.createElement("span");
-        sc.className = "fp-count-badge fp-count-badge--series";
-        sc.textContent = `${svc.series_count} series`;
-        counts.appendChild(sc);
-      }
-      meta.appendChild(counts);
-    }
-
-    item.appendChild(cb);
-    item.appendChild(meta);
-    row.appendChild(item);
-
-    // Per-service type toggles
     const typeToggles = document.createElement("div");
-    typeToggles.className = "fp-type-toggles";
+    typeToggles.className = "fp-type-toggles fp-card-types";
 
     [["movie", "Movies"], ["series", "TV"]].forEach(([type, label]) => {
       const typeLabel = document.createElement("label");
@@ -1272,13 +1235,31 @@ function renderFlixPatrolServices(services, checkedKeys = [], serviceTypes = {})
       typeToggles.appendChild(typeLabel);
     });
 
-    row.appendChild(typeToggles);
-    grid.appendChild(row);
+    card.appendChild(typeToggles);
+
+    if (svc.movie_count !== null) {
+      const counts = document.createElement("div");
+      counts.className = "fp-service-counts";
+      if (svc.movie_count > 0) {
+        const mc = document.createElement("span");
+        mc.className = "fp-count-badge fp-count-badge--movie";
+        mc.textContent = `${svc.movie_count} movies`;
+        counts.appendChild(mc);
+      }
+      if (svc.series_count > 0) {
+        const sc = document.createElement("span");
+        sc.className = "fp-count-badge fp-count-badge--series";
+        sc.textContent = `${svc.series_count} series`;
+        counts.appendChild(sc);
+      }
+      card.appendChild(counts);
+    }
+
+    grid.appendChild(card);
   });
 
   container.appendChild(grid);
 
-  // Select all / none toggle
   const toggleRow = document.createElement("div");
   toggleRow.className = "fp-toggle-row";
 

@@ -4,6 +4,27 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-070 — 2026-05-09 — Settings page: refined layout
+
+_Files: `app/templates/settings.html`, `app/static/style.css`, `app/static/script.js`_
+
+- **Media tab** — four services now laid out as 2×2 `.settings-subcard` grid
+  (`align-items: start` so cards don't force equal height).
+- **Services tab — FlixPatrol** — enable checkbox, country select, and cache hours
+  are on a single flex row (`fp-top-row`). The service list uses redesigned
+  `.fp-service-card` components: service name at top, Enable checkbox below it,
+  Movies/TV checkboxes inside each card. Load/Refresh buttons and the last-fetched
+  timestamp moved into a `.fp-bottom-bar` below the grid.
+- **Services tab — bottom row** — Retention & Sync and Automation (auto-deletion +
+  simulation mode) placed side-by-side in a `.settings-services-bottom` 2-col grid,
+  each in a `.settings-subcard` with its own heading.
+- **JS** — `renderFlixPatrolServices()` rebuilt to emit `.fp-service-card` elements;
+  `.fp-service-row` references updated to `.fp-service-card`.
+
+_Test: check all three tabs, verify Load services renders card grid, save settings._
+
+---
+
 ## CHG-069 — 2026-05-09 — Settings page: sidebar tab layout
 
 _Files: `app/templates/settings.html`, `app/static/style.css`, `app/static/script.js`,

@@ -15,216 +15,229 @@
 
         <div class="settings-tab-body">
 
-            {# ── Media tab ── #}
+            {# ── Media tab — 2×2 grid of sub-cards ── #}
             <div class="settings-section active" id="stab-media">
+                <div class="settings-media-grid">
 
-                <h3 class="settings-section-title">Radarr</h3>
-                <label>Radarr mode
-                    <select name="radarr_mode">
-                        <option value="disabled" {% if settings.radarr_mode=='disabled' %}selected{% endif %}>Disabled</option>
-                        <option value="read" {% if settings.radarr_mode=='read' %}selected{% endif %}>Read only</option>
-                        <option value="enabled" {% if settings.radarr_mode=='enabled' %}selected{% endif %}>Enabled</option>
-                    </select>
-                </label>
-                <label>Radarr URL
-                    <input type="text" name="radarr_url" value="{{ settings.radarr_url }}" placeholder="http://radarr:7878" />
-                </label>
-                <label>Radarr API Key
-                    <input type="password" name="radarr_api_key"
-                        value="{{ '__REDACTED__' if settings.radarr_api_key else '' }}"
-                        placeholder="{{ 'Paste to replace' if settings.radarr_api_key else 'Paste API key' }}" />
-                </label>
-                <label>Quality profile ID
-                    <input type="number" name="radarr_quality_profile_id" value="{{ settings.radarr_quality_profile_id }}" />
-                </label>
-                <label>Root folder
-                    <input type="text" name="root_folder_movies" value="{{ settings.root_folder_movies }}" placeholder="/movies" />
-                </label>
-                <div class="test-conn-row">
-                    <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="radarr">Test connection</button>
-                    <span id="radarrTestResult" class="test-conn-result"></span>
+                    <div class="settings-subcard">
+                        <h3 class="settings-section-title">Radarr</h3>
+                        <label>Mode
+                            <select name="radarr_mode">
+                                <option value="disabled" {% if settings.radarr_mode=='disabled' %}selected{% endif %}>Disabled</option>
+                                <option value="read" {% if settings.radarr_mode=='read' %}selected{% endif %}>Read only</option>
+                                <option value="enabled" {% if settings.radarr_mode=='enabled' %}selected{% endif %}>Enabled</option>
+                            </select>
+                        </label>
+                        <label>URL
+                            <input type="text" name="radarr_url" value="{{ settings.radarr_url }}" placeholder="http://radarr:7878" />
+                        </label>
+                        <label>API Key
+                            <input type="password" name="radarr_api_key"
+                                value="{{ '__REDACTED__' if settings.radarr_api_key else '' }}"
+                                placeholder="{{ 'Paste to replace' if settings.radarr_api_key else 'Paste API key' }}" />
+                        </label>
+                        <label>Quality profile ID
+                            <input type="number" name="radarr_quality_profile_id" value="{{ settings.radarr_quality_profile_id }}" />
+                        </label>
+                        <label>Root folder
+                            <input type="text" name="root_folder_movies" value="{{ settings.root_folder_movies }}" placeholder="/movies" />
+                        </label>
+                        <div class="test-conn-row">
+                            <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="radarr">Test connection</button>
+                            <span id="radarrTestResult" class="test-conn-result"></span>
+                        </div>
+                    </div>
+
+                    <div class="settings-subcard">
+                        <h3 class="settings-section-title">Sonarr</h3>
+                        <label>Mode
+                            <select name="sonarr_mode">
+                                <option value="disabled" {% if settings.sonarr_mode=='disabled' %}selected{% endif %}>Disabled</option>
+                                <option value="read" {% if settings.sonarr_mode=='read' %}selected{% endif %}>Read only</option>
+                                <option value="enabled" {% if settings.sonarr_mode=='enabled' %}selected{% endif %}>Enabled</option>
+                            </select>
+                        </label>
+                        <label>URL
+                            <input type="text" name="sonarr_url" value="{{ settings.sonarr_url }}" placeholder="http://sonarr:8989" />
+                        </label>
+                        <label>API Key
+                            <input type="password" name="sonarr_api_key"
+                                value="{{ '__REDACTED__' if settings.sonarr_api_key else '' }}"
+                                placeholder="{{ 'Paste to replace' if settings.sonarr_api_key else 'Paste API key' }}" />
+                        </label>
+                        <label>Quality profile ID
+                            <input type="number" name="sonarr_quality_profile_id" value="{{ settings.sonarr_quality_profile_id }}" />
+                        </label>
+                        <label>Root folder
+                            <input type="text" name="root_folder_series" value="{{ settings.root_folder_series }}" placeholder="/tv" />
+                        </label>
+                        <div class="test-conn-row">
+                            <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="sonarr">Test connection</button>
+                            <span id="sonarrTestResult" class="test-conn-result"></span>
+                        </div>
+                    </div>
+
+                    <div class="settings-subcard">
+                        <h3 class="settings-section-title">Tautulli</h3>
+                        <label>Mode
+                            <select name="tautulli_mode">
+                                <option value="disabled" {% if settings.tautulli_mode=='disabled' %}selected{% endif %}>Disabled</option>
+                                <option value="read" {% if settings.tautulli_mode=='read' %}selected{% endif %}>Read only</option>
+                                <option value="enabled" {% if settings.tautulli_mode=='enabled' %}selected{% endif %}>Enabled</option>
+                            </select>
+                        </label>
+                        <label>URL
+                            <input type="text" name="tautulli_url" value="{{ settings.tautulli_url }}" placeholder="http://tautulli:8181" />
+                        </label>
+                        <label>API Key
+                            <input type="password" name="tautulli_api_key"
+                                value="{{ '__REDACTED__' if settings.tautulli_api_key else '' }}"
+                                placeholder="{{ 'Paste to replace' if settings.tautulli_api_key else 'Paste API key' }}" />
+                        </label>
+                        <label>Lookback days
+                            <input type="number" name="tautulli_lookback_days" value="{{ settings.tautulli_lookback_days }}" />
+                        </label>
+                        <div class="test-conn-row">
+                            <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="tautulli">Test connection</button>
+                            <span id="tautulliTestResult" class="test-conn-result"></span>
+                        </div>
+                    </div>
+
+                    <div class="settings-subcard">
+                        <h3 class="settings-section-title">Plex</h3>
+                        <label>Mode
+                            <select name="plex_mode">
+                                <option value="disabled" {% if settings.plex_mode=='disabled' %}selected{% endif %}>Disabled</option>
+                                <option value="enabled" {% if settings.plex_mode=='enabled' %}selected{% endif %}>Enabled</option>
+                            </select>
+                        </label>
+                        <label>URL
+                            <input type="text" name="plex_url" value="{{ settings.plex_url }}" placeholder="http://plex:32400" />
+                        </label>
+                        <label>Token
+                            <input type="password" name="plex_token"
+                                value="{{ '__REDACTED__' if settings.plex_token else '' }}"
+                                placeholder="{{ 'Paste to replace' if settings.plex_token else 'Paste token' }}" />
+                        </label>
+                        <label>Movie library name
+                            <input type="text" name="plex_movie_library" value="{{ settings.plex_movie_library }}" />
+                        </label>
+                        <label>TV library name
+                            <input type="text" name="plex_tv_library" value="{{ settings.plex_tv_library }}" />
+                        </label>
+                        <label>Collection sync interval (hours)
+                            <input type="number" name="plex_collection_sync_hours" value="{{ settings.plex_collection_sync_hours }}" min="1" max="24" />
+                        </label>
+                        <div class="test-conn-row">
+                            <button type="button" class="button button-secondary button-sm" id="plexTestBtn">Test connection</button>
+                            <span id="plexTestResult" class="test-conn-result"></span>
+                        </div>
+                        <div class="setting-divider"></div>
+                        <div class="test-conn-row">
+                            <button type="button" class="button button-secondary button-sm" id="plexSyncBtn">Sync collections now</button>
+                            <button type="button" class="button button-secondary button-sm button-danger" id="plexRemoveBtn">Remove collections</button>
+                        </div>
+                        <span id="plexSyncStatus" class="test-conn-result" style="margin-top:6px;display:block">
+                            {%- if plex_status.synced_at_fmt %}Last synced: {{ plex_status.synced_at_fmt }}{% endif -%}
+                        </span>
+                        {% if plex_status.error %}
+                        <p class="field-help fp-stale-msg">⚠ {{ plex_status.error }}</p>
+                        {% endif %}
+                    </div>
+
                 </div>
-
-                <div class="setting-divider"></div>
-
-                <h3 class="settings-section-title">Sonarr</h3>
-                <label>Sonarr mode
-                    <select name="sonarr_mode">
-                        <option value="disabled" {% if settings.sonarr_mode=='disabled' %}selected{% endif %}>Disabled</option>
-                        <option value="read" {% if settings.sonarr_mode=='read' %}selected{% endif %}>Read only</option>
-                        <option value="enabled" {% if settings.sonarr_mode=='enabled' %}selected{% endif %}>Enabled</option>
-                    </select>
-                </label>
-                <label>Sonarr URL
-                    <input type="text" name="sonarr_url" value="{{ settings.sonarr_url }}" placeholder="http://sonarr:8989" />
-                </label>
-                <label>Sonarr API Key
-                    <input type="password" name="sonarr_api_key"
-                        value="{{ '__REDACTED__' if settings.sonarr_api_key else '' }}"
-                        placeholder="{{ 'Paste to replace' if settings.sonarr_api_key else 'Paste API key' }}" />
-                </label>
-                <label>Quality profile ID
-                    <input type="number" name="sonarr_quality_profile_id" value="{{ settings.sonarr_quality_profile_id }}" />
-                </label>
-                <label>Root folder
-                    <input type="text" name="root_folder_series" value="{{ settings.root_folder_series }}" placeholder="/tv" />
-                </label>
-                <div class="test-conn-row">
-                    <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="sonarr">Test connection</button>
-                    <span id="sonarrTestResult" class="test-conn-result"></span>
-                </div>
-
-                <div class="setting-divider"></div>
-
-                <h3 class="settings-section-title">Tautulli</h3>
-                <label>Tautulli mode
-                    <select name="tautulli_mode">
-                        <option value="disabled" {% if settings.tautulli_mode=='disabled' %}selected{% endif %}>Disabled</option>
-                        <option value="read" {% if settings.tautulli_mode=='read' %}selected{% endif %}>Read only</option>
-                        <option value="enabled" {% if settings.tautulli_mode=='enabled' %}selected{% endif %}>Enabled</option>
-                    </select>
-                </label>
-                <label>Tautulli URL
-                    <input type="text" name="tautulli_url" value="{{ settings.tautulli_url }}" placeholder="http://tautulli:8181" />
-                </label>
-                <label>Tautulli API Key
-                    <input type="password" name="tautulli_api_key"
-                        value="{{ '__REDACTED__' if settings.tautulli_api_key else '' }}"
-                        placeholder="{{ 'Paste to replace' if settings.tautulli_api_key else 'Paste API key' }}" />
-                </label>
-                <label>Lookback days
-                    <input type="number" name="tautulli_lookback_days" value="{{ settings.tautulli_lookback_days }}" />
-                </label>
-                <div class="test-conn-row">
-                    <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="tautulli">Test connection</button>
-                    <span id="tautulliTestResult" class="test-conn-result"></span>
-                </div>
-
-                <div class="setting-divider"></div>
-
-                <h3 class="settings-section-title">Plex</h3>
-                <label>Plex mode
-                    <select name="plex_mode">
-                        <option value="disabled" {% if settings.plex_mode=='disabled' %}selected{% endif %}>Disabled</option>
-                        <option value="enabled" {% if settings.plex_mode=='enabled' %}selected{% endif %}>Enabled</option>
-                    </select>
-                </label>
-                <label>Plex URL
-                    <input type="text" name="plex_url" value="{{ settings.plex_url }}" placeholder="http://plex:32400" />
-                </label>
-                <label>Plex token
-                    <input type="password" name="plex_token"
-                        value="{{ '__REDACTED__' if settings.plex_token else '' }}"
-                        placeholder="{{ 'Paste to replace' if settings.plex_token else 'Paste token' }}" />
-                </label>
-                <label>Movie library name
-                    <input type="text" name="plex_movie_library" value="{{ settings.plex_movie_library }}" />
-                </label>
-                <label>TV library name
-                    <input type="text" name="plex_tv_library" value="{{ settings.plex_tv_library }}" />
-                </label>
-                <label>Collection sync interval (hours)
-                    <input type="number" name="plex_collection_sync_hours" value="{{ settings.plex_collection_sync_hours }}" min="1" max="24" />
-                    <p class="field-help">How often to sync Plex collections in the background. 2 h is recommended.</p>
-                </label>
-                <div class="test-conn-row">
-                    <button type="button" class="button button-secondary button-sm" id="plexTestBtn">Test connection</button>
-                    <span id="plexTestResult" class="test-conn-result"></span>
-                </div>
-                <div class="setting-divider"></div>
-                <div class="test-conn-row">
-                    <button type="button" class="button button-secondary button-sm" id="plexSyncBtn">Sync collections now</button>
-                    <button type="button" class="button button-secondary button-sm button-danger" id="plexRemoveBtn">Remove collections</button>
-                    <span id="plexSyncStatus" class="test-conn-result">
-                        {%- if plex_status.synced_at_fmt %}Last synced: {{ plex_status.synced_at_fmt }}{% endif -%}
-                    </span>
-                </div>
-                {% if plex_status.error %}
-                <p class="field-help fp-stale-msg" style="margin-top:6px">⚠ {{ plex_status.error }}</p>
-                {% endif %}
-
             </div>{# /stab-media #}
 
             {# ── Services tab ── #}
             <div class="settings-section" id="stab-services">
 
+                {# FlixPatrol #}
                 <h3 class="settings-section-title">FlixPatrol</h3>
-                <label class="setting-checkbox">
-                    <input type="checkbox" name="sources" value="flixpatrol" id="flixpatrolEnabled" {% if 'flixpatrol' in (settings.sources or []) %}checked{% endif %} />
-                    FlixPatrol (streaming Top 10)
-                </label>
-                <p class="field-help">Fetches Top 10 Movies and TV Shows per streaming service. Select which services to import before enabling.</p>
-                <div class="setting-divider"></div>
-                <label>Country
-                    <select name="flixpatrol_country" id="flixpatrolCountry">
-                        {% for country in flixpatrol_countries %}
-                        <option value="{{ country }}" {% if settings.flixpatrol_country == country %}selected{% endif %}>{{ country }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                <label>Cache duration hours
-                    <input type="number" name="flixpatrol_cache_hours" value="{{ settings.flixpatrol_cache_hours }}" min="1" max="48" />
-                    <p class="field-help">How long to cache FlixPatrol data before re-fetching. FlixPatrol updates daily, so 6–12 h is recommended.</p>
-                </label>
-                <div id="fpCacheStatus" class="fp-cache-status"
-                     data-cached-at="{{ flixpatrol_cache.cached_at or '' }}">
-                    {% if flixpatrol_cache.cached_at_fmt %}
-                    <p class="field-help">Last fetched: {{ flixpatrol_cache.cached_at_fmt }}{% if flixpatrol_cache.is_stale %} <span class="fp-stale-badge">Stale</span>{% endif %}</p>
-                    {% endif %}
-                    {% if flixpatrol_cache.banned %}
-                    <p class="field-help fp-ban-msg">🚫 {{ flixpatrol_cache.error }}</p>
-                    {% elif flixpatrol_cache.error %}
-                    <p class="field-help fp-stale-msg">⚠ {{ flixpatrol_cache.error }}</p>
-                    {% endif %}
+                <div class="fp-top-row">
+                    <label class="setting-checkbox fp-enable-label">
+                        <input type="checkbox" name="sources" value="flixpatrol" id="flixpatrolEnabled" {% if 'flixpatrol' in (settings.sources or []) %}checked{% endif %} />
+                        Enable
+                    </label>
+                    <div class="fp-country-cache">
+                        <label>Country
+                            <select name="flixpatrol_country" id="flixpatrolCountry">
+                                {% for country in flixpatrol_countries %}
+                                <option value="{{ country }}" {% if settings.flixpatrol_country == country %}selected{% endif %}>{{ country }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>Cache hours
+                            <input type="number" name="flixpatrol_cache_hours" value="{{ settings.flixpatrol_cache_hours }}" min="1" max="48" />
+                        </label>
+                    </div>
                 </div>
-                <div class="fp-preview-row">
-                    <button type="button" class="button button-secondary button-sm" id="fpLoadBtn">Load services</button>
-                    <button type="button" class="button button-secondary button-sm" id="fpRefreshBtn">Refresh now</button>
-                    <span id="fpLoadStatus" class="test-conn-result"></span>
-                </div>
+
                 <div id="fpServiceList"
                      data-saved-services='{{ settings.flixpatrol_services | tojson }}'
                      data-saved-service-types='{{ (settings.flixpatrol_service_types or {}) | tojson }}'></div>
 
-                <div class="setting-divider"></div>
+                <div class="fp-bottom-bar">
+                    <div class="fp-preview-row">
+                        <button type="button" class="button button-secondary button-sm" id="fpLoadBtn">Load services</button>
+                        <button type="button" class="button button-secondary button-sm" id="fpRefreshBtn">Refresh now</button>
+                        <span id="fpLoadStatus" class="test-conn-result"></span>
+                    </div>
+                    <div id="fpCacheStatus" class="fp-cache-status"
+                         data-cached-at="{{ flixpatrol_cache.cached_at or '' }}">
+                        {% if flixpatrol_cache.cached_at_fmt %}
+                        <p class="field-help">Last fetched: {{ flixpatrol_cache.cached_at_fmt }}{% if flixpatrol_cache.is_stale %} <span class="fp-stale-badge">Stale</span>{% endif %}</p>
+                        {% endif %}
+                        {% if flixpatrol_cache.banned %}
+                        <p class="field-help fp-ban-msg">🚫 {{ flixpatrol_cache.error }}</p>
+                        {% elif flixpatrol_cache.error %}
+                        <p class="field-help fp-stale-msg">⚠ {{ flixpatrol_cache.error }}</p>
+                        {% endif %}
+                    </div>
+                </div>
 
-                <h3 class="settings-section-title">Retention &amp; Sync</h3>
-                <label>Sync interval seconds
-                    <input type="number" name="run_interval_seconds" value="{{ settings.run_interval_seconds }}" />
-                </label>
-                <label>Movie retention days
-                    <input type="number" name="movie_retention_days" value="{{ settings.movie_retention_days }}" />
-                </label>
-                <label>Series retention days
-                    <input type="number" name="series_retention_days" value="{{ settings.series_retention_days }}" />
-                </label>
-                <label>Web interface port
-                    <input type="number" name="web_port" value="{{ settings.web_port }}" />
-                </label>
-                <label>Web UI password
-                    <input type="password" name="web_password"
-                        value="{{ '__REDACTED__' if settings.web_password else '' }}"
-                        placeholder="{{ 'Paste to replace' if settings.web_password else 'Leave empty to disable auth' }}" />
-                    <p class="field-help">HTTP Basic Auth password. Leave empty to disable authentication.</p>
-                </label>
-                <div class="setting-divider"></div>
-                <label class="setting-checkbox">
-                    <input type="checkbox" name="deletion_enabled" {% if settings.deletion_enabled %}checked{% endif %} />
-                    Enable automatic deletion
-                </label>
-                <p class="field-help">⚠️ When enabled, titles past their retention date will be permanently deleted from Radarr / Sonarr including media files. Only titles tagged <code>streamarr</code> are affected. Protected titles are never deleted.</p>
-                <div class="setting-divider"></div>
-                <label class="setting-checkbox">
-                    <input type="checkbox" name="simulation_mode" {% if settings.simulation_mode %}checked{% endif %} />
-                    Simulation mode (dry-run)
-                </label>
-                <p class="field-help">When enabled, syncs fetch and evaluate titles but make no changes to Radarr, Sonarr, or history.</p>
+                {# Retention & Sync + Automation — side by side #}
+                <div class="settings-services-bottom">
+                    <div class="settings-subcard">
+                        <h3 class="settings-section-title">Retention &amp; Sync</h3>
+                        <label>Sync interval seconds
+                            <input type="number" name="run_interval_seconds" value="{{ settings.run_interval_seconds }}" />
+                        </label>
+                        <label>Movie retention days
+                            <input type="number" name="movie_retention_days" value="{{ settings.movie_retention_days }}" />
+                        </label>
+                        <label>Series retention days
+                            <input type="number" name="series_retention_days" value="{{ settings.series_retention_days }}" />
+                        </label>
+                        <label>Web interface port
+                            <input type="number" name="web_port" value="{{ settings.web_port }}" />
+                        </label>
+                        <label>Web UI password
+                            <input type="password" name="web_password"
+                                value="{{ '__REDACTED__' if settings.web_password else '' }}"
+                                placeholder="{{ 'Paste to replace' if settings.web_password else 'Leave empty to disable' }}" />
+                        </label>
+                    </div>
+
+                    <div class="settings-subcard">
+                        <h3 class="settings-section-title">Automation</h3>
+                        <label class="setting-checkbox">
+                            <input type="checkbox" name="deletion_enabled" {% if settings.deletion_enabled %}checked{% endif %} />
+                            Enable automatic deletion
+                        </label>
+                        <p class="field-help">⚠️ Titles past their retention date will be permanently deleted from Radarr / Sonarr including media files. Only <code>streamarr</code>-tagged titles are affected. Protected titles are never deleted.</p>
+                        <div class="setting-divider"></div>
+                        <label class="setting-checkbox">
+                            <input type="checkbox" name="simulation_mode" {% if settings.simulation_mode %}checked{% endif %} />
+                            Simulation mode (dry-run)
+                        </label>
+                        <p class="field-help">Syncs fetch and evaluate titles but make no changes to Radarr, Sonarr, or history.</p>
+                    </div>
+                </div>
 
             </div>{# /stab-services #}
 
             {# ── Notifications tab ── #}
             <div class="settings-section" id="stab-notifications">
-
                 <h3 class="settings-section-title">Pushover Notifications</h3>
                 <label class="setting-checkbox">
                     <input type="checkbox" name="pushover_enabled" {% if settings.pushover_enabled %}checked{% endif %} />
@@ -244,7 +257,6 @@
                     <button type="button" class="button button-secondary button-sm test-conn-btn" data-service="pushover">Test notification</button>
                     <span id="pushoverTestResult" class="test-conn-result"></span>
                 </div>
-
             </div>{# /stab-notifications #}
 
         </div>{# /settings-tab-body #}
