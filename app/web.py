@@ -27,23 +27,6 @@ _SENSITIVE_KEYS = {
     "plex_token",
 }
 
-COUNTRY_OPTIONS = [
-    ("us", "United States"),
-    ("gb", "United Kingdom"),
-    ("ca", "Canada"),
-    ("de", "Germany"),
-    ("fr", "France"),
-    ("jp", "Japan"),
-    ("br", "Brazil"),
-    ("au", "Australia"),
-    ("es", "Spain"),
-    ("it", "Italy"),
-    ("nl", "Netherlands"),
-    ("se", "Sweden"),
-    ("mx", "Mexico"),
-    ("in", "India"),
-]
-
 
 def create_app(
     settings: SettingsStore,
@@ -152,7 +135,6 @@ def create_app(
         return render_template(
             "settings.html",
             settings=settings.to_dict(),
-            country_options=COUNTRY_OPTIONS,
             flixpatrol_countries=sorted(FLIXPATROL_COUNTRIES.keys()),
             flixpatrol_cache=fp_cache,
             plex_status=plex_status,

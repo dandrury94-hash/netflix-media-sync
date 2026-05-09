@@ -23,6 +23,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state) element.classList.add(state);
   };
 
+  // ── Settings sidebar tab switching ──
+  document.querySelectorAll(".settings-sidenav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".settings-sidenav-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".settings-section").forEach((s) => s.classList.remove("active"));
+      btn.classList.add("active");
+      const section = document.getElementById("stab-" + btn.dataset.settingsTab);
+      if (section) section.classList.add("active");
+    });
+  });
+
   // ── Top-nav tab switching ──
   document.querySelectorAll(".topnav a[data-tab-target]").forEach((link) => {
     link.addEventListener("click", (e) => {

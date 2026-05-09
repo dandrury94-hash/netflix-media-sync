@@ -4,6 +4,32 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-069 — 2026-05-09 — Settings page: sidebar tab layout
+
+_Files: `app/templates/settings.html`, `app/static/style.css`, `app/static/script.js`,
+`app/web.py`_
+
+Replaced the multi-card grid layout with a single card containing a left-side navigation
+sidebar and three switchable content panels:
+
+- **Media** — Radarr, Sonarr, Tautulli, Plex (separated by dividers with section titles)
+- **Services** — FlixPatrol settings, Retention & Sync
+- **Notifications** — Pushover
+
+New CSS classes: `.settings-layout`, `.settings-sidenav`, `.settings-sidenav-btn`,
+`.settings-tab-body`, `.settings-section`, `.settings-section-title`.
+
+Tab switching is handled in `script.js` via `data-settings-tab` attributes — no page reload.
+Active tab is indicated by an accent-coloured left border on the sidenav button.
+
+Also removed the leftover "Netflix Top 10 regions" select (Trakt-only, carried forward from
+before CHG-067) and the `COUNTRY_OPTIONS` list from `web.py`.
+
+_Test: open Settings — three tabs visible, each switches content without reloading the page.
+All fields save correctly regardless of which tab is active._
+
+---
+
 ## CHG-068 — 2026-05-09 — Increase waitress thread pool to 8
 
 _File: `app/main.py`_
