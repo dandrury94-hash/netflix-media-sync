@@ -4,6 +4,20 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-066 — 2026-05-09 — Scrollable Recently Added and Removal History tables
+
+_Files: `app/templates/index.html`, `app/static/style.css`_
+
+Both tables on the History tab are now wrapped in `.removal-scroll` divs, matching the same
+scroll-container pattern already used elsewhere. `max-height` updated to 600 px (≈ 15 rows at
+the table's row height). The sticky `<thead>` was already in place so column headers remain
+visible while scrolling.
+
+_Test: navigate to the History tab — if fewer than ~15 rows exist, tables render flat as
+before. With 15+ entries, a scrollbar appears and headers stay pinned at the top._
+
+---
+
 ## CHG-065 — 2026-05-09 — Rank arrows use daily snapshot baseline
 
 _File: `app/rank_tracker.py`_

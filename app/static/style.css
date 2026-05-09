@@ -592,7 +592,7 @@ body::before {
 /* ── Scheduled removal table ── */
 .removal-scroll {
     margin-top: 14px;
-    max-height: 440px;
+    max-height: 600px;
     overflow-y: auto;
     border-radius: 8px;
 }

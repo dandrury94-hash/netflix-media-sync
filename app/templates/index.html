@@ -230,37 +230,41 @@
     <section class="card wide-card">
         <h2>Recently added <span class="sync-timestamp" style="display:inline;margin-left:10px">last 7 days</span></h2>
         <p class="field-help">Titles added to Radarr / Sonarr by this sync service in the last 7 days. Deduplicates by title, most recent entry shown.</p>
-        <table class="removal-table">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Type</th>
-                    <th>Date added</th>
-                    <th>Source</th>
-                </tr>
-            </thead>
-            <tbody id="additionHistoryBody">
-                <tr><td colspan="4" class="table-empty">Loading…</td></tr>
-            </tbody>
-        </table>
+        <div class="removal-scroll">
+            <table class="removal-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Date added</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody id="additionHistoryBody">
+                    <tr><td colspan="4" class="table-empty">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
     </section>
     <section class="card wide-card" style="margin-top:22px">
         <h2>Removal history</h2>
         <p class="field-help">Titles automatically deleted from Radarr / Sonarr. Records are kept for 180 days.</p>
-        <table class="removal-table">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Type</th>
-                    <th>Date removed</th>
-                    <th>Reason</th>
-                    <th>Watched</th>
-                </tr>
-            </thead>
-            <tbody id="removalHistoryBody">
-                <tr><td colspan="5" class="table-empty">Loading…</td></tr>
-            </tbody>
-        </table>
+        <div class="removal-scroll">
+            <table class="removal-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Date removed</th>
+                        <th>Reason</th>
+                        <th>Watched</th>
+                    </tr>
+                </thead>
+                <tbody id="removalHistoryBody">
+                    <tr><td colspan="5" class="table-empty">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 </div>
 
