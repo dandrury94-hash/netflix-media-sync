@@ -4,6 +4,20 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-075 — 2026-05-10 — Dev deploy script and Docker volume mount
+
+_Files: `deploy.ps1`, `docker-compose.yml`_
+
+Added `deploy.ps1` — interactive script with two options: Restart (code changes, ~3 sec) and
+Rebuild (new packages, full image rebuild). Rebuild runs `docker compose down`, clears any
+orphan containers holding port 8080, rebuilds the image, and starts fresh. Both paths run a
+health check against `http://localhost:8080` after completion.
+
+Added `./app:/app/app` volume mount to `docker-compose.yml` so Python, templates, and static
+files are read live from disk — eliminating the need for a full rebuild on every code change.
+
+---
+
 ## CHG-074 — 2026-05-10 — Top 10 status: fuzzy title matching
 
 _Files: `app/web.py`_
