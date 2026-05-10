@@ -19,7 +19,7 @@
             <div class="settings-section active" id="stab-media">
                 <div class="test-all-row">
                     <button type="button" class="button button-secondary button-sm" id="testAllBtn">Test all connections</button>
-                    <span id="testAllResult" class="test-conn-result"></span>
+                    <div id="testAllResult" class="test-all-result"></div>
                 </div>
                 <div class="settings-media-grid">
 
@@ -155,14 +155,19 @@
             {# ── Services tab ── #}
             <div class="settings-section" id="stab-services">
 
-                {# FlixPatrol #}
-                <h3 class="settings-section-title">FlixPatrol</h3>
-                <div class="fp-top-row">
-                    <label class="setting-checkbox fp-enable-label">
-                        <input type="checkbox" name="sources" value="flixpatrol" id="flixpatrolEnabled" {% if 'flixpatrol' in (settings.sources or []) %}checked{% endif %} />
-                        Enable
-                    </label>
-                    <div class="fp-country-cache">
+                {# ── FlixPatrol subcard ── #}
+                <div class="settings-subcard svc-fp-card">
+                    <div class="svc-fp-header">
+                        <h3 class="settings-section-title svc-fp-title">FlixPatrol</h3>
+                        <label class="fp-enable-toggle">
+                            <input type="checkbox" name="sources" value="flixpatrol" id="flixpatrolEnabled" {% if 'flixpatrol' in (settings.sources or []) %}checked{% endif %} />
+                            <span class="fp-toggle-label-on">ENABLED</span>
+                            <span class="fp-toggle-label-off">DISABLED</span>
+                        </label>
+                    </div>
+                    <div class="card-divider"></div>
+
+                    <div class="svc-fp-fields">
                         <label>Country
                             <select name="flixpatrol_country" id="flixpatrolCountry">
                                 {% for country in flixpatrol_countries %}
@@ -174,42 +179,44 @@
                             <input type="number" name="flixpatrol_cache_hours" value="{{ settings.flixpatrol_cache_hours }}" min="1" max="48" />
                         </label>
                     </div>
+                    <div class="card-divider"></div>
+
+                    <div id="fpServiceList"
+                         data-saved-services='{{ settings.flixpatrol_services | tojson }}'
+                         data-saved-service-types='{{ (settings.flixpatrol_service_types or {}) | tojson }}'></div>
+
+                    <div class="card-divider"></div>
+                    <div class="svc-fp-footer">
+                        <div class="fp-preview-row">
+                            <button type="button" class="button button-secondary button-sm" id="fpLoadBtn">Load services</button>
+                            <button type="button" class="button button-secondary button-sm" id="fpRefreshBtn">Refresh now</button>
+                            <span id="fpLoadStatus" class="test-conn-result"></span>
+                            <div id="fpCacheStatus" class="fp-cache-status fp-cache-inline"
+                                 data-cached-at="{{ flixpatrol_cache.cached_at or '' }}">
+                                {% if flixpatrol_cache.cached_at_fmt %}
+                                <p class="field-help">Last fetched: {{ flixpatrol_cache.cached_at_fmt }}{% if flixpatrol_cache.is_stale %} <span class="fp-stale-badge">Stale</span>{% endif %}</p>
+                                {% endif %}
+                                {% if flixpatrol_cache.banned %}
+                                <p class="field-help fp-ban-msg">🚫 {{ flixpatrol_cache.error }}</p>
+                                {% elif flixpatrol_cache.error %}
+                                <p class="field-help fp-stale-msg">⚠ {{ flixpatrol_cache.error }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="fpServiceList"
-                     data-saved-services='{{ settings.flixpatrol_services | tojson }}'
-                     data-saved-service-types='{{ (settings.flixpatrol_service_types or {}) | tojson }}'></div>
-
-                <div class="fp-bottom-bar">
-                    <div class="fp-preview-row">
-                        <button type="button" class="button button-secondary button-sm" id="fpLoadBtn">Load services</button>
-                        <button type="button" class="button button-secondary button-sm" id="fpRefreshBtn">Refresh now</button>
-                        <span id="fpLoadStatus" class="test-conn-result"></span>
-                    </div>
-                    <div id="fpCacheStatus" class="fp-cache-status"
-                         data-cached-at="{{ flixpatrol_cache.cached_at or '' }}">
-                        {% if flixpatrol_cache.cached_at_fmt %}
-                        <p class="field-help">Last fetched: {{ flixpatrol_cache.cached_at_fmt }}{% if flixpatrol_cache.is_stale %} <span class="fp-stale-badge">Stale</span>{% endif %}</p>
-                        {% endif %}
-                        {% if flixpatrol_cache.banned %}
-                        <p class="field-help fp-ban-msg">🚫 {{ flixpatrol_cache.error }}</p>
-                        {% elif flixpatrol_cache.error %}
-                        <p class="field-help fp-stale-msg">⚠ {{ flixpatrol_cache.error }}</p>
-                        {% endif %}
-                    </div>
-                </div>
-
-                {# Retention & Sync + Automation — side by side #}
+                {# ── Retention & Sync + Automation side by side ── #}
                 <div class="settings-services-bottom">
                     <div class="settings-subcard">
                         <h3 class="settings-section-title">Retention &amp; Sync</h3>
-                        <label>Sync interval seconds
+                        <label>Sync interval (seconds)
                             <input type="number" name="run_interval_seconds" value="{{ settings.run_interval_seconds }}" />
                         </label>
-                        <label>Movie retention days
+                        <label>Movie retention (days)
                             <input type="number" name="movie_retention_days" value="{{ settings.movie_retention_days }}" />
                         </label>
-                        <label>Series retention days
+                        <label>Series retention (days)
                             <input type="number" name="series_retention_days" value="{{ settings.series_retention_days }}" />
                         </label>
                         <label>Web interface port

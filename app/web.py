@@ -521,7 +521,7 @@ def create_app(
         if radarr_mode != "disabled" and top_movies:
             try:
                 movie_lib = {
-                    m["title"].lower(): m
+                    _normalize_title(m["title"]): m
                     for m in sync_service.radarr.get_all_movies()
                     if m.get("title")
                 }
@@ -531,7 +531,7 @@ def create_app(
         if sonarr_mode != "disabled" and top_series:
             try:
                 series_lib = {
-                    s["title"].lower(): s
+                    _normalize_title(s["title"]): s
                     for s in sync_service.sonarr.get_all_series()
                     if s.get("title")
                 }
@@ -557,11 +557,11 @@ def create_app(
         # parallel so N missing titles cost ~1 RTT instead of N sequential RTTs.
         movie_lookup_needed = [
             t for t in top_movies
-            if radarr_mode != "disabled" and not (movie_lib.get(t.lower()) or {}).get("id")
+            if radarr_mode != "disabled" and not (movie_lib.get(_normalize_title(t)) or {}).get("id")
         ]
         series_lookup_needed = [
             t for t in top_series
-            if sonarr_mode != "disabled" and not (series_lib.get(t.lower()) or {}).get("id")
+            if sonarr_mode != "disabled" and not (series_lib.get(_normalize_title(t)) or {}).get("id")
         ]
 
         movie_lookup_results: dict[str, dict | None] = {}
@@ -596,7 +596,7 @@ def create_app(
             if radarr_mode == "disabled":
                 movie_statuses[title] = {"status": "disabled", "poster": None, "type": "movie", "dismissed": is_dismissed, "undo_until": undo_until}
                 continue
-            rec = movie_lib.get(title.lower())
+            rec = movie_lib.get(_normalize_title(title))
             if rec and rec.get("id"):
                 status = "available" if rec.get("hasFile") else "pending"
                 poster = _extract_poster(rec.get("images", []))
@@ -612,7 +612,7 @@ def create_app(
             if sonarr_mode == "disabled":
                 series_statuses[title] = {"status": "disabled", "poster": None, "type": "series", "dismissed": is_dismissed, "undo_until": undo_until}
                 continue
-            rec = series_lib.get(title.lower())
+            rec = series_lib.get(_normalize_title(title))
             if rec and rec.get("id"):
                 ep_count = (rec.get("statistics") or {}).get("episodeFileCount", 0)
                 status = "available" if ep_count > 0 else "pending"
@@ -884,6 +884,14 @@ def _tail_file(path, n: int = 100) -> list[str]:
         return [line.rstrip("\n") for line in lines[-n:]]
     except FileNotFoundError:
         return []
+
+
+def _normalize_title(t: str) -> str:
+    """Normalize a title for fuzzy matching: lowercase, strip punctuation, collapse spaces."""
+    out = []
+    for ch in t.lower():
+        out.append(ch if (ch.isalnum() or ch == " ") else " ")
+    return " ".join("".join(out).split())
 
 
 def _extract_poster(images: list) -> str | None:

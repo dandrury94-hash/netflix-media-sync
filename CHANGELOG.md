@@ -4,6 +4,61 @@ All changes to this project are recorded here with a unique reference, date, and
 
 ---
 
+## CHG-074 — 2026-05-10 — Top 10 status: fuzzy title matching
+
+_Files: `app/web.py`_
+
+Added `_normalize_title()` helper that strips punctuation and collapses whitespace before
+comparing titles. Applied at all five lookup points in `top10_status()` (library dict keys,
+`movie_lookup_needed`, `series_lookup_needed`, movie status lookup, series status lookup).
+
+Fixes cases where FlixPatrol and Radarr/Sonarr use different punctuation for the same title,
+e.g. "Run, Fatboy, Run" (FlixPatrol) vs "Run Fatboy Run" (Radarr) — both normalize to
+`"run fatboy run"` and now match correctly.
+
+_Test: titles with punctuation differences should now show "Available" instead of "Will Add"._
+
+---
+
+## CHG-073 — 2026-05-09 — FlixPatrol service cards: redesigned layout
+
+_Files: `app/static/script.js`, `app/static/style.css`_
+
+Redesigned `renderFlixPatrolServices()` and the accompanying CSS:
+
+- **Checkbox left of name** — service header is now a flex row (`fp-card-header`) with the
+  enable checkbox on the left and the service name beside it; removed the "Enable" label text.
+- **4 per row** — `.fp-service-grid` changed from `auto-fill minmax(200px)` to `repeat(4, 1fr)`.
+- **Type sub-card** — Movie and TV toggles are now inside a styled inner container
+  (`.fp-type-subcard`) that dims and disables pointer events when the service is unchecked.
+- **Enabled first** — services checked in `checkedKeys` are sorted to the top of the grid
+  before rendering.
+
+_Test: open Settings → Services → Load services; verify 4 cards per row, checkbox is left of
+name, Movie/TV appear in a sub-card, enabled services appear before disabled ones._
+
+---
+
+## CHG-072 — 2026-05-09 — Services tab: redesigned layout
+
+_Files: `app/templates/settings.html`, `app/static/style.css`_
+
+Replaced the Services tab's ad-hoc layout with a cleaner structure:
+
+- **FlixPatrol** — full-width `.settings-subcard` containing: Enable checkbox (full width),
+  Country + Cache hours in a 2-column `.svc-fp-fields` grid, the JS-rendered service card
+  grid, and a `.svc-fp-footer` with Load/Refresh buttons and last-fetched cache status.
+- **Bottom row** — Retention & Sync and Automation cards remain in the existing
+  `.settings-services-bottom` 2-column grid below FlixPatrol.
+
+New CSS: `.svc-fp-fields` (2-col grid), `.svc-fp-footer` (flex column), override to strip
+`margin-top` from `.fp-preview-row` inside the footer.
+
+_Test: open Settings → Services; verify country/cache inputs appear side by side, Load
+services renders card grid, Refresh now triggers a fetch, save completes without error._
+
+---
+
 ## CHG-071 — 2026-05-09 — Media tab: Test all connections button
 
 _Files: `app/templates/settings.html`, `app/static/script.js`, `app/static/style.css`_
